@@ -385,55 +385,60 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
         if team_filter and team_filter.lower() not in team_name.lower():
             continue
 
-        out_dir = out_base / team_name / "Games"
-        out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            out_dir = out_base / team_name / "Games"
+            out_dir.mkdir(parents=True, exist_ok=True)
 
-        sched_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule"
-        games = get_schedule(page, sched_url)
-        final_games = [g for g in games if g.get("final")]
-        logger.info(f"  {team_name}: {len(final_games)} FINAL games found")
+            sched_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule"
+            games = get_schedule(page, sched_url)
+            final_games = [g for g in games if g.get("final")]
+            logger.info(f"  {team_name}: {len(final_games)} FINAL games found")
 
-        missing = 0
-        for g in final_games:
-            # SCHEDULE_JS now returns away/home as separate fields — no more splitting
-            date_tag = g.get("date", "")      # e.g. 'Mar21'
-            game_id  = g["id"]
-            away = safe(g.get("away", "Away"))
-            home = safe(g.get("home", "Home"))
+            missing = 0
+            for g in final_games:
+                # SCHEDULE_JS now returns away/home as separate fields — no more splitting
+                date_tag = g.get("date", "")      # e.g. 'Mar21'
+                game_id  = g["id"]
+                away = safe(g.get("away", "Away"))
+                home = safe(g.get("home", "Home"))
 
-            fname = f"{date_tag}-{away}_vs_{home}.txt"
+                fname = f"{date_tag}-{away}_vs_{home}.txt"
 
-            if check_only:
-                if not is_covered(out_dir, fname):
-                    plays_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule/{game_id}/plays"
-                    logger.info(f"  [MISSING] {fname}  →  {plays_url}")
-                    missing += 1
-                else:
-                    logger.debug(f"  [ok]      {fname}")
-                continue
+                if check_only:
+                    if not is_covered(out_dir, fname):
+                        plays_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule/{game_id}/plays"
+                        logger.info(f"  [MISSING] {fname}  →  {plays_url}")
+                        missing += 1
+                    else:
+                        logger.debug(f"  [ok]      {fname}")
+                    continue
 
-            if is_covered(out_dir, fname) and not force:
-                logger.debug(f"  [skip] {fname}")
-                skipped += 1
-                continue
+                if is_covered(out_dir, fname) and not force:
+                    logger.debug(f"  [skip] {fname}")
+                    skipped += 1
+                    continue
 
-            plays_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule/{game_id}/plays"
-            logger.info(f"  Scraping {date_tag} {away} vs {home} …")
+                plays_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule/{game_id}/plays"
+                logger.info(f"  Scraping {date_tag} {away} vs {home} …")
 
-            raw_text = extract_plays_raw(page, plays_url)
-            if not raw_text or "No Plays Yet" in raw_text:
-                logger.warning(f"  NO PLAYS — {date_tag} {away} vs {home}")
-                failed += 1
-                continue
+                raw_text = extract_plays_raw(page, plays_url)
+                if not raw_text or "No Plays Yet" in raw_text:
+                    logger.warning(f"  NO PLAYS — {date_tag} {away} vs {home}")
+                    failed += 1
+                    continue
 
-            converted = parse_gc_raw(raw_text, game_url=plays_url, game_date=date_tag)
-            (out_dir / fname).write_text(converted, encoding="utf-8")
-            logger.info(f"  OK → {fname}")
-            scraped += 1
-            time.sleep(0.3)
+                converted = parse_gc_raw(raw_text, game_url=plays_url, game_date=date_tag)
+                (out_dir / fname).write_text(converted, encoding="utf-8")
+                logger.info(f"  OK → {fname}")
+                scraped += 1
+                time.sleep(0.3)
 
-        if check_only and missing == 0:
-            logger.info(f"  ✓ {team_name}: all games covered")
+            if check_only and missing == 0:
+                logger.info(f"  ✓ {team_name}: all games covered")
+
+        except Exception as exc:
+            logger.error(f"  ⚠ {team_name} failed: {exc}")
+            failed += 1
 
     return scraped, skipped, failed
 
@@ -482,12 +487,15 @@ def run(login_mode=False, divisions_filter=None, team_filter=None, force=False, 
             logger.info(f"\n{'─'*55}")
             logger.info(f"Division: {div_name}")
 
-            if cfg["type"] == "org":
-                s, sk, f = scrape_org_division(page, div_name, cfg, team_filter, force, check_only)
-            else:
-                s, sk, f = scrape_team_division(page, div_name, cfg, team_filter, force, check_only)
-
-            total_s += s; total_sk += sk; total_f += f
+            try:
+                if cfg["type"] == "org":
+                    s, sk, f = scrape_org_division(page, div_name, cfg, team_filter, force, check_only)
+                else:
+                    s, sk, f = scrape_team_division(page, div_name, cfg, team_filter, force, check_only)
+                total_s += s; total_sk += sk; total_f += f
+            except Exception as exc:
+                logger.error(f"  ⚠ {div_name} failed: {exc}")
+                total_f += 1
 
         ctx.storage_state(path=str(SESSION_FILE))
         browser.close()

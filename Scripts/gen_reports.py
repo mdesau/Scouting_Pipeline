@@ -1634,81 +1634,85 @@ def run_wild(teams_filter=None, division="Wild"):
     targets = [t for t in all_opponents if (teams_filter is None or t in teams_filter)]
 
     for opponent_name in targets:
-        t_start = time.time()
-        team_dir = os.path.join(wild_base, opponent_name)
-        games_dir = os.path.join(team_dir, "Games")
-        output_dir = team_dir  # PDFs go in opponent folder
+        try:
+            t_start = time.time()
+            team_dir = os.path.join(wild_base, opponent_name)
+            games_dir = os.path.join(team_dir, "Games")
+            output_dir = team_dir  # PDFs go in opponent folder
 
-        logger.info(f"\n=== {opponent_name} ===")
+            logger.info(f"\n=== {opponent_name} ===")
 
-        # Load optional roster
-        roster = load_wild_roster(team_dir)
+            # Load optional roster
+            roster = load_wild_roster(team_dir)
 
-        # Collect game files
-        game_files = sorted(f for f in os.listdir(games_dir) if f.endswith(".txt"))
-        logger.info(f"  Found {len(game_files)} game files")
+            # Collect game files
+            game_files = sorted(f for f in os.listdir(games_dir) if f.endswith(".txt"))
+            logger.info(f"  Found {len(game_files)} game files")
 
-        all_game_pas = []
-        skipped = []
-        parsed_paths = []
-        total_warnings = 0
-        for fname in game_files:
-            fpath = os.path.join(games_dir, fname)
-            try:
-                pas = parse_game_for_team(fpath, opponent_name)
-                # Annotate PAs with game_id and game_seq for batting order tracking
-                for i, pa in enumerate(pas, 1):
-                    pa["game_id"] = fname
-                    pa["game_seq"] = i
-                all_game_pas.append((fname, pas))
-                parsed_paths.append(fpath)
-                nw = verify_game(fpath, opponent_name, pas, fname)
-                total_warnings += nw
-                status = "✓" if nw == 0 else f"⚠ {nw} warning(s)"
-                logger.info(f"  {fname}: {len(pas)} PAs  [{status}]")
-            except Exception as e:
-                logger.error(f"SKIP {fname}: {e}")
-                skipped.append(fname)
+            all_game_pas = []
+            skipped = []
+            parsed_paths = []
+            total_warnings = 0
+            for fname in game_files:
+                fpath = os.path.join(games_dir, fname)
+                try:
+                    pas = parse_game_for_team(fpath, opponent_name)
+                    # Annotate PAs with game_id and game_seq for batting order tracking
+                    for i, pa in enumerate(pas, 1):
+                        pa["game_id"] = fname
+                        pa["game_seq"] = i
+                    all_game_pas.append((fname, pas))
+                    parsed_paths.append(fpath)
+                    nw = verify_game(fpath, opponent_name, pas, fname)
+                    total_warnings += nw
+                    status = "✓" if nw == 0 else f"⚠ {nw} warning(s)"
+                    logger.info(f"  {fname}: {len(pas)} PAs  [{status}]")
+                except Exception as e:
+                    logger.error(f"SKIP {fname}: {e}")
+                    skipped.append(fname)
 
-        all_pas = [pa for _, pas in all_game_pas for pa in pas]
-        n_games = len(all_game_pas)
+            all_pas = [pa for _, pas in all_game_pas for pa in pas]
+            n_games = len(all_game_pas)
 
-        if not all_pas:
-            logger.warning(f"No PAs found for {opponent_name}")
-            continue
+            if not all_pas:
+                logger.warning(f"No PAs found for {opponent_name}")
+                continue
 
-        # For Wild, use initials directly as display (fallback when roster lookup fails)
-        roster_wild = {init: init for init in set(pa["initials"] for pa in all_pas)}
-        roster_wild.update(roster)
+            # For Wild, use initials directly as display (fallback when roster lookup fails)
+            roster_wild = {init: init for init in set(pa["initials"] for pa in all_pas)}
+            roster_wild.update(roster)
 
-        batters = compute_stats(all_pas, roster_wild)
-        total_pa = sum(b["pa"] for b in batters)
-        verify_tag = "✓ all checks passed" if total_warnings == 0 else f"⚠ {total_warnings} total warning(s)"
-        logger.info(f"  Total PA: {total_pa}  |  {n_games} games  |  {verify_tag}")
-        for b in batters:
-            logger.info(f"    {b['display']:22s}  PA={b['pa']}  "
-                        f"AVG={fmt_avg(b['avg'])}  OBP={fmt_avg(b['obp'])}  "
-                        f"SLG={fmt_avg(b['slg'])}  C%={fmt_pct(b['c_pct'])}  "
-                        f"SM%={fmt_pct(b['sm_pct'])}  CStr%={fmt_pct(b['cstr_pct'])}")
+            batters = compute_stats(all_pas, roster_wild)
+            total_pa = sum(b["pa"] for b in batters)
+            verify_tag = "✓ all checks passed" if total_warnings == 0 else f"⚠ {total_warnings} total warning(s)"
+            logger.info(f"  Total PA: {total_pa}  |  {n_games} games  |  {verify_tag}")
+            for b in batters:
+                logger.info(f"    {b['display']:22s}  PA={b['pa']}  "
+                            f"AVG={fmt_avg(b['avg'])}  OBP={fmt_avg(b['obp'])}  "
+                            f"SLG={fmt_avg(b['slg'])}  C%={fmt_pct(b['c_pct'])}  "
+                            f"SM%={fmt_pct(b['sm_pct'])}  CStr%={fmt_pct(b['cstr_pct'])}")
 
-        # PDF output
-        label = opponent_name
-        safe = opponent_name.replace(" ", "_")
-        pdf_path = os.path.join(output_dir, f"{safe}_Scout_2026.pdf")
+            # PDF output
+            label = opponent_name
+            safe = opponent_name.replace(" ", "_")
+            pdf_path = os.path.join(output_dir, f"{safe}_Scout_2026.pdf")
 
-        # Pass None for league_batters to use fixed thresholds
-        generate_pdf(opponent_name, label, batters, n_games, skipped, pdf_path,
-                     league_batters=None, division_label=label_suffix)
+            # Pass None for league_batters to use fixed thresholds
+            generate_pdf(opponent_name, label, batters, n_games, skipped, pdf_path,
+                         league_batters=None, division_label=label_suffix)
 
-        # Mark files as reviewed
-        for fpath in parsed_paths:
-            new_path = mark_reviewed(fpath)
-            if new_path != fpath:
-                logger.info(f"  → Marked reviewed: {os.path.basename(new_path)}")
+            # Mark files as reviewed
+            for fpath in parsed_paths:
+                new_path = mark_reviewed(fpath)
+                if new_path != fpath:
+                    logger.info(f"  → Marked reviewed: {os.path.basename(new_path)}")
 
-        elapsed = time.time() - t_start
-        timings.append((opponent_name, n_games, total_pa, elapsed))
-        logger.info(f"  ⏱  {elapsed:.2f}s")
+            elapsed = time.time() - t_start
+            timings.append((opponent_name, n_games, total_pa, elapsed))
+            logger.info(f"  ⏱  {elapsed:.2f}s")
+
+        except Exception as exc:
+            logger.error(f"  ⚠ {opponent_name} failed: {exc}")
 
     total_elapsed = time.time() - run_start
     logger.info("\n" + "="*60)
