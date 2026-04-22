@@ -416,7 +416,8 @@ def parse_pitch_seq(seq_text):
 #   Minors: ===Bottom 3rd - Mets-Hornung===
 #   Majors: === Top 6th - Guardians-Esau ===
 #   Majors: === Bottom 6th - Twins-Ewart Majors ===
-INNING_RE  = re.compile(r'^=== ?(?:Top|Bottom) (\d+)(?:st|nd|rd|th) - (.+?) ?(?:Majors|Minors)? ?===$')
+#   Tolerates missing closing ===  (some -Reviewed.txt files lost it during manual editing)
+INNING_RE  = re.compile(r'^=== ?(?:Top|Bottom) (\d+)(?:st|nd|rd|th) - (.+?) ?(?:Majors|Minors)? ?(?:===)?$')
 DESC_RE    = re.compile(r'^([A-Z][A-Za-z]*) ([A-Z][a-z]*) (.+)\.$')  # first group handles initials ("H"), double-initials ("TJ"), or full names ("Dylan"); last group handles single initial or full last name
 OUTCOME_KWS = {"Walk","Single","Double","Triple","Home Run","Strikeout",
                "Ground Out","Fly Out","Pop Out","Line Out","Hit By Pitch",
