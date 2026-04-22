@@ -25,6 +25,7 @@ history of this project.
 - **No remote yet** — user plans a private GitHub repo eventually
 
 ```
+4e1ce0e  feat: Infield Fly mapping, QC Flight team_id, verify Minors all-clear
 854f25c  fix: add try/except error handling around division and team loops
 c250384  feat: add DEBUG_CONFIG sections + --verbose flag to all 3 main scripts
 e803f4a  fix: two bugs in scrape_box_scores.py roster building
@@ -417,17 +418,17 @@ Passive Overmatched/Walker   → Attack the Zone
 ### High Priority — Fix Before Next Weekly Run
 | Issue | Details | Fix |
 |---|---|---|
-| Minors scorebook files missing for away games | gen_reports.py looks for each game in the team's own Scorebooks/ folder, but GC scraper saves each game only once (under home team?). Many teams show `SKIP ... [Errno 2]` and only process 1-3 of 7 games. **This is the biggest data gap.** | Investigate: does gc_scraper save duplicates? Or does gen_reports need to search ALL Scorebooks/ files? Check how Majors handles this — Majors worked fine for all 11 teams. |
-| BOX-VERIFY warnings widespread in Minors | Nearly every Minors team shows parsed AB/BB lower than box score. Likely caused by the missing-file issue above (fewer games parsed = fewer PAs). | Fix the missing-file issue first, then re-verify. |
+| ~~Minors scorebook files missing~~ | ~~gen_reports.py couldn't find away-game scorebooks~~ | **RESOLVED** — was Google Drive sync delay, not a code bug. All 14 teams now working (90 games, 2342 PAs). |
+| ~~BOX-VERIFY warnings widespread in Minors~~ | ~~Nearly every Minors team showed parsed AB/BB lower than box score~~ | **RESOLVED** — downstream symptom of the sync issue above. |
 
 ### Medium Priority — Quality Improvements
 | Issue | Details | Fix |
 |---|---|---|
-| `Infield Fly` not in OUTCOME_TYPES | Parsed as unknown outcome | Add `"Infield Fly": "FO"` to `OUTCOME_TYPES` in `gen_reports.py` and `parse_gc_text.py` |
-| `$awyer M` in T24 Garnet games | Dollar sign in player name from GC | Find/replace `$awyer` → `Sawyer` in raw game files |
-| QC Flight Baseball 11U team_id missing | Can't scrape games | Visit GC schedule URL, copy team_id, add to both scrapers |
-| T24 Garnet 11U scraping incomplete | 0 games scraped (page timeout during pipeline run) | May need retry or manual scrape; 8 games in ManualGuide.md |
-| QC Flight roster.txt Google Drive timeout | `[Errno 60]` on file read | Google Drive sync issue — try re-syncing or opening file in browser first |
+| ~~`Infield Fly` not in OUTCOME_TYPES~~ | ~~Parsed as unknown outcome~~ | **FIXED** — Added to both `gen_reports.py` and `parse_gc_text.py` |
+| `$awyer M` in T24 Garnet games | Dollar sign in player name from GC | **READY** — `GC_NAME_FIXES` dict in `parse_gc_text.py` will auto-fix on next scrape |
+| ~~QC Flight Baseball 11U team_id missing~~ | ~~Can't scrape games~~ | **FIXED** — team_id `1gqDRuls0oER` added to both scrapers |
+| T24 Garnet 11U scraping incomplete | 0 FINAL games on GC | **Not a bug** — games not yet finalized in GameChanger. Re-check weekly. |
+| ~~QC Flight roster.txt Google Drive timeout~~ | ~~`[Errno 60]` on file read~~ | **RESOLVED** — toggling offline availability forced re-sync |
 
 ### Low Priority / Cosmetic
 | Issue | Details | Fix |
@@ -439,25 +440,24 @@ Passive Overmatched/Walker   → Attack the Zone
 
 ---
 
-## Latest Pipeline Run Results (Apr 22, 2026)
+## Latest Pipeline Run Results (Apr 22, 2026 — Session 2)
 
 ### Majors (11 teams) ✅
 - All 11 teams generated PDFs successfully
 - 35 games total, all processed
 - No missing files, no errors
 
-### Minors (14 teams) ⚠️
-- All 14 PDFs generated, but many teams only processed 1-3 of ~7 games
-- Rays-Pearson: 0 PAs (all 7 files SKIP), Mets-Hornung: 0 PAs (all 7 files SKIP)
-- Root cause: game files exist in other teams' Scorebooks/ folders but not duplicated
-- BOX-VERIFY warnings are a downstream symptom of this
+### Minors (14 teams) ✅
+- All 14 PDFs generated successfully — **issue resolved** (was Google Drive sync delay)
+- 90 games total, 2342 PAs across all 14 teams (6–7 games each)
+- No SKIP errors, no missing files
 
-### Wild (5 teams) — 3/5 ✅
-- Arena National Browning 11U: 9 games, 212 PAs ✅
-- South Charlotte Panthers 11U: 8 games, 194 PAs ✅
-- Weddington Wild 11U: 11 games, 284 PAs ✅
-- QC Flight Baseball 11U: ❌ Google Drive timeout (`[Errno 60]`)
-- T24 Garnet 11U: 0 game files scraped (page timeout during gc_scraper run)
+### Wild (5 teams) — 4/5 ✅
+- Arena National Browning 11U: 9 games ✅
+- South Charlotte Panthers 11U: 8 games ✅
+- Weddington Wild 11U: 11 games ✅
+- QC Flight Baseball 11U: 15 games, 400 PAs ✅ (team_id added, Drive timeout fixed)
+- T24 Garnet 11U: 0 FINAL games on GC (games not yet finalized in GameChanger)
 
 ### Storm
 - No FINAL games yet this season
@@ -468,20 +468,15 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `CLAUDE.md` (this file), `CHANGELOG.md`, `VSCODE_PLAN.md`
 
-1. **Fix Minors missing-file issue** — This is the #1 priority. Investigate why Minors
-   teams can't find away-game scorebooks. Compare with how Majors handles it (Majors
-   works correctly). The fix likely involves how gen_reports.py resolves file paths.
+1. **T24 Garnet 11U** — Check if any games are now FINAL on GC; re-run scraper
 
-2. **Infield Fly → FO** — Quick fix in both `gen_reports.py` and `parse_gc_text.py`
+2. **Run `scrape_box_scores.py`** — Update rosters for all divisions (resolves
+   `?N P?` and `?C C?` in Cubs-Holtzer, builds QC Flight roster.txt)
 
-3. **QC Flight team_id** — Find the GC URL, add to both scrapers
+3. **Full pipeline run** — Verify all 4 divisions end-to-end with latest fixes
 
-4. **T24 Garnet retry** — Re-run `gc_scraper.py --division Wild` to see if the
-   timeout was transient
-
-5. **$awyer M fix** — Sed/replace in T24 Garnet game files
-
-6. **Consider v0.2.0 tag** once Minors is fully working
+4. **Consider v0.2.0 tag** — All high-priority issues resolved; Minors + QC Flight
+   working; Infield Fly fixed. Pipeline is approaching full coverage.
 
 ---
 
