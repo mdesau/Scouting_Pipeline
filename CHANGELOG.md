@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   screen (normally only written to log file). Light debugging without touching code.
 - **`diag_schedule.py`** diagnostic tool — dumps raw schedule page DOM for debugging
   GC layout changes
+- **Try/except error handling** in `gc_scraper.py` (division loop + per-team loop in
+  `scrape_team_division`) and `gen_reports.py` (`run_wild` per-opponent loop) — one
+  timeout or crash no longer kills the entire pipeline
 
 ### Fixed
 - **SCHEDULE_JS date + team parsing** (`gc_scraper.py`) — GC changed their DOM from
@@ -39,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collision detection working (5 teams with shared initials)
 - ✅ `gen_reports.py --division Majors --team Cubs` — Brian A. #1 and Benjamin A. #2
   appear as separate player cards; PDF generated successfully
+- ✅ **Full pipeline run** (`run_weekly.sh`) — Majors: 11 PDFs, Minors: 14 PDFs,
+  Wild: 3/5 PDFs (QC Flight blocked by Google Drive timeout, T24 Garnet has 0 games).
+  Storm: no FINAL games yet.
 
 ---
 

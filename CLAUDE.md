@@ -11,6 +11,36 @@ history of this project.
 
 **Companion file:** `Scout_Development/ManualGuide.md` — step-by-step human walkthrough for manual game file creation.
 
+**Best practices prompt:** When starting a new session, the user may paste their "Code Mentor" prompt which defines conventions for debugging, git hygiene, error handling, and code style. Follow those guidelines throughout.
+
+---
+
+## Development Environment
+
+- **Python 3.9.6** (macOS system Python)
+- **Virtual environment:** `Scout_Development/venv/` — always activate before running scripts
+- **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
+- **Frozen deps:** `requirements.txt` in project root
+- **Git:** Local repo, 5 commits on `main`, tagged `v0.1.0` at initial setup
+- **No remote yet** — user plans a private GitHub repo eventually
+
+```
+854f25c  fix: add try/except error handling around division and team loops
+c250384  feat: add DEBUG_CONFIG sections + --verbose flag to all 3 main scripts
+e803f4a  fix: two bugs in scrape_box_scores.py roster building
+7dc194f  fix: repair SCHEDULE_JS date+team parsing for GC's current DOM
+8b082f9  (tag: v0.1.0) feat: initial project setup v0.1.0
+```
+
+### Scripts Overview (line counts as of Apr 22, 2026)
+| Script | Lines | Role | Has --verbose | Has DEBUG_CONFIG | Has try/except |
+|---|---|---|---|---|---|
+| `gc_scraper.py` | ~535 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
+| `scrape_box_scores.py` | ~810 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
+| `gen_reports.py` | ~1755 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
+| `parse_gc_text.py` | ~260 | Raw GC text → WCWAA format (utility) | — | — | — |
+| `run_weekly.sh` | ~86 | Shell orchestrator | — | — | — |
+
 ---
 
 ## Project Summary
@@ -124,18 +154,28 @@ python3 gc_scraper.py --login
 
 ## Prerequisites (First-Time Setup on Mac)
 
+Already done — venv exists at `Scout_Development/venv/` with Playwright + ReportLab installed.
+
+**To recreate from scratch:**
 ```bash
-pip3 install playwright reportlab --break-system-packages
+cd .../Scout_Development
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 playwright install chromium
 ```
 
-Then run the login once to save session:
+**To activate for manual script runs:**
+```bash
+source .../Scout_Development/venv/bin/activate
+```
+(`run_weekly.sh` activates the venv automatically.)
+
+Then run login once to save session:
 ```bash
 cd .../Scout_Development/Scripts
 python3 gc_scraper.py --login
 ```
-This opens a browser — log in to GameChanger manually, then close. Session is saved
-to `gc_session.json` and reused by all subsequent script runs.
 
 ---
 
@@ -374,15 +414,74 @@ Passive Overmatched/Walker   → Attack the Zone
 
 ## Known Issues / Pending Work
 
-| Issue | Priority | Fix |
+### High Priority — Fix Before Next Weekly Run
+| Issue | Details | Fix |
 |---|---|---|
-| `?N P?` and `?C C?` in Cubs-Holtzer | High | Run `scrape_box_scores.py --division Majors` locally |
-| QC Flight Baseball 11U team_id missing | Medium | Visit GC schedule URL, copy team_id from URL, add to both scrapers |
-| T24 Garnet 11U scraping incomplete | Medium | 8 games remaining (UUIDs in ManualGuide.md); run gc_scraper.py or scrape manually |
-| Infield Fly not in OUTCOME_TYPES | Low | Add `"Infield Fly": FO` to OUTCOME_TYPES in gen_reports.py and parse_gc_text.py |
-| `$awyer M` in T24 Garnet games | Low | Find/replace `$awyer` → `Sawyer` in raw game files before parsing |
-| Minors jersey numbers unavailable | Permanent | GC box score pages for Minors org redirect to /info — no fix available |
-| SS spray chart zone always 0 | Cosmetic | Parser maps both shortstop and third baseman to zone "3B" |
+| Minors scorebook files missing for away games | gen_reports.py looks for each game in the team's own Scorebooks/ folder, but GC scraper saves each game only once (under home team?). Many teams show `SKIP ... [Errno 2]` and only process 1-3 of 7 games. **This is the biggest data gap.** | Investigate: does gc_scraper save duplicates? Or does gen_reports need to search ALL Scorebooks/ files? Check how Majors handles this — Majors worked fine for all 11 teams. |
+| BOX-VERIFY warnings widespread in Minors | Nearly every Minors team shows parsed AB/BB lower than box score. Likely caused by the missing-file issue above (fewer games parsed = fewer PAs). | Fix the missing-file issue first, then re-verify. |
+
+### Medium Priority — Quality Improvements
+| Issue | Details | Fix |
+|---|---|---|
+| `Infield Fly` not in OUTCOME_TYPES | Parsed as unknown outcome | Add `"Infield Fly": "FO"` to `OUTCOME_TYPES` in `gen_reports.py` and `parse_gc_text.py` |
+| `$awyer M` in T24 Garnet games | Dollar sign in player name from GC | Find/replace `$awyer` → `Sawyer` in raw game files |
+| QC Flight Baseball 11U team_id missing | Can't scrape games | Visit GC schedule URL, copy team_id, add to both scrapers |
+| T24 Garnet 11U scraping incomplete | 0 games scraped (page timeout during pipeline run) | May need retry or manual scrape; 8 games in ManualGuide.md |
+| QC Flight roster.txt Google Drive timeout | `[Errno 60]` on file read | Google Drive sync issue — try re-syncing or opening file in browser first |
+
+### Low Priority / Cosmetic
+| Issue | Details | Fix |
+|---|---|---|
+| Minors jersey numbers unavailable | GC box score pages for Minors org redirect to /info | Permanent — no fix available |
+| SS spray chart zone always 0 | Parser maps both SS and 3B to zone "3B" | Cosmetic only |
+| `?N P?` and `?C C?` in Cubs-Holtzer | Players not in rosters.json | Run `scrape_box_scores.py --division Majors` (may already be fixed) |
+| `date` variable not defined at line ~767 in `scrape_box_scores.py` | Pre-existing lint error, not from our changes | Check scope; likely needs `date` passed into function |
+
+---
+
+## Latest Pipeline Run Results (Apr 22, 2026)
+
+### Majors (11 teams) ✅
+- All 11 teams generated PDFs successfully
+- 35 games total, all processed
+- No missing files, no errors
+
+### Minors (14 teams) ⚠️
+- All 14 PDFs generated, but many teams only processed 1-3 of ~7 games
+- Rays-Pearson: 0 PAs (all 7 files SKIP), Mets-Hornung: 0 PAs (all 7 files SKIP)
+- Root cause: game files exist in other teams' Scorebooks/ folders but not duplicated
+- BOX-VERIFY warnings are a downstream symptom of this
+
+### Wild (5 teams) — 3/5 ✅
+- Arena National Browning 11U: 9 games, 212 PAs ✅
+- South Charlotte Panthers 11U: 8 games, 194 PAs ✅
+- Weddington Wild 11U: 11 games, 284 PAs ✅
+- QC Flight Baseball 11U: ❌ Google Drive timeout (`[Errno 60]`)
+- T24 Garnet 11U: 0 game files scraped (page timeout during gc_scraper run)
+
+### Storm
+- No FINAL games yet this season
+
+---
+
+## Next Session Priorities
+
+**Read these files first:** `CLAUDE.md` (this file), `CHANGELOG.md`, `VSCODE_PLAN.md`
+
+1. **Fix Minors missing-file issue** — This is the #1 priority. Investigate why Minors
+   teams can't find away-game scorebooks. Compare with how Majors handles it (Majors
+   works correctly). The fix likely involves how gen_reports.py resolves file paths.
+
+2. **Infield Fly → FO** — Quick fix in both `gen_reports.py` and `parse_gc_text.py`
+
+3. **QC Flight team_id** — Find the GC URL, add to both scrapers
+
+4. **T24 Garnet retry** — Re-run `gc_scraper.py --division Wild` to see if the
+   timeout was transient
+
+5. **$awyer M fix** — Sed/replace in T24 Garnet game files
+
+6. **Consider v0.2.0 tag** once Minors is fully working
 
 ---
 
