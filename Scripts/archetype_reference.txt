@@ -1,0 +1,119 @@
+WCWAA 2026 Spring — Hitter Archetype & Pitching Approach Reference
+==================================================================
+Generated from gen_reports.py  |  All thresholds are code-exact.
+
+────────────────────────────────────────────────────────────────────
+PART 1 — STAT DEFINITIONS
+────────────────────────────────────────────────────────────────────
+
+Stat    Full Name                  Formula
+------  -------------------------  -----------------------------------------
+AVG     Batting Average            H ÷ AB
+OBP     On-Base Percentage         (H + BB + HBP) ÷ (AB + BB + HBP)
+SLG     Slugging Percentage        Total Bases ÷ AB
+C%      Contact Rate               (AB − K) ÷ AB   (BB/HBP excluded from AB)
+GB%     Ground Ball Rate           Ground ball BIP ÷ total BIP
+FB+LD%  Fly Ball + Line Drive Rate (Fly ball + line drive BIP) ÷ total BIP
+SM%     Swing-and-Miss Rate        Swing-and-miss ÷ total swings
+                                   (swings = swing-miss + fouls + in-play)
+CStr%   Called Strike Rate         Called strikes ÷ total pitches seen
+FPT%    First Pitch Take Rate      First-pitch takes ÷ (takes + swings)
+                                   Only counts PAs where pitch data exists.
+                                   Higher = more patient / takes more pitches.
+
+Note: SM% and FPT% require pitch sequence data in the game file.
+      If unavailable, the stat shows "--" on the card.
+
+────────────────────────────────────────────────────────────────────
+PART 2 — ARCHETYPE COMPONENTS
+────────────────────────────────────────────────────────────────────
+
+The archetype is a two-word label:  [APPROACH]  [RESULT]
+
+─── APPROACH (based on plate discipline / first-pitch behavior) ────
+
+Approach      Trigger condition                        What it means
+-----------   ---------------------------------------  ---------------------------------
+Aggressive    SM% ≥ 55% AND SM% > CStr% × 1.5         Swinging aggressively and missing
+              (overrides FPT-based rules)
+Aggressive    FPT% < 40%                               Hacks at first pitch > 60% of time
+Disciplined   FPT% 40–70% AND OBP − AVG ≥ .060        Takes pitches selectively; walks
+Passive       FPT% > 70%                               Takes too many — often frozen on K
+Aggressive    FPT% < 55% (fallback when gap too small) Default swing-first bucket
+Passive       FPT% ≥ 55% (fallback)                    Default take-first bucket
+
+If no FPT data is available: defaults to "Disciplined."
+
+─── RESULT (based on production / contact quality) ─────────────────
+
+Result        Trigger condition                        What it means
+-----------   ---------------------------------------  ---------------------------------
+Walker        BB/PA in top-33% of roster               On base via walks, not hits
+              AND BB/(H+BB) > 33%
+              AND C% < 70%
+              AND OBP − AVG ≥ .100
+Overmatched   SM% > 50%  (hard)                        Can't make contact
+              OR  C% ≤ bottom-33% of roster  (hard)
+              OR  SM% ≥ 35% AND C% < 65% AND AVG < .250  (soft combined)
+Power         SLG in top-33% of roster                 Extra-base hit threat
+              AND (SLG ≥ 1.2 × AVG  OR  ISO ≥ .120)
+Contact       Everything else (default)                Puts ball in play consistently
+
+Evaluation order: Walker → Overmatched → Power → Contact
+(Walker is checked first; if a player qualifies for both Overmatched
+ and Power, Overmatched wins.)
+
+─── PA GATE ────────────────────────────────────────────────────────
+
+PA count      Label shown
+-----------   --------------------------
+< 5 PA        "—"  (no label assigned)
+5–9 PA        Label + "*"  (e.g. "Aggressive Contact*")
+≥ 10 PA       Clean label  (e.g. "Aggressive Contact")
+
+────────────────────────────────────────────────────────────────────
+PART 3 — ARCHETYPE → PITCHING APPROACH MATRIX
+────────────────────────────────────────────────────────────────────
+
++----------------------+-----------+-----------------+-------------+----------------+
+|                      |  Power    |  Contact        | Overmatched |  Walker        |
++----------------------+-----------+-----------------+-------------+----------------+
+| Aggressive           | Edges +   | Edges +         | Climb the   | Outside - In   |
+|                      | Mix Speed | Mix Speed       | Ladder      |                |
++----------------------+-----------+-----------------+-------------+----------------+
+| Disciplined          | Keep      | Keep            | Attack the  | Attack the     |
+|                      | Mixing    | Mixing          | Zone        | Zone           |
++----------------------+-----------+-----------------+-------------+----------------+
+| Passive              | Attack &  | Attack &        | Attack the  | Attack the     |
+|                      | Expand    | Expand          | Zone        | Zone           |
++----------------------+-----------+-----------------+-------------+----------------+
+
+────────────────────────────────────────────────────────────────────
+PART 4 — PITCHING APPROACH DESCRIPTIONS
+────────────────────────────────────────────────────────────────────
+
+Approach          Used for                     Intent
+----------------  ---------------------------  -----------------------------------------
+Edges + Mix Speed Aggressive Power/Contact      Hitter is attacking — keep the ball on edges
+                                               and change speeds to disrupt timing
+Climb the Ladder  Aggressive Overmatched        Already swinging and missing; elevate
+                                               fastballs to chase upward in the zone
+Outside - In      Aggressive Walker             Patient hitter who also hacks first pitch;
+                                               start off-speed away, work back in to steal
+                                               strikes without giving a pitch to pull
+Keep Mixing       Disciplined Power/Contact     Disciplined hitter with production; no single
+                                               pitch gets them out — vary location and speed
+Attack the Zone   Disciplined/Passive Walker,   Gets on base via walks or freezes on strikes;
+                  Passive/Disciplined Overm.    throw strikes early to force weak contact
+Attack & Expand   Passive Power/Contact         Takes first pitch — start in the zone to force
+                                               a swing decision, then expand to chase pitches
+
+────────────────────────────────────────────────────────────────────
+PART 5 — QUICK LOOKUP: LABEL → CARD APPEARANCE
+────────────────────────────────────────────────────────────────────
+
+Card row 1  (9pt Bold White)   :  Player name  (e.g. "C. Patterson")
+Card row 2  (9pt Bold White)   :  Archetype    (e.g. "Aggressive Contact")
+Card row 3  (9pt Italic Amber) :  Approach     (e.g. "(Edges + Mix Speed)")
+Card footer (7pt)              :  SM%  |  CStr%  |  FPT%
+  SM% shown in red if ≥ 35%, green if ≤ 20%, navy otherwise.

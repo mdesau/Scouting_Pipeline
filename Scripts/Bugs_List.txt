@@ -1,0 +1,101 @@
+================================================================================
+WCWAA SCOUTING REPORT PIPELINE — BUG TRACKER
+================================================================================
+Format: Title | Date | Problem | Fix | Workaround (if no fix)
+================================================================================
+
+
+--------------------------------------------------------------------------------
+BUG 1: Infield spray chart dots overlapping pitcher's mound
+--------------------------------------------------------------------------------
+Date:     Apr 10, 2026
+Problem:  Dots plotted for infield hits (2B, SS, 3B, 1B, P zones) were placed
+          too close to home plate, landing visually inside or on top of the
+          pitcher's mound circle on the spray chart. A ball hit to "2B" looked
+          like it was hit to the pitcher, even when the P% showed 0%.
+Fix:      Pushed the inner radius for infield dot scatter from r_mnd*1.5
+          (≈ hb*0.45) to r_if*0.58 (≈ hb*1.06), which clears the top of the
+          mound circle in all infield sectors.
+          File: gen_reports.py → draw_field_spray_chart()
+          Change: px, py = _rand_in_sector(a1, a2, r_if*0.58, r_if)
+Workaround: N/A — fully fixed.
+
+
+--------------------------------------------------------------------------------
+BUG 2: GC noise text absorbed into inning headers — half-innings silently dropped
+--------------------------------------------------------------------------------
+Date:     Apr 10, 2026
+Problem:  GameChanger raw text sometimes contains status text ("Runner Out",
+          "3 Outs", "J B at bat") with no separator between the team name and
+          the first play. parse_gc_raw() absorbed this noise into the inning
+          team name string, producing malformed headers like:
+            ===Bottom 2nd - Crushers White 10URunner Out3 Outs...===
+          INNING_RE uses exact team name matching, so these headers never
+          matched → entire half-innings were silently skipped.
+          Affected: Crushers White 10U g06 Bottom 2nd (8 PAs lost, incl. R R
+          home run) and g06 Bottom 4th (2 PAs lost); similar patterns in g02.
+          Total impact: 115 → 129 PAs recovered after fix.
+Fix:      Added TEAM_NOISE_RE as a secondary split-point detector alongside
+          the existing OUTCOME_RE in parse_gc_raw(). The parser now splits on
+          whichever comes first — an outcome keyword OR a noise pattern.
+          File: parse_gc_text.py → parse_gc_raw()
+          Added pattern: Runner Out | Batter Out | N Outs | X X at bat | score lines
+Workaround: N/A — fully fixed.
+
+
+--------------------------------------------------------------------------------
+BUG 3: Sacrifice Fly returned UNKNOWN outcome — counted as AB incorrectly
+------------------------------------------------------------------------
+Date:     Apr 10, 2026
+Problem:  "Sacrifice Fly" was added to OUTCOME_KWS (so the parser recognized
+          it as an outcome keyword) but parse_outcome() had no branch to handle
+          it, returning UNKNOWN ("?"). The "?" outcome then fell through to the
+          AB aggregation else-branch, counting every sacrifice fly as an AB.
+          This inflated AB counts and deflated AVG/OBP/SLG for affected batters.
+          Sacrifice Bunt had the same issue.
+Fix:      Added SF and SB constants. Wired through:
+            - parse_outcome(): explicit SF/SB return branches
+            - parse_ball_type(): SF → "FB", SB → "GB"
+            - BIP_OUTCOMES set: added SF and SB
+            - AB aggregation: added explicit elif oc in (SF, SB): pass
+          Files: gen_reports.py (all sections above)
+Workaround: N/A — fully fixed.
+
+
+--------------------------------------------------------------------------------
+BUG 4: Home Run not counting as FB+LD% (symptom of Bug 2)
+--------------------------------------------------------------------------------
+Date:     Apr 10, 2026
+Problem:  R R's home run in g06 showed 0 FB+LD% in the Crushers White 10U
+          scouting report. Initial investigation suggested a logic error in
+          how HRs were classified as fly balls.
+          Root cause: the HR was in g06 Bottom 2nd, which was one of the
+          half-innings silently dropped by Bug 2. The HR was never parsed at
+          all — it wasn't a classification error, it was a missing inning.
+Fix:      Fixing Bug 2 recovered the entire Bottom 2nd inning, including the
+          HR. HR was already correctly classified as FO/FB in parse_ball_type().
+          No separate fix needed.
+Workaround: N/A — resolved as part of Bug 2 fix.
+
+
+--------------------------------------------------------------------------------
+BUG 5: Team folder name case mismatch — team produces 0 PAs
+--------------------------------------------------------------------------------
+Date:     Apr 10, 2026
+Problem:  Team folder was created as "Crushers White 10u" (lowercase 'u') but
+          GameChanger inning headers use "Crushers White 10U" (uppercase 'U').
+          INNING_RE performs case-sensitive exact string matching on team names,
+          so no inning headers matched → the team produced 0 PAs across all
+          games, and the scouting report generated with empty stat tables.
+Fix:      Two-step rename via temp name (required on macOS due to
+          case-insensitive filesystem):
+            mv "Crushers White 10u" "Crushers White 10u_tmp"
+            mv "Crushers White 10u_tmp" "Crushers White 10U"
+          Going forward: always verify team folder name matches GC inning header
+          text exactly before running gen_reports.py.
+Workaround: N/A — fully fixed, but requires care on initial folder creation.
+
+
+================================================================================
+END OF BUG LOG
+================================================================================

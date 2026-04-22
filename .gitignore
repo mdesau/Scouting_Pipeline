@@ -1,0 +1,59 @@
+# =============================================================================
+# .gitignore — WCWAA Scouting Pipeline
+# =============================================================================
+# This file tells Git which files/folders to NEVER commit to version control.
+#
+# WHY THIS MATTERS:
+#   - Security: credentials (gc_session.json) must never be uploaded to GitHub
+#   - Size: venv/ is ~100MB and can be recreated from requirements.txt
+#   - Clutter: compiled bytecode and OS files add noise without value
+#
+# RULE OF THUMB: If a file can be (re)generated from something already committed,
+# it should be in .gitignore. Commit the *source*, not the *output*.
+# =============================================================================
+
+# --- Python virtual environment ---
+# Anyone cloning this repo runs: python3 -m venv venv && pip install -r requirements.txt
+venv/
+.venv/
+env/
+
+# --- Python bytecode cache ---
+# Python auto-creates .pyc files when it compiles your scripts. They're machine-
+# specific and regenerated automatically — never need to be committed.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Auth / session credentials ---
+# gc_session.json holds your GameChanger login cookies. If committed and pushed
+# to a public repo, anyone could access your GameChanger account.
+# REGENERATE WITH: python3 gc_scraper.py --login
+Scripts/gc_session.json
+
+# --- Environment variable files ---
+# If we ever add a .env file for API keys or other secrets, exclude it here.
+.env
+.env.*
+
+# --- macOS system files ---
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- VS Code workspace settings ---
+# Personal editor preferences — other developers have their own setup.
+.vscode/
+*.code-workspace
+
+# --- Log files ---
+# Logs are runtime artifacts. They're written locally and don't belong in git.
+# If you want to track log output, use the Logs/ folder locally only.
+Logs/*.log
+
+# --- Output PDFs ---
+# Generated PDFs are build artifacts. They're large and change every week.
+# Commit the *scripts that generate them*, not the PDFs themselves.
+# Uncomment the line below if you want to exclude PDFs from commits:
+# **/*.pdf
