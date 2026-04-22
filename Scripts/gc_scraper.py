@@ -143,8 +143,7 @@ DIVISIONS = {
             ("1yv2qtI89QSD", "2026-spring-arena-national-browning-11u", "Arena National Browning 11U"),
             ("Kih0oavXNZB3", "2026-spring-south-charlotte-panthers-11u", "South Charlotte Panthers 11U"),
             ("Ye94sB963tUX", "2026-spring-weddington-wild-11u",          "Weddington Wild 11U"),
-            # QC Flight Baseball 11U — team_id needed; find at web.gc.com/teams/[ID]/[slug]/schedule
-            # ("TEAM_ID",   "2026-spring-qc-flight-baseball-11u",        "QC Flight Baseball 11U"),
+            ("1gqDRuls0oER", "2026-spring-qc-flight-baseball-11u",      "QC Flight Baseball 11U"),
             # T24 Garnet 11U — scouting in progress (Spring 2026)
             ("I2XcyUwmye3p", "2026-spring-t24-garnet-11u",               "T24 Garnet 11U"),
         ],

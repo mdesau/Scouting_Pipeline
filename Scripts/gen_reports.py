@@ -353,6 +353,7 @@ def parse_outcome(desc, ol):
     if "grounds into fielder" in dl:                                    return FC
     if "grounds out" in dl:                                             return GO
     if "flies out" in dl:                                               return FO
+    if "infield fly" in dl:                                             return FO  # Infield fly rule → flyball out
     if "lines out" in dl:                                               return LO
     if "pops out" in dl:                                                return PO
     if "out on sacrifice fly" in dl or "sacrifice fly" in dl:          return SF
@@ -366,6 +367,7 @@ def parse_outcome(desc, ol):
     if "strikeout" in ol:                          return K_SWING
     if "ground out" in ol:                         return GO
     if "fly out" in ol:                            return FO
+    if "infield fly" in ol:                        return FO  # Infield fly rule → flyball out
     if "pop out" in ol:                            return PO
     if "line out" in ol:                           return LO
     if "sacrifice fly" in ol:                      return SF

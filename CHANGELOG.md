@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
 ### Added
+- **`Infield Fly` → FO mapping** in both `gen_reports.py` (`parse_outcome()`) and
+  `parse_gc_text.py` (`OUTCOME_TYPES`) — infield fly rule plays now correctly parsed
+  as flyball outs instead of `WARNING UNKNOWN`
+- **QC Flight Baseball 11U** added to both `gc_scraper.py` and `scrape_box_scores.py`
+  — team_id `1gqDRuls0oER`, slug `2026-spring-qc-flight-baseball-11u`. PDF generated
+  successfully (15 games, 400 PAs)
+
+### Fixed
+- **Google Drive timeout on QC Flight folder** — resolved by toggling offline
+  availability (online-only → offline) to force re-sync
+
+### Verified (pipeline milestones)
+- ✅ **Minors fully working** — all 14 teams generating PDFs with 6–7 games each
+  (90 games total, 2342 PAs). The "missing away-game files" issue from session 1
+  was a transient Google Drive sync delay, not a code bug.
+- ✅ QC Flight Baseball 11U: 15 games, 400 PAs, PDF generated
+- ✅ T24 Garnet 11U: confirmed 0 FINAL games on GC (not a scraper bug — games not
+  yet finalized in GameChanger)
+
+### Previously added
 - **DEBUG_CONFIG sections** in all 3 main scripts (`gc_scraper.py`, `scrape_box_scores.py`,
   `gen_reports.py`) — toggleable flags for heavy debug output (raw JS dumps, PA-level
   tracing, archetype scoring breakdowns)

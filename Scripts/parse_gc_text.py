@@ -17,6 +17,7 @@ OUTCOME_TYPES = [
     "Batter Interference", "Catcher's Interference",
     "Sacrifice Fly", "Sacrifice Bunt",
     "Fielder's Choice", "Double Play", "Hit By Pitch",
+    "Infield Fly",
     "Ground Out", "Line Out", "Fly Out", "Pop Out",
     "Home Run", "Strikeout", "Triple", "Double", "Single",
     "Walk", "Error", "Balk",
@@ -91,8 +92,20 @@ def _parse_body(body):
     return plays
 
 
+# Known GC name corruptions — applied as text cleanup before parsing.
+# Why: GameChanger occasionally renders special characters in player names
+# (e.g., "$awyer" instead of "Sawyer"). We fix these at the raw-text level
+# so downstream parsers and game files always have clean names.
+GC_NAME_FIXES = {
+    "$awyer": "Sawyer",
+}
+
 def parse_gc_raw(raw_text, game_url='', game_date=''):
     """Return WCWAA-formatted string from raw GC page text."""
+    # Apply known GC name corruptions before any parsing
+    for bad, good in GC_NAME_FIXES.items():
+        raw_text = raw_text.replace(bad, good)
+
     lines = [f'GAME: {game_date} | {game_url}', '']
 
     # Isolate plays section
