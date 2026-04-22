@@ -239,6 +239,44 @@ def fmt_date(date_str):
         return re.sub(r'.*?(\w{3})\w*\s+(\d+),.*', r'\1\2', date_str)
 
 
+# Canonical team name map: GC box score name → game file inning header name
+# WHY THIS EXISTS:
+#   GC's box score pages sometimes render team names differently from how they
+#   appear in the play-by-play inning headers. For example, the box score may
+#   show 'As-Blanco' (apostrophe stripped) or 'Dbacks-Vandiford' (abbreviated)
+#   while the game file uses 'A\'s-Blanco' or 'Diamondbacks-Vandiford'.
+#   The stat engine in gen_reports.py matches rosters.json keys against inning
+#   headers — so the keys MUST match the game file names exactly.
+#
+#   When to update this map:
+#   If you see a team appearing twice in rosters.json (e.g. both 'Twins-Ewart'
+#   and 'Twins-Ewart Majors'), add the variant as a key mapping to the
+#   canonical game-file name as the value.
+TEAM_NAME_ALIASES = {
+    # Box score variant      : Canonical (matches inning header in .txt files)
+    "As-Blanco"             : "A's-Blanco",
+    "Dbacks-Vandiford"      : "Diamondbacks-Vandiford",
+    "Twins-Ewart Majors"    : "Twins-Ewart",   # game files drop the 'Majors' suffix
+}
+
+
+def normalize_team_name(name):
+    """
+    Translate a GC box score team name to the canonical name used in game files.
+
+    GC occasionally shows abbreviated or punctuation-stripped team names on
+    box score pages. This function maps those variants to the exact names that
+    appear in inning headers (e.g. '===Top 3rd - A\'s-Blanco===') so that
+    rosters.json keys always match what gen_reports.py expects.
+
+    Args:
+        name (str): Team name as returned by the box score page JS extractor.
+    Returns:
+        str: Canonical team name, or the original if no alias is defined.
+    """
+    return TEAM_NAME_ALIASES.get(name, name)
+
+
 def display_name(gc_name, jersey):
     """
     Build display string from GC box score name + jersey.
@@ -262,7 +300,17 @@ def merge_player(existing, player, game_id):
     """
     Merge a new box score player record into the accumulated roster entry.
     Accumulates AB/BB/SO totals; uses the most recently seen jersey.
+
+    WHY THE MIGRATION GUARD:
+    Roster entries created by older versions of this script may be missing
+    the 'games' or 'games_seen' keys (schema evolved over the season).
+    Setdefault() initializes the key only if absent — safe to run on both
+    old and new entries without overwriting existing data.
     """
+    # Migration guard: ensure keys exist for entries written by older code
+    existing.setdefault("games", [])
+    existing.setdefault("games_seen", 0)
+
     existing["ab"]         += player["ab"]
     existing["bb"]         += player["bb"]
     existing["so"]         += player["so"]
@@ -500,6 +548,11 @@ def scrape_division(page, div_name, cfg, log, force=False):
 
         away_team = data.get("away_team", "").strip()
         home_team = data.get("home_team", "").strip()
+
+        # Normalize: map GC box score name variants to canonical game-file names
+        # (e.g. 'As-Blanco' → 'A\'s-Blanco', 'Dbacks-Vandiford' → 'Diamondbacks-Vandiford')
+        away_team = normalize_team_name(away_team)
+        home_team = normalize_team_name(home_team)
         away_players = data.get("away", {}).get("players", [])
         home_players = data.get("home", {}).get("players", [])
 
