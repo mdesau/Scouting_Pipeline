@@ -153,19 +153,41 @@ DIVISIONS = {
 # Extracts raw page text from a /plays page (same approach as get_page_text)
 EXTRACT_PLAYS_JS = "() => document.body.innerText"
 
-# Discovers all game UUIDs from a schedule page (works for both org and team pages)
+# Discovers all game UUIDs from a schedule page (works for both org and team pages).
+#
+# WHY THE REWRITE (2026-04-21):
+#   GC's schedule page no longer has full-date header elements like "Saturday March 21, 2026".
+#   Instead it shows month headers ("March 2026") and embeds the day only in the FIRST
+#   game card of each new date (e.g. lines = ['Sat', '21', 'TeamA', '@ TeamB', ...]).
+#   Same-day subsequent games omit the date entirely from their card.
+#
+#   Fixes applied:
+#   1. Track month/year headers ("March 2026") for the month component of the date.
+#   2. Detect day-abbr + day-number at the start of a game card; carry that date
+#      forward for same-day games that lack a date prefix.
+#   3. Return 'away' and 'home' as separate clean fields (strips leading '@ ').
 SCHEDULE_JS = """
 () => {
     const uuidRe = /\\/schedule\\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
     const results = [];
     const seen = new Set();
-    let currentDate = '';
+
+    const MONTH_ABBR = {
+        'January':'Jan','February':'Feb','March':'Mar','April':'Apr',
+        'May':'May','June':'Jun','July':'Jul','August':'Aug',
+        'September':'Sep','October':'Oct','November':'Nov','December':'Dec'
+    };
+    const DAY_ABBRS = new Set(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']);
+
+    let currentMonthYear = '';  // e.g. 'March 2026'
+    let currentDateTag   = '';  // e.g. 'Mar21' — carried forward for same-day games
 
     document.body.querySelectorAll('*').forEach(el => {
+        // Detect month/year section headers like 'March 2026'
         if (el.children.length === 0 && el.innerText) {
             const t = el.innerText.trim();
-            if (/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \\w+ \\d+, \\d{4}$/.test(t)) {
-                currentDate = t;
+            if (/^(January|February|March|April|May|June|July|August|September|October|November|December) \\d{4}$/.test(t)) {
+                currentMonthYear = t;
             }
         }
         if (el.tagName === 'A') {
@@ -173,10 +195,27 @@ SCHEDULE_JS = """
             if (m && !seen.has(m[1])) {
                 seen.add(m[1]);
                 const lines = el.innerText.trim().split('\\n').map(x => x.trim()).filter(x => x);
+
+                // First game of a new date has day-abbr + day-number as first two lines
+                // e.g. ['Sat', '21', 'Marlins-Eberlin', '@ Angels-Casper', ...]
+                let offset = 0;
+                if (lines.length >= 2 && DAY_ABBRS.has(lines[0]) && /^\\d{1,2}$/.test(lines[1])) {
+                    offset = 2;
+                    const monthParts = currentMonthYear.split(' ');
+                    const abbr = MONTH_ABBR[monthParts[0]] || monthParts[0].slice(0, 3);
+                    currentDateTag = abbr + lines[1].padStart(2, '0');
+                }
+                // Subsequent same-day games: currentDateTag carries forward automatically
+
+                const away = lines[offset]    || 'Away';
+                const home = (lines[offset+1] || 'Home').replace(/^@\\s*/, '');
+
                 results.push({
-                    date: currentDate,
-                    id: m[1],
-                    text: lines.join(' | '),
+                    date:  currentDateTag,
+                    id:    m[1],
+                    away:  away,
+                    home:  home,
+                    text:  lines.join(' | '),   // kept for debugging
                     final: lines.includes('FINAL')
                 });
             }
@@ -252,15 +291,13 @@ def scrape_org_division(page, div_name, cfg, team_filter, force, check_only=Fals
 
     scraped = skipped = failed = missing = 0
     for g in final_games:
-        text_raw = g.get("text", "")
-        date_tag = fmt_date(g.get("date", ""))
+        # SCHEDULE_JS now returns away/home as separate fields — no more splitting
+        # the joined text string. date is already formatted as 'Mar21', 'Apr01', etc.
+        date_tag = g.get("date", "")      # e.g. 'Mar21'
         game_id  = g["id"]
-
-        # Parse "Away | @ | Home | FINAL | score..." from schedule card text
-        parts = [p.strip() for p in text_raw.split('|')]
-        away = safe(parts[0]) if len(parts) > 0 else "Away"
-        home = safe(parts[1].lstrip('@').strip()) if len(parts) > 1 else "Home"
-        # Strip division suffix from team names
+        away = safe(g.get("away", "Away"))
+        home = safe(g.get("home", "Home"))
+        # Strip division suffix from team names (e.g. 'Cubs_Majors' → 'Cubs')
         away = re.sub(r'_(Majors|Minors)$', '', away)
         home = re.sub(r'_(Majors|Minors)$', '', home)
 
@@ -330,14 +367,11 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
 
         missing = 0
         for g in final_games:
-            date_tag = fmt_date(g.get("date", ""))
+            # SCHEDULE_JS now returns away/home as separate fields — no more splitting
+            date_tag = g.get("date", "")      # e.g. 'Mar21'
             game_id  = g["id"]
-            text_raw = g.get("text", "")
-
-            # Try to extract away/home from schedule card text
-            parts = [p.strip() for p in text_raw.split('|')]
-            away = safe(parts[0]) if len(parts) > 0 else "Away"
-            home = safe(parts[1].lstrip('@').strip()) if len(parts) > 1 else "Home"
+            away = safe(g.get("away", "Away"))
+            home = safe(g.get("home", "Home"))
 
             fname = f"{date_tag}-{away}_vs_{home}.txt"
 
