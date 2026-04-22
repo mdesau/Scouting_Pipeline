@@ -10,11 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
-### In Progress
-- Step 2: Run `gc_scraper.py --login` to save GameChanger session
-- Step 3: Verify `gc_scraper.py --division Majors --check` loads schedule correctly
-- Step 4: Verify `scrape_box_scores.py --division Majors` resolves `?N P?` / `?C C?`
-- Step 5: Verify `gen_reports.py --division Majors --team Cubs` produces separate Brian A. / Ben A. cards
+### Added
+- **DEBUG_CONFIG sections** in all 3 main scripts (`gc_scraper.py`, `scrape_box_scores.py`,
+  `gen_reports.py`) — toggleable flags for heavy debug output (raw JS dumps, PA-level
+  tracing, archetype scoring breakdowns)
+- **`--verbose` / `-v` flag** on all 3 scripts — shows `logger.debug()` messages on
+  screen (normally only written to log file). Light debugging without touching code.
+- **`diag_schedule.py`** diagnostic tool — dumps raw schedule page DOM for debugging
+  GC layout changes
+
+### Fixed
+- **SCHEDULE_JS date + team parsing** (`gc_scraper.py`) — GC changed their DOM from
+  full-date headers to month headers + day-in-first-card. Filenames were coming out
+  as `-Sat_vs_21.txt` instead of `Mar21-Marlins-Eberlin_vs_Angels-Casper.txt`.
+  Rewrote JS to track month headers and carry date forward for same-day games.
+- **`merge_player` KeyError on `'games'` key** (`scrape_box_scores.py`) — old roster
+  entries lacked the `games`/`games_seen` keys added in a schema update. Added
+  `setdefault()` migration guard.
+- **Duplicate team keys in `rosters.json`** (`scrape_box_scores.py`) — GC box score
+  pages render some names differently from play-by-play headers (e.g. `As-Blanco` vs
+  `A's-Blanco`). Added `TEAM_NAME_ALIASES` dict + `normalize_team_name()` function.
+
+### Verified (pipeline milestones)
+- ✅ `gc_scraper.py --login` — session saved to `gc_session.json`
+- ✅ `gc_scraper.py --division Majors` — 35 games scraped, correct filenames
+- ✅ `gc_scraper.py --division Minors` — 45 games scraped, correct filenames
+- ✅ `scrape_box_scores.py --division Majors` — 11 clean team keys, no duplicates;
+  collision detection working (5 teams with shared initials)
+- ✅ `gen_reports.py --division Majors --team Cubs` — Brian A. #1 and Benjamin A. #2
+  appear as separate player cards; PDF generated successfully
 
 ---
 

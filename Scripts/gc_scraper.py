@@ -54,8 +54,22 @@ except ImportError:
 from parse_gc_text import parse_gc_raw
 
 # ─────────────────────────────────────────────────────────────
-# CONFIGURATION — edit paths here if your folder structure changes
+# DEBUG CONFIGURATION
 # ─────────────────────────────────────────────────────────────
+# These flags enable expensive debug output that is too verbose for normal runs
+# but invaluable when diagnosing GC DOM changes or scraping failures.
+#
+# HOW TO USE:
+#   For light debugging: run with --verbose (shows all logger.debug messages)
+#   For heavy debugging: flip a flag below to True, then run normally.
+#
+# WHY FLAGS INSTEAD OF JUST --verbose:
+#   --verbose shows targeted debug messages (game skips, date parsing, etc.)
+#   These flags dump RAW DATA (full JS output, full page text) which can be
+#   hundreds of lines — you only want that when hunting a specific issue.
+# ─────────────────────────────────────────────────────────────
+DEBUG_SCHEDULE_RAW = False   # Dump full SCHEDULE_JS return (every game card's raw fields)
+DEBUG_PAGE_TEXT    = False   # Dump raw page text from each /plays page before parsing
 
 SPRING_DIR = Path(
     "~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com"
@@ -70,8 +84,14 @@ LOGS_DIR     = Path(__file__).parent.parent / "Logs"
 # LOGGING
 # ─────────────────────────────────────────────────────────────
 
-def setup_logging():
-    """Configure logging to both stdout and a dated log file."""
+def setup_logging(verbose=False):
+    """Configure logging to both stdout and a dated log file.
+
+    Args:
+        verbose: If True, stdout handler is set to DEBUG level (shows all
+                 debug messages on screen). Default is INFO-only on screen;
+                 DEBUG always goes to the log file regardless.
+    """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = LOGS_DIR / f"gc_scraper_{stamp}.log"
@@ -82,7 +102,7 @@ def setup_logging():
     fh.setFormatter(fmt); fh.setLevel(logging.DEBUG)
 
     sh = logging.StreamHandler()
-    sh.setFormatter(fmt); sh.setLevel(logging.INFO)
+    sh.setFormatter(fmt); sh.setLevel(logging.DEBUG if verbose else logging.INFO)
 
     log = logging.getLogger("gc_scraper")
     log.setLevel(logging.DEBUG)
@@ -248,7 +268,14 @@ def get_schedule(page, url):
     logger.info(f"  Loading: {url}")
     page.goto(url, wait_until="networkidle", timeout=30_000)
     time.sleep(2)
-    return page.evaluate(SCHEDULE_JS) or []
+    games = page.evaluate(SCHEDULE_JS) or []
+    logger.debug(f"  Schedule returned {len(games)} game cards")
+    if DEBUG_SCHEDULE_RAW:
+        for g in games:
+            logger.debug(f"    RAW: date={g.get('date')!r}  away={g.get('away')!r}  "
+                         f"home={g.get('home')!r}  final={g.get('final')}  "
+                         f"text={g.get('text')!r}")
+    return games
 
 
 def extract_plays_raw(page, plays_url):
@@ -257,6 +284,7 @@ def extract_plays_raw(page, plays_url):
         page.goto(plays_url, wait_until="networkidle", timeout=30_000)
         page.wait_for_selector('.BatsPlays__play', timeout=12_000)
     except PWTimeout:
+        logger.debug(f"    Timeout waiting for .BatsPlays__play on {plays_url}")
         return None
     except Exception as e:
         logger.error(f"    [error] {e}")
@@ -414,8 +442,8 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
 # MAIN
 # ─────────────────────────────────────────────────────────────
 
-def run(login_mode=False, divisions_filter=None, team_filter=None, force=False, check_only=False):
-    setup_logging()
+def run(login_mode=False, divisions_filter=None, team_filter=None, force=False, check_only=False, verbose=False):
+    setup_logging(verbose=verbose)
     with sync_playwright() as pw:
         if login_mode:
             browser = pw.chromium.launch(headless=False)
@@ -483,6 +511,8 @@ if __name__ == "__main__":
                         help="Re-scrape even if .txt or -Reviewed.txt already exists")
     parser.add_argument("--check",      action="store_true",
                         help="Check which games are missing from Scorebooks without scraping")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Show DEBUG-level messages on screen (normally only written to log file)")
     args = parser.parse_args()
 
     run(
@@ -491,4 +521,5 @@ if __name__ == "__main__":
         team_filter=args.team,
         force=args.force,
         check_only=args.check,
+        verbose=args.verbose,
     )

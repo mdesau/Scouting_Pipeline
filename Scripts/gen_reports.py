@@ -22,12 +22,31 @@ from pathlib import Path
 TODAY = date.today().strftime("%B %d, %Y")
 
 # ---------------------------------------------------------------------------
-# Logging — writes to Development/Logs/ AND stdout simultaneously
+# DEBUG CONFIGURATION
 # ---------------------------------------------------------------------------
+# These flags control HEAVY debug output that dumps raw data to the log file.
+# For light debugging, use --verbose (shows all logger.debug on screen).
+#
+# WHY THIS MATTERS:
+#   When a player's PA count looks wrong or an archetype label seems off,
+#   you need to see the intermediate parsing steps. These flags expose:
+#   - Each PA as it's extracted from the game file (outcome, zone, pitch seq)
+#   - Archetype scoring breakdown (approach calc, result thresholds)
+#   Without them, you'd have to add temporary print() calls, debug, then
+#   remember to remove them — error-prone and time-wasting.
+# ---------------------------------------------------------------------------
+DEBUG_PA_PARSING   = False   # Log every PA as it's parsed from game files
+DEBUG_ARCHETYPES   = False   # Log archetype scoring details per batter
+DEBUG_PITCH_SEQ    = False   # Log token-by-token pitch sequence parsing
 LOGS_DIR = Path(__file__).parent.parent / "Logs"
 
-def setup_logging():
-    """Configure module logger: file (DEBUG) + stdout (INFO). Call once in main()."""
+def setup_logging(verbose=False):
+    """Configure module logger: file (DEBUG) + stdout (INFO). Call once in main().
+
+    Args:
+        verbose: If True, stdout handler shows DEBUG-level messages.
+                 Default is INFO-only on screen; DEBUG always goes to log file.
+    """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp    = date.today().strftime("%Y%m%d") + "_" + time.strftime("%H%M%S")
     log_path = LOGS_DIR / f"gen_reports_{stamp}.log"
@@ -39,7 +58,7 @@ def setup_logging():
     fh.setFormatter(fmt); fh.setLevel(logging.DEBUG)
 
     sh = logging.StreamHandler()
-    sh.setFormatter(fmt); sh.setLevel(logging.INFO)
+    sh.setFormatter(fmt); sh.setLevel(logging.DEBUG if verbose else logging.INFO)
 
     log = logging.getLogger("gen_reports")
     log.setLevel(logging.DEBUG)
@@ -1704,16 +1723,19 @@ def run_wild(teams_filter=None, division="Wild"):
     logger.info("="*60)
 
 def main():
-    setup_logging()
     parser = argparse.ArgumentParser(description="WCWAA Scouting Report Generator")
     parser.add_argument("--division", default="Majors",
                         choices=["Majors", "Minors", "Wild", "Storm"],
                         help="Division to generate reports for (default: Majors)")
     parser.add_argument("--team", nargs="*",
                         help="One or more team names to run (omit for all teams in division)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Show DEBUG-level messages on screen (normally only in log file)")
     # Legacy positional args: python3 gen_reports.py Guardians (old Majors usage)
     parser.add_argument("legacy_teams", nargs="*", help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    setup_logging(verbose=args.verbose)
 
     teams_filter = args.team or args.legacy_teams or None
     division = args.division

@@ -45,6 +45,14 @@ except ImportError:
     raise
 
 # ─────────────────────────────────────────────────────────────
+# DEBUG CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+# Flip these to True when diagnosing box score scraping issues.
+# --verbose shows logger.debug() messages; these flags dump RAW data.
+DEBUG_BOX_SCORE_RAW = False   # Dump full JS return from each box score page
+DEBUG_TEAM_NAMES    = False   # Log team name before/after normalization
+
+# ─────────────────────────────────────────────────────────────
 # PATHS
 # ─────────────────────────────────────────────────────────────
 
@@ -105,8 +113,13 @@ DIVISIONS = {
 # LOGGING
 # ─────────────────────────────────────────────────────────────
 
-def setup_logging():
-    """Configure logging to both stdout and a dated log file."""
+def setup_logging(verbose=False):
+    """Configure logging to both stdout and a dated log file.
+
+    Args:
+        verbose: If True, stdout shows DEBUG-level messages.
+                 Default is INFO-only on screen; DEBUG always goes to log file.
+    """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = LOGS_DIR / f"scrape_box_scores_{stamp}.log"
@@ -120,7 +133,7 @@ def setup_logging():
 
     sh = logging.StreamHandler()
     sh.setFormatter(fmt)
-    sh.setLevel(logging.INFO)
+    sh.setLevel(logging.DEBUG if verbose else logging.INFO)
 
     log = logging.getLogger("box_scores")
     log.setLevel(logging.DEBUG)
@@ -551,8 +564,11 @@ def scrape_division(page, div_name, cfg, log, force=False):
 
         # Normalize: map GC box score name variants to canonical game-file names
         # (e.g. 'As-Blanco' → 'A\'s-Blanco', 'Dbacks-Vandiford' → 'Diamondbacks-Vandiford')
+        away_raw, home_raw = away_team, home_team
         away_team = normalize_team_name(away_team)
         home_team = normalize_team_name(home_team)
+        if DEBUG_TEAM_NAMES and (away_raw != away_team or home_raw != home_team):
+            log.debug(f"    Team name normalized: {away_raw!r}→{away_team!r}  {home_raw!r}→{home_team!r}")
         away_players = data.get("away", {}).get("players", [])
         home_players = data.get("home", {}).get("players", [])
 
@@ -763,8 +779,8 @@ def scrape_team_division(page, div_name, cfg, log, force=False):
 # MAIN
 # ─────────────────────────────────────────────────────────────
 
-def run(divisions_filter=None, force=False):
-    log = setup_logging()
+def run(divisions_filter=None, force=False, verbose=False):
+    log = setup_logging(verbose=verbose)
 
     if not SESSION_FILE.exists():
         log.error(f"No session file found at {SESSION_FILE}")
@@ -799,5 +815,7 @@ if __name__ == "__main__":
                         help="Divisions to scrape (default: all)")
     parser.add_argument("--force", action="store_true",
                         help="Re-scrape all games even if already in JSON/roster.txt")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Show DEBUG-level messages on screen (normally only written to log file)")
     args = parser.parse_args()
-    run(divisions_filter=args.division, force=args.force)
+    run(divisions_filter=args.division, force=args.force, verbose=args.verbose)
