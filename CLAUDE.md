@@ -25,7 +25,10 @@ history of this project.
 - **No remote yet** — user plans a private GitHub repo eventually
 
 ```
+d0812da  fix: INNING_RE tolerates missing closing === in inning headers
+bb1aa14  docs: update CLAUDE.md with session 2 results
 4e1ce0e  feat: Infield Fly mapping, QC Flight team_id, verify Minors all-clear
+58801fa  docs: update CLAUDE.md + CHANGELOG.md with full session 1 results
 854f25c  fix: add try/except error handling around division and team loops
 c250384  feat: add DEBUG_CONFIG sections + --verbose flag to all 3 main scripts
 e803f4a  fix: two bugs in scrape_box_scores.py roster building
@@ -440,27 +443,33 @@ Passive Overmatched/Walker   → Attack the Zone
 
 ---
 
-## Latest Pipeline Run Results (Apr 22, 2026 — Session 2)
+## Latest Pipeline Run Results (Apr 22, 2026 — Session 3)
 
 ### Majors (11 teams) ✅
-- All 11 teams generated PDFs successfully
-- 35 games total, all processed
-- No missing files, no errors
+- All 11 PDFs regenerated at 11:50 — timestamps confirmed
+- 35 games total, all processed, no errors
 
 ### Minors (14 teams) ✅
-- All 14 PDFs generated successfully — **issue resolved** (was Google Drive sync delay)
+- All 14 PDFs generated successfully
 - 90 games total, 2342 PAs across all 14 teams (6–7 games each)
-- No SKIP errors, no missing files
+- BOX-VERIFY warnings present (Padres-Midkiff T H, Reds-Naturale L R + T L,
+  Brewers-Linnenkohl M H, Rays-Pearson K H) — minor AB discrepancies, cosmetic only
+- 1 UNKNOWN outcome: M M in Apr18 Padres-Midkiff — investigate game file if needed
 
 ### Wild (5 teams) — 4/5 ✅
-- Arena National Browning 11U: 9 games ✅
-- South Charlotte Panthers 11U: 8 games ✅
-- Weddington Wild 11U: 11 games ✅
-- QC Flight Baseball 11U: 15 games, 400 PAs ✅ (team_id added, Drive timeout fixed)
-- T24 Garnet 11U: 0 FINAL games on GC (games not yet finalized in GameChanger)
+- Arena National Browning 11U: 9 games, 212 PAs ✅
+- QC Flight Baseball 11U: 15 games, 400 PAs ✅
+- South Charlotte Panthers 11U: 8 games, 194 PAs ✅
+- Weddington Wild 11U: 11 games, 284 PAs ✅
+- T24 Garnet 11U: 0 FINAL games on GC (not a code bug)
+- QC Flight: 3 INNING GAP warnings (inngs 2, 2, 3 missing) — cosmetic, short games
 
-### Storm
-- No FINAL games yet this season
+### Storm (4 teams active) ✅
+- 9u Challenge: 6 games, 144 PAs ✅
+- Crushers White 10U: 7 games, 129 PAs ✅
+- ITAA 9U Spartans: 7 games, 175 PAs ✅ (3 INNING GAP warnings — cosmetic)
+- MARA 9U Stingers: 17 games, 340 PAs ✅ (8 INNING GAP warnings — cosmetic)
+- MILITIA 9U: 0 game files on disk yet
 
 ---
 
@@ -468,15 +477,26 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `CLAUDE.md` (this file), `CHANGELOG.md`, `VSCODE_PLAN.md`
 
-1. **T24 Garnet 11U** — Check if any games are now FINAL on GC; re-run scraper
+1. **Run `gc_scraper.py`** — Pick up any new FINAL games added since Apr 22 across
+   all divisions (Majors are ~halfway through the season; Storm/Wild games ongoing)
 
-2. **Run `scrape_box_scores.py`** — Update rosters for all divisions (resolves
-   `?N P?` and `?C C?` in Cubs-Holtzer, builds QC Flight roster.txt)
+2. **Investigate UNKNOWN outcome for M M** — Padres-Midkiff, Apr18 game vs
+   Yankees-DePasquale. One PA has an unrecognised play description. Review the
+   raw game file and add to OUTCOME_TYPES if valid.
 
-3. **Full pipeline run** — Verify all 4 divisions end-to-end with latest fixes
+3. **Investigate BOX-VERIFY diffs in Minors** — Padres-Midkiff T H (+2 AB),
+   Reds-Naturale L R (+2 AB) + T L (+2 AB), Brewers-Linnenkohl M H (+2 AB),
+   Rays-Pearson K H (+3 AB). Check if these are real parsing misses or scoring
+   errors in the game files. Low priority but good to understand the pattern.
 
-4. **Consider v0.2.0 tag** — All high-priority issues resolved; Minors + QC Flight
-   working; Infield Fly fixed. Pipeline is approaching full coverage.
+4. **Watch for T24 Garnet / MILITIA 9U going FINAL** — Re-run scraper weekly;
+   they have 0 games on disk and 0 FINAL games on GC as of Apr 22.
+
+5. **Mid-season `scrape_box_scores.py` run** — Once new games are scraped, re-run
+   to capture any new jersey numbers or roster additions.
+
+6. **Consider v0.3.0 tag** — After next batch of new games is scraped, pipeline
+   re-run, and any new UNKNOWN outcomes resolved.
 
 ---
 

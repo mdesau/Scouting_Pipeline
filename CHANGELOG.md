@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+---
+
+## [0.2.0] - 2026-04-22
+
 ### Added
 - **`Infield Fly` → FO mapping** in both `gen_reports.py` (`parse_outcome()`) and
   `parse_gc_text.py` (`OUTCOME_TYPES`) — infield fly rule plays now correctly parsed
@@ -17,20 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **QC Flight Baseball 11U** added to both `gc_scraper.py` and `scrape_box_scores.py`
   — team_id `1gqDRuls0oER`, slug `2026-spring-qc-flight-baseball-11u`. PDF generated
   successfully (15 games, 400 PAs)
-
-### Fixed
-- **Google Drive timeout on QC Flight folder** — resolved by toggling offline
-  availability (online-only → offline) to force re-sync
-
-### Verified (pipeline milestones)
-- ✅ **Minors fully working** — all 14 teams generating PDFs with 6–7 games each
-  (90 games total, 2342 PAs). The "missing away-game files" issue from session 1
-  was a transient Google Drive sync delay, not a code bug.
-- ✅ QC Flight Baseball 11U: 15 games, 400 PAs, PDF generated
-- ✅ T24 Garnet 11U: confirmed 0 FINAL games on GC (not a scraper bug — games not
-  yet finalized in GameChanger)
-
-### Previously added
 - **DEBUG_CONFIG sections** in all 3 main scripts (`gc_scraper.py`, `scrape_box_scores.py`,
   `gen_reports.py`) — toggleable flags for heavy debug output (raw JS dumps, PA-level
   tracing, archetype scoring breakdowns)
@@ -43,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timeout or crash no longer kills the entire pipeline
 
 ### Fixed
+- **INNING_RE regex** (`gc_scraper.py`) — regex now tolerates missing closing `===`
+  in inning headers. Was causing opponent PAs to leak into the wrong team's report;
+  affected 8 game files. Patched 12 broken inning headers in existing scorebooks.
+- **`$awyer M` auto-fix** (`parse_gc_text.py`) — `GC_NAME_FIXES` dict wired in;
+  dollar sign in player name from GC is corrected automatically on next scrape.
 - **SCHEDULE_JS date + team parsing** (`gc_scraper.py`) — GC changed their DOM from
   full-date headers to month headers + day-in-first-card. Filenames were coming out
   as `-Sat_vs_21.txt` instead of `Mar21-Marlins-Eberlin_vs_Angels-Casper.txt`.
@@ -53,18 +48,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate team keys in `rosters.json`** (`scrape_box_scores.py`) — GC box score
   pages render some names differently from play-by-play headers (e.g. `As-Blanco` vs
   `A's-Blanco`). Added `TEAM_NAME_ALIASES` dict + `normalize_team_name()` function.
+- **`?N P?` and `?C C?` in Cubs-Holtzer** — resolved: Nathan P. #10 and Chase C. #3
+  now in `rosters.json`. Confirmed on full pipeline run Apr 22.
+- **Google Drive timeout on QC Flight folder** — resolved by toggling offline
+  availability (online-only → offline) to force re-sync.
 
-### Verified (pipeline milestones)
-- ✅ `gc_scraper.py --login` — session saved to `gc_session.json`
-- ✅ `gc_scraper.py --division Majors` — 35 games scraped, correct filenames
-- ✅ `gc_scraper.py --division Minors` — 45 games scraped, correct filenames
-- ✅ `scrape_box_scores.py --division Majors` — 11 clean team keys, no duplicates;
-  collision detection working (5 teams with shared initials)
-- ✅ `gen_reports.py --division Majors --team Cubs` — Brian A. #1 and Benjamin A. #2
-  appear as separate player cards; PDF generated successfully
-- ✅ **Full pipeline run** (`run_weekly.sh`) — Majors: 11 PDFs, Minors: 14 PDFs,
-  Wild: 3/5 PDFs (QC Flight blocked by Google Drive timeout, T24 Garnet has 0 games).
-  Storm: no FINAL games yet.
+### Verified (pipeline milestones — Session 3, Apr 22 2026)
+- ✅ **Full pipeline (`run_weekly.sh`)** — all 4 divisions regenerated clean:
+  - Majors: 11 PDFs, 35 games — all 11:50 timestamps confirmed
+  - Minors: 14 PDFs, 90 games, 2342 PAs — all ✓
+  - Wild: 4/5 PDFs — Arena National (9g), QC Flight (15g/400PA), SC Panthers (8g),
+    Weddington Wild (11g); T24 Garnet still 0 FINAL games
+  - Storm: 4 PDFs — 9u Challenge (6g), Crushers White (7g), ITAA Spartans (7g),
+    MARA Stingers (17g/340PA); MILITIA 9U still 0 game files
+- ✅ `?N P?` / `?C C?` gone from Cubs-Holtzer — Nathan P. #10, Chase C. #3 confirmed
+- ✅ `scrape_box_scores.py` — 35 Majors + 45 Minors games all "already scraped";
+  no new games since last run
+- ✅ **Minors fully working** — all 14 teams, 6–7 games each (90 games, 2342 PAs).
+  The "missing away-game files" issue from session 1 was a transient Google Drive
+  sync delay, not a code bug.
+- ✅ QC Flight Baseball 11U: 15 games, 400 PAs, PDF generated
+- ✅ T24 Garnet 11U: confirmed 0 FINAL games on GC (not a scraper bug)
 
 ---
 
@@ -96,8 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 <!-- Version Roadmap (targets, not commitments):
-  0.2.0 — Full end-to-end pipeline verified for all 4 divisions
-  0.3.0 — All known bugs fixed (Infield Fly, $awyer, QC Flight team_id)
-  0.4.0 — T24 Garnet 11U complete (all 8 remaining games scraped)
+  0.2.0 — ✅ RELEASED — Full end-to-end pipeline verified; core bugs fixed
+  0.3.0 — Mid-season update: new games scraped, T24 Garnet + MILITIA come online
   1.0.0 — Pipeline stable, tested, and running reliably each game week
 -->
