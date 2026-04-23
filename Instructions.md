@@ -1,15 +1,12 @@
 # WCWAA 2026 Spring — Scouting Report Pipeline
-## Claude Code Context File
 
 This file is the authoritative reference for the WCWAA scouting report pipeline.
-Load it at the start of every new Claude Code session. It covers every design
-decision, known bug, and operational detail accumulated across the full build
-history of this project.
+Load it at the start of every new AI coding session (GitHub Copilot, Claude, etc.).
+It covers every design decision, known bug, and operational detail accumulated
+across the full build history of this project.
 
 **Root directory (all paths relative to this):**
 `~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/`
-
-**Companion file:** `Scout_Development/ManualGuide.md` — step-by-step human walkthrough for manual game file creation.
 
 **Best practices prompt:** When starting a new session, the user may paste their "Code Mentor" prompt which defines conventions for debugging, git hygiene, error handling, and code style. Follow those guidelines throughout.
 
@@ -21,10 +18,14 @@ history of this project.
 - **Virtual environment:** `Scout_Development/venv/` — always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in project root
-- **Git:** Local repo, 5 commits on `main`, tagged `v0.1.0` at initial setup
-- **No remote yet** — user plans a private GitHub repo eventually
+- **Git:** Local repo, 9 commits on `main`, tagged `v0.1.0` and `v0.2.0`
+- **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
+  - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
 ```
+7d1d815  docs: add Instructions.md context file explanation to README
+683d8ee  docs: add README.md with setup guide, scripts reference, troubleshooting
+48c8efa  refactor: rename CLAUDE.md → Instructions.md, remove ManualGuide + VSCODE_PLAN, add examples/
 d0812da  fix: INNING_RE tolerates missing closing === in inning headers
 bb1aa14  docs: update CLAUDE.md with session 2 results
 4e1ce0e  feat: Infield Fly mapping, QC Flight team_id, verify Minors all-clear
@@ -36,14 +37,14 @@ e803f4a  fix: two bugs in scrape_box_scores.py roster building
 8b082f9  (tag: v0.1.0) feat: initial project setup v0.1.0
 ```
 
-### Scripts Overview (line counts as of Apr 22, 2026)
+### Scripts Overview (line counts as of Apr 23, 2026)
 | Script | Lines | Role | Has --verbose | Has DEBUG_CONFIG | Has try/except |
 |---|---|---|---|---|---|
-| `gc_scraper.py` | ~535 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
-| `scrape_box_scores.py` | ~810 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
-| `gen_reports.py` | ~1755 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
-| `parse_gc_text.py` | ~260 | Raw GC text → WCWAA format (utility) | — | — | — |
-| `run_weekly.sh` | ~86 | Shell orchestrator | — | — | — |
+| `gc_scraper.py` | 532 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
+| `scrape_box_scores.py` | 820 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
+| `gen_reports.py` | 1756 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
+| `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
+| `run_weekly.sh` | 82 | Shell orchestrator | — | — | — |
 
 ---
 
@@ -66,17 +67,24 @@ and generates multi-page PDF scouting reports for four divisions:
 
 ```
 Spring/
-  Scout_Development/
+  Scout_Development/          ← git repo root (https://github.com/mdesau/Scouting_Pipeline)
     Instructions.md            ← this file (authoritative project context)
+    README.md                  ← setup guide + scripts reference for new users
+    CHANGELOG.md               ← version history
+    requirements.txt
+    .gitignore
+    examples/
+      example_game_file.txt    ← sample parsed play-by-play (one-time reference)
+      example_scouting_report.pdf
     Scripts/
       gc_scraper.py            ← Playwright: GC schedule pages → .txt game files
       scrape_box_scores.py     ← Playwright: GC box scores → rosters.json + roster.txt
       parse_gc_text.py         ← converts raw GC page text → WCWAA .txt format
       gen_reports.py           ← stat engine + ReportLab PDF generator (all 4 divisions)
       run_weekly.sh            ← one-command wrapper: steps 1→2→3 in sequence
-      gc_session.json          ← saved Playwright GC login session (auth cookies)
+      gc_session.json          ← saved Playwright GC login session (auth cookies) [gitignored]
       archetype_reference.txt  ← archetype system design notes
-    Logs/
+    Logs/                      ← runtime logs [gitignored]
       gen_reports_YYYYMMDD_HHMMSS.log
       gc_scraper_YYYYMMDD_HHMMSS.log
       scrape_box_scores_YYYYMMDD_HHMMSS.log
@@ -184,31 +192,82 @@ python3 gc_scraper.py --login
 ## How the Pipeline Works
 
 ### Step 1 — gc_scraper.py (Playwright scraper)
-- Navigates to GC schedule pages for all configured teams/orgs
-- Identifies all FINAL games not yet on disk
-- Navigates to the `/plays` page for each game
-- Extracts play-by-play text via `page.inner_text()` or JS DOM traversal
-- Passes raw text through `parse_gc_text.py` to produce a WCWAA-structured `.txt` file
-- Saves to the correct `Scorebooks/` or `Games/` folder
+**What it does:** Navigates GC schedule pages for all 4 divisions, finds new FINAL games, downloads play-by-play text, converts via `parse_gc_text.py`, saves `.txt` game files.
+
+**Key functions & locations:**
+| Function | ~Line | Purpose |
+|---|---|---|
+| `main()` | ~470 | CLI entry point — parses `--division`, `--team`, `--login`, `--check`, `--force`, `--verbose` |
+| `run_all_divisions()` | ~490 | Loops over `DIVISIONS` dict; calls `scrape_team_division()` per team |
+| `scrape_team_division()` | ~200 | Core per-team logic: loads schedule, finds FINAL games, scrapes each |
+| `scrape_plays_page()` | ~280 | Navigates to `/plays` URL, extracts raw page text via Playwright |
+| `SCHEDULE_JS` | ~130 | JS string injected into browser to extract game cards from GC's React DOM |
+| `DIVISIONS` dict | ~85 | All team IDs, slugs, folder paths — **edit here to add/remove teams** |
+| `DEBUG_SCHEDULE_RAW`, `DEBUG_PAGE_TEXT` | ~70 | Debug flags for raw JS dumps |
+
+**Dependencies:** `parse_gc_text.parse_gc_raw()`, `gc_session.json`
+
+---
 
 ### Step 2 — scrape_box_scores.py (Playwright scraper)
-- Navigates to `/box-score` pages for all FINAL games
-- Extracts batter names, jersey numbers, and AB/BB/SO stats via JS
-- Builds/updates `rosters.json` for Majors and Minors (keyed by team name)
-- Builds/updates `roster.txt` for Wild and Storm (per-team flat files)
-- Writes `box_verify.json` for Layer 4 cross-check in gen_reports.py
-- Detects **duplicate initials** automatically (e.g. Brian Allen + Ben Allen both → "B A"):
-  stores both under 3-char disambiguation keys ("Bri A", "Ben A") and writes a
-  `_collision_map` entry so gen_reports.py can split their plate appearances correctly
+**What it does:** Navigates GC `/box-score` pages, extracts player names + jersey numbers + AB/BB/SO stats, builds/updates `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm), writes `box_verify.json`.
+
+**Key functions & locations:**
+| Function | ~Line | Purpose |
+|---|---|---|
+| `main()` | ~760 | CLI entry point — parses `--division`, `--force`, `--verbose` |
+| `run_division()` | ~580 | Loads schedule, iterates FINAL games, calls `scrape_box_score_page()` |
+| `scrape_box_score_page()` | ~380 | Extracts batter rows from GC box score via injected JS |
+| `merge_player()` | ~260 | Merges new box score data into existing roster entry; handles `setdefault` migration guard |
+| `detect_collision()` | ~300 | Detects shared initials (e.g. B A); promotes both to 5-char keys + writes `_collision_map` |
+| `normalize_team_name()` | ~80 | Applies `TEAM_NAME_ALIASES` to fix GC rendering differences (e.g. `As-Blanco` vs `A's-Blanco`) |
+| `DIVISIONS` dict | ~100 | All team IDs, slugs, output paths — **must match gc_scraper.py exactly** |
+| `TEAM_NAME_ALIASES` | ~60 | Maps GC box score team name variants → canonical roster keys |
+| `DEBUG_BOX_SCORE_RAW`, `DEBUG_TEAM_NAMES` | ~55 | Debug flags |
+
+**Dependencies:** `gc_session.json`. Outputs consumed by `gen_reports.py`.
+
+**Known limitation:** Minors `/box-score` pages redirect to `/info` — jersey numbers permanently unavailable for Minors. Scraper detects this and skips gracefully.
+
+---
 
 ### Step 3 — gen_reports.py (stat engine + PDF generator)
-- Loads rosters from `rosters.json` (Majors/Minors) or `roster.txt` (Wild/Storm)
-- Reads all `.txt` and `-Reviewed.txt` game files for each team
-- Parses each file via `INNING_RE` + `DESC_RE` to extract plate appearances
-- Runs 4-layer verification on each game (see Verification section)
-- Computes per-batter stats: PA, AB, H, BB, HBP, TB, K, BIP, GB%, FB%, SM%, CStr%, FPT%
-- Assigns each batter an archetype label (Approach × Result)
-- Generates a multi-page PDF: player cards (pages 1-N) + summary table + scouting notes
+**What it does:** Reads game `.txt` files, parses every plate appearance, computes batting stats + archetypes, generates multi-page PDF scouting reports via ReportLab.
+
+**Key functions & locations:**
+| Function | ~Line | Purpose |
+|---|---|---|
+| `main()` | ~1700 | CLI entry point — parses `--division`, `--team`, `--verbose` |
+| `run_majors()` / `run_minors()` | ~1550 | Division runners: pre-scan all teams for league-wide percentile thresholds, then generate each PDF |
+| `run_wild()` / `run_storm()` | ~1600 | Travel division runners: per-opponent loop with try/except isolation |
+| `parse_game_file()` | ~420 | Core parser: reads `.txt` file, applies `INNING_RE` + `DESC_RE`, extracts PAs per batter |
+| `INNING_RE` | ~95 | Regex matching `===Top/Bottom N - TeamName===` headers — **critical: exact team name match** |
+| `parse_outcome()` | ~300 | Maps play description string → outcome code (1B, 2B, K, BB, FO, GO, etc.) |
+| `OUTCOME_TYPES` | ~110 | Dict of all recognised outcome strings — **add new play types here** |
+| `compute_stats()` | ~560 | Aggregates PA list → per-batter stat dict (AVG, OBP, SLG, SM%, etc.) |
+| `assign_archetype()` | ~650 | Applies Approach × Result label using league percentiles or fixed thresholds |
+| `_disambiguate_pas()` | ~480 | Splits shared-initials PAs using `_collision_map` + batting order alternation |
+| `build_pdf()` | ~750 | ReportLab PDF assembly: player cards + summary page |
+| `draw_player_card()` | ~800 | Renders one player card: spray chart, stat bars, archetype label, pitching approach |
+| `draw_summary_page()` | ~1100 | Renders summary table + two-sentence scouting notes per batter |
+| `DIVISIONS` dict | ~130 | Folder paths + roster file locations per division |
+| `DEBUG_PA_PARSING`, `DEBUG_ARCHETYPES`, `DEBUG_PITCH_SEQ` | ~42 | Debug flags |
+
+**Dependencies:** `rosters.json` or `roster.txt` (from step 2), `.txt` game files (from step 1).
+
+---
+
+### Utility — parse_gc_text.py
+**What it does:** Converts raw GC page text (scraped via Playwright) into the WCWAA-structured `.txt` game file format. Called internally by `gc_scraper.py` — never run directly.
+
+**Key functions & locations:**
+| Function | ~Line | Purpose |
+|---|---|---|
+| `parse_gc_raw()` | ~80 | Main entry: takes raw page text string, returns formatted WCWAA game file string |
+| `GC_NAME_FIXES` | ~20 | Dict of known GC data errors to auto-correct (e.g. `"$awyer"` → `"Sawyer"`) |
+| `OUTCOME_TYPES` | ~35 | Outcome string → code mapping (must stay in sync with `gen_reports.py`) |
+
+**Dependencies:** None (pure utility, no imports beyond stdlib).
 
 ---
 
@@ -293,17 +352,6 @@ has been manually patched with the disambiguation and `_collision_map`.
 
 ---
 
-## Unresolved Players — ?N P? and ?C C? in Cubs-Holtzer
-
-Two Cubs-Holtzer players appear across multiple games with initials `N P` and `C C`
-but are not in `rosters.json`. They show as `?N P?` and `?C C?` on the scouting report.
-
-**Fix:** Run `scrape_box_scores.py --division Majors` locally. The box score scraper
-will pick them up from the GC box score pages and populate `rosters.json`.
-Do NOT use the draft CSV as a fallback — box score is the authoritative source.
-
----
-
 ## Verification System (4 Layers, runs on every gen_reports.py call)
 
 | Layer | Check | Logged as |
@@ -374,9 +422,9 @@ Passive Overmatched/Walker   → Attack the Zone
 | As-Blanco | A's stored as "As" — handled by csv_overrides |
 | Braves-Rue | |
 | Twins-Ewart | |
-| Padres-Schick | Only team with jersey #s currently in rosters.json |
-| Cubs-Holtzer | Has B A collision map (Brian + Ben Allen) + unresolved N P, C C |
-| Rays-Madero | |
+| Padres-Schick | Jersey #s fully populated |
+| Cubs-Holtzer | Has B A collision map (Brian + Ben Allen); N P (Nathan P. #10) + C C (Chase C. #3) resolved |
+| Rays-Madero | Only 2/13 players have jersey #s scraped — data gap, not a code bug |
 
 ### Minors (14 teams)
 | Team-Coach key | Notes |
@@ -402,15 +450,15 @@ Passive Overmatched/Walker   → Attack the Zone
 | Arena National Browning 11U | `1yv2qtI89QSD` | Active |
 | South Charlotte Panthers 11U | `Kih0oavXNZB3` | Active |
 | Weddington Wild 11U | `Ye94sB963tUX` | Active |
-| T24 Garnet 11U | `I2XcyUwmye3p` | In progress — scraping underway |
-| QC Flight Baseball 11U | *(find URL)* | Games exist; team_id missing from script |
+| T24 Garnet 11U | `I2XcyUwmye3p` | 0 FINAL games on GC — not a priority |
+| QC Flight Baseball 11U | `1gqDRuls0oER` | Active — slug: `2026-spring-qc-flight-baseball-11u` |
 
 ### Storm Opponents (ITAA 9U travel)
 | Team | GC Team ID | Status |
 |---|---|---|
 | ITAA 9U Spartans | `lTxYlYLH52KU` | Active |
 | MARA 9U Stingers | `VdoWDJdlCgAH` | Active |
-| MILITIA 9U | `XIMp3aUceUsY` | In progress |
+| MILITIA 9U | `XIMp3aUceUsY` | 0 game files on disk yet |
 
 ---
 
@@ -436,7 +484,8 @@ Passive Overmatched/Walker   → Attack the Zone
 |---|---|---|
 | Minors jersey numbers unavailable | GC box score pages for Minors org redirect to /info | Permanent — no fix available |
 | SS spray chart zone always 0 | Parser maps both SS and 3B to zone "3B" | Cosmetic only |
-| `?N P?` and `?C C?` in Cubs-Holtzer | Players not in rosters.json | Run `scrape_box_scores.py --division Majors` (may already be fixed) |
+| ~~`?N P?` and `?C C?` in Cubs-Holtzer~~ | ~~Players not in rosters.json~~ | **RESOLVED** — Nathan P. #10 and Chase C. #3 confirmed in rosters.json |
+| Rays-Madero jersey gap | Only 2/13 players have jersey #s in rosters.json | Run `scrape_box_scores.py --force --division Majors` if data improves |
 | `date` variable not defined at line ~767 in `scrape_box_scores.py` | Pre-existing lint error, not from our changes | Check scope; likely needs `date` passed into function |
 
 ---
@@ -475,26 +524,18 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `Instructions.md` (this file), `CHANGELOG.md`
 
-1. **Run `gc_scraper.py`** — Pick up any new FINAL games added since Apr 22 across
-   all divisions (Majors are ~halfway through the season; Storm/Wild games ongoing)
+1. **Build interactive single-team scraping feature** — Add support for scraping
+   a single team on demand: `gc_scraper.py --team "Cubs" --division Majors` or
+   just `--team "QC Flight Baseball 11U"` for Wild/Storm (division inferred from
+   team name). Currently all-or-nothing per division. Target: `scrape_team_division()`
+   in `gc_scraper.py` (~line 200) and `run_division()` in `scrape_box_scores.py`
+   (~line 580).
 
-2. **Investigate UNKNOWN outcome for M M** — Padres-Midkiff, Apr18 game vs
-   Yankees-DePasquale. One PA has an unrecognised play description. Review the
-   raw game file and add to OUTCOME_TYPES if valid.
+2. **Run `gc_scraper.py`** after session 4 to pick up any new FINAL games
+   added since Apr 22 (season is ongoing).
 
-3. **Investigate BOX-VERIFY diffs in Minors** — Padres-Midkiff T H (+2 AB),
-   Reds-Naturale L R (+2 AB) + T L (+2 AB), Brewers-Linnenkohl M H (+2 AB),
-   Rays-Pearson K H (+3 AB). Check if these are real parsing misses or scoring
-   errors in the game files. Low priority but good to understand the pattern.
-
-4. **Watch for T24 Garnet / MILITIA 9U going FINAL** — Re-run scraper weekly;
-   they have 0 games on disk and 0 FINAL games on GC as of Apr 22.
-
-5. **Mid-season `scrape_box_scores.py` run** — Once new games are scraped, re-run
-   to capture any new jersey numbers or roster additions.
-
-6. **Consider v0.3.0 tag** — After next batch of new games is scraped, pipeline
-   re-run, and any new UNKNOWN outcomes resolved.
+3. **Consider v0.3.0 tag** — After the interactive scraping feature is built,
+   tested, and the next batch of games is verified.
 
 ---
 
