@@ -96,6 +96,25 @@ Fix:      Two-step rename via temp name (required on macOS due to
 Workaround: N/A — fully fixed, but requires care on initial folder creation.
 
 
+--------------------------------------------------------------------------------
+BUG 6: Shortstop (SS) spray chart zone always showed 0% — mapped to 3B
+--------------------------------------------------------------------------------
+Date:     Apr 23, 2026
+Problem:  In FIELDER_ZONES (gen_reports.py line 317), "shortstop" was mapped
+          to zone key "3B" instead of "SS":
+            ("shortstop","3B"),("third baseman","3B")   ← bug
+          The spray chart renderer (draw_field_spray_chart) had SS fully built
+          as its own arc sector (90°–112.5°), but extract_zone() was tagging
+          every shortstop play as "3B". Result: SS zone always displayed 0%,
+          and the 3B zone was inflated with misattributed shortstop plays.
+          This affected every BIP play description containing "shortstop" across
+          all four divisions — all PDFs were generating incorrect spray charts.
+Fix:      Changed mapping from ("shortstop","3B") to ("shortstop","SS").
+          File: gen_reports.py → FIELDER_ZONES (~line 317)
+          Full pipeline regenerated Apr 23 — all PDFs now show correct SS/3B split.
+Workaround: N/A — fully fixed.
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================
