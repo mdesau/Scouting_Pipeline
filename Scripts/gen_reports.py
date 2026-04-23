@@ -314,7 +314,7 @@ BIP_OUTCOMES = {SINGLE,DOUBLE,TRIPLE,HR,GO,FO,PO,LO,FC,ERROR,DP,SF,SB}
 FIELDER_ZONES = [
     ("left fielder","LF"),("center fielder","CF"),("right fielder","RF"),
     ("left field","LF"),("center field","CF"),("right field","RF"),
-    ("shortstop","3B"),("third baseman","3B"),
+    ("shortstop","SS"),("third baseman","3B"),
     ("second baseman","2B"),("first baseman","1B"),
     ("pitcher","P"),("catcher","HP"),
 ]
