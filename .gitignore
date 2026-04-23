@@ -55,5 +55,19 @@ Logs/*.log
 # --- Output PDFs ---
 # Generated PDFs are build artifacts. They're large and change every week.
 # Commit the *scripts that generate them*, not the PDFs themselves.
-# Uncomment the line below if you want to exclude PDFs from commits:
-# **/*.pdf
+# The examples/ folder is explicitly excluded from this rule (see below).
+**/*.pdf
+!examples/*.pdf
+
+# --- Game log .txt files (Scorebooks / Games folders) ---
+# Play-by-play game files are runtime data, not source code. They're scraped
+# fresh each week by gc_scraper.py and live in Google Drive, not in git.
+# The examples/ folder is explicitly excluded from this rule (see below).
+*/Scorebooks/*.txt
+*/Games/*.txt
+!examples/*.txt
+
+# --- Root-level test/scratch PDFs ---
+dot_size_comparison.pdf
+dummy_spray_chart.pdf
+sample_v2_approval.pdf
