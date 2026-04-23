@@ -193,6 +193,39 @@ Scouting_Pipeline/
 
 ---
 
+## Instructions.md — The AI Session Context File
+
+`Instructions.md` is a purpose-built context document that is loaded at the start of every AI-assisted coding session (e.g. GitHub Copilot, Claude, ChatGPT).
+
+### Why it exists
+
+AI coding assistants have a **context window** — a limit on how much text they can "remember" within a single conversation. In a long session involving complex code reviews, bug hunts, and multi-file edits, earlier decisions and discoveries get pushed out of the window and are effectively forgotten. This is called **context rot**.
+
+`Instructions.md` solves this by acting as a **persistent memory file** that is manually updated at the end of each session. When a new session starts, the AI reads this file first and immediately has full awareness of:
+
+- Every design decision made and *why* it was made
+- All known bugs, their root causes, and their current fix status
+- Exact file paths, team IDs, data formats, and naming conventions
+- The results of the most recent pipeline run
+- What to work on next
+
+Without it, every new session would require re-explaining the project from scratch — wasting time and risking the AI making suggestions that contradict prior decisions.
+
+### What to update after each session
+
+At the end of any session where meaningful work was done, update these sections in `Instructions.md`:
+
+| Section | What to update |
+|---|---|
+| **Git log block** | Add the new commit hashes and messages |
+| **Latest Pipeline Run Results** | Update PA counts, game counts, and any new warnings |
+| **Known Issues / Pending Work** | Mark resolved issues as ~~strikethrough~~; add new ones |
+| **Next Session Priorities** | Replace completed items with what's actually next |
+
+The goal is that `Instructions.md` + `CHANGELOG.md` together should give any AI (or human) enough context to pick up exactly where the last session left off — with zero verbal re-briefing required.
+
+---
+
 ## Versioning
 
 This project follows [Semantic Versioning](https://semver.org/).
