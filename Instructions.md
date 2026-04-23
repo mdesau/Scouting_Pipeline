@@ -23,17 +23,14 @@ across the full build history of this project.
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
 ```
+b9cd1b3  fix: SS spray chart zone — shortstop was incorrectly mapped to 3B zone in FIELDER_ZONES
+17ec390  docs: session 3 Instructions.md overhaul — function maps, stale content removed
 7d1d815  docs: add Instructions.md context file explanation to README
 683d8ee  docs: add README.md with setup guide, scripts reference, troubleshooting
 48c8efa  refactor: rename CLAUDE.md → Instructions.md, remove ManualGuide + VSCODE_PLAN, add examples/
 d0812da  fix: INNING_RE tolerates missing closing === in inning headers
 bb1aa14  docs: update CLAUDE.md with session 2 results
 4e1ce0e  feat: Infield Fly mapping, QC Flight team_id, verify Minors all-clear
-58801fa  docs: update CLAUDE.md + CHANGELOG.md with full session 1 results
-854f25c  fix: add try/except error handling around division and team loops
-c250384  feat: add DEBUG_CONFIG sections + --verbose flag to all 3 main scripts
-e803f4a  fix: two bugs in scrape_box_scores.py roster building
-7dc194f  fix: repair SCHEDULE_JS date+team parsing for GC's current DOM
 8b082f9  (tag: v0.1.0) feat: initial project setup v0.1.0
 ```
 
@@ -483,40 +480,30 @@ Passive Overmatched/Walker   → Attack the Zone
 | Issue | Details | Fix |
 |---|---|---|
 | Minors jersey numbers unavailable | GC box score pages for Minors org redirect to /info | Permanent — no fix available |
-| SS spray chart zone always 0 | Parser maps both SS and 3B to zone "3B" | Cosmetic only |
+| ~~SS spray chart zone always 0~~ | ~~Parser mapped both SS and 3B to zone "3B" in `FIELDER_ZONES`~~ | **FIXED** — `("shortstop","SS")` corrected in `gen_reports.py` line 317; all PDFs regenerated Apr 23 |
 | ~~`?N P?` and `?C C?` in Cubs-Holtzer~~ | ~~Players not in rosters.json~~ | **RESOLVED** — Nathan P. #10 and Chase C. #3 confirmed in rosters.json |
 | Rays-Madero jersey gap | Only 2/13 players have jersey #s in rosters.json | Run `scrape_box_scores.py --force --division Majors` if data improves |
 | `date` variable not defined at line ~767 in `scrape_box_scores.py` | Pre-existing lint error, not from our changes | Check scope; likely needs `date` passed into function |
 
 ---
 
-## Latest Pipeline Run Results (Apr 22, 2026 — Session 3)
+## Latest Pipeline Run Results (Apr 23, 2026 — Session 3 continued)
+
+### New games scraped (Apr 23)
+- 4 new FINAL games picked up: Apr22-Guardians-Esau_vs_Cubs-Holtzer, Apr22-Rangers-Leonard_vs_Guardians-Plunkett, Apr22-Brewers-Linnenkohl_vs_Marlins-Eberlin, Apr22-Astros-Barbour_vs_Braves-Brooks
+- All 4 processed and reviewed successfully
 
 ### Majors (11 teams) ✅
-- All 11 PDFs regenerated at 11:50 — timestamps confirmed
-- 35 games total, all processed, no errors
+- All 11 PDFs regenerated with SS fix applied
+- 39 games total (4 new vs. session 2)
 
 ### Minors (14 teams) ✅
-- All 14 PDFs generated successfully
-- 90 games total, 2342 PAs across all 14 teams (6–7 games each)
-- BOX-VERIFY warnings present (Padres-Midkiff T H, Reds-Naturale L R + T L,
-  Brewers-Linnenkohl M H, Rays-Pearson K H) — minor AB discrepancies, cosmetic only
-- 1 UNKNOWN outcome: M M in Apr18 Padres-Midkiff — investigate game file if needed
+- All 14 PDFs regenerated with SS fix applied
+- 94 games total (4 new vs. session 2, 2342+ PAs)
 
-### Wild (5 teams) — 4/5 ✅
-- Arena National Browning 11U: 9 games, 212 PAs ✅
-- QC Flight Baseball 11U: 15 games, 400 PAs ✅
-- South Charlotte Panthers 11U: 8 games, 194 PAs ✅
-- Weddington Wild 11U: 11 games, 284 PAs ✅
-- T24 Garnet 11U: 0 FINAL games on GC (not a code bug)
-- QC Flight: 3 INNING GAP warnings (inngs 2, 2, 3 missing) — cosmetic, short games
-
-### Storm (4 teams active) ✅
-- 9u Challenge: 6 games, 144 PAs ✅
-- Crushers White 10U: 7 games, 129 PAs ✅
-- ITAA 9U Spartans: 7 games, 175 PAs ✅ (3 INNING GAP warnings — cosmetic)
-- MARA 9U Stingers: 17 games, 340 PAs ✅ (8 INNING GAP warnings — cosmetic)
-- MILITIA 9U: 0 game files on disk yet
+### Wild / Storm
+- Unchanged from session 2 (no new games scraped for travel divisions)
+- All PDFs regenerated with SS fix applied
 
 ---
 
