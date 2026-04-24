@@ -536,6 +536,32 @@ Passive Overmatched/Walker   → Attack the Zone
 3. **Verify SBA Alabama + TN Nationals PDFs** — First PDFs generated Apr 24;
    confirm jersey numbers showing correctly (Bug 11 fix applied).
 
+4. **Scheduled / automatic pipeline runs (target v2.1)** — Explore running the full
+   pipeline automatically on a schedule (e.g. every Sunday night after game weekend)
+   so PDFs are ready Monday morning without a manual trigger.
+
+   **Approaches to evaluate:**
+
+   | Approach | How it works | Pros | Cons |
+   |---|---|---|---|
+   | **macOS `launchd`** (LaunchAgent plist) | macOS-native scheduler; `.plist` file in `~/Library/LaunchAgents/` triggers `run_scout.sh` at a set time | Native OS integration, runs without any extra software, survives reboots, easy to inspect with `launchctl` | XML plist syntax is verbose/unfriendly; laptop must be awake + on; no built-in retry on failure |
+   | **`cron`** (crontab) | Unix classic; `crontab -e` entry like `0 22 * * 0 bash run_scout.sh` | Universally familiar, simple syntax, same result as launchd for basic use | Deprecated on modern macOS in favour of launchd; may not run if laptop is asleep; no GUI |
+   | **GitHub Actions** | Workflow YAML with `schedule: cron` trigger; runs in GitHub cloud VM | Runs in cloud — laptop doesn't need to be on; free for private repos (limited minutes) | **Can't run Playwright/Chromium browser scraping against gc.com** — GC requires authenticated session cookies (`gc_session.json`) which live locally; cloud VM has no access. Viable only for the PDF generation step (Step 3) if game files are committed to the repo first |
+   | **Python `schedule` library** | Long-running Python process; `schedule.every().sunday.at("22:00").do(run_pipeline)` | Pure Python, portable, easy to read | Process must stay running (needs a persistent terminal or a wrapper service); overkill vs. OS scheduler |
+   | **macOS Automator + Calendar** | Automator workflow triggered by a Calendar event | No terminal needed; GUI-friendly | Fragile, hard to debug, not developer-standard |
+
+   **Recommendation to evaluate in session 5:** `launchd` LaunchAgent is the right
+   native macOS approach for Steps 1+2+3 (all local). A sample `.plist` file should
+   be created at `Scout_Development/launchd/com.wcwaa.scout_pipeline.plist` and added
+   to the repo (but NOT symlinked to `~/Library/LaunchAgents/` automatically — user
+   installs it manually). Key design questions to resolve:
+   - Should it run the full pipeline (`[0]` all divisions) or just scrape + generate
+     separately so failures are isolated?
+   - How does it handle a sleeping laptop (Wake for network access? Skip + retry?)?
+   - Where does stdout/stderr go when running headless (log file vs. macOS Console)?
+   - Should it send a macOS notification on completion / failure?
+   - Version bump to `v2.1.0` after implementation and testing.
+
 ---
 
 ## Troubleshooting
