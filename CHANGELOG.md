@@ -10,21 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+---
+
+## [2.0.0] - 2026-04-24
+
 ### Added
-- **`--team` filter in `scrape_box_scores.py`** — Step 2 now respects single-team
-  selection for Wild/Storm divisions. `scrape_team_division()` and `run()` accept a
-  `team_filter` param (partial, case-insensitive match against team name). `argparse`
-  gains a `--team` argument. `interactive_menu.py` Step 2 now passes `team_args`
-  alongside `div_args` so a single-team run only scrapes that one team's box scores.
-  *(Bug 10 — see Bugs_List.txt)*
-- **`interactive_menu.py`** — new interactive pipeline launcher:
+- **`interactive_menu.py`** — new interactive pipeline launcher replacing the bare `run_scout.sh` logic:
   - Numbered menu: `[0]` full pipeline (default), `[1]` single division, `[2]` single team, `[3]` add new Wild/Storm opponent, `[Q]` quit
   - CLI passthrough mode: `bash run_scout.sh --division Wild --team "QC Flight"` skips the menu and runs directly
   - Team lists built dynamically from `gc_scraper.DIVISIONS` (single source of truth — no duplication)
   - Majors/Minors team lists read from `rosters.json` keys
   - Add-new-team flow: parses GC URL → suggests folder name → inserts into both scraper files → creates folder structure
   - Session file check upfront — warns before menu if `gc_session.json` is missing
-- `run_scout.sh` simplified to ~55 lines (venv activation + `python3 interactive_menu.py "$@"`)
+- **Pipeline version string** — `__version__ = "2.0.0"` in `interactive_menu.py`; displayed in menu header and `run_scout.sh` launch banner
+- **`--team` filter in `scrape_box_scores.py`** — Step 2 now respects single-team
+  selection for Wild/Storm divisions. `scrape_team_division()` and `run()` accept a
+  `team_filter` param (partial, case-insensitive match against team name). `argparse`
+  gains a `--team` argument. `interactive_menu.py` Step 2 now passes `team_args`
+  alongside `div_args` so a single-team run only scrapes that one team's box scores.
+  *(Bug 10 — see Bugs_List.txt)*
 - **Two new Wild opponents** added to `gc_scraper.py`, `scrape_box_scores.py`, and `Instructions.md`:
   - SBA Alabama National 12U — team_id `Wn2Abf32IXOz`, slug `2026-summer-sba-alabama-national-12u`
   - TN Nationals Heichelbech 12U — team_id `QebtI4WHVMPn`, slug `2026-summer-tn-nationals-heichelbech-12u`
@@ -32,6 +36,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Renamed `run_weekly.sh` → `run_scout.sh`** — all references updated in `Instructions.md`, `README.md`, `CHANGELOG.md`, and the script header
+- **`run_scout.sh`** simplified to ~55 lines (venv activation + `python3 interactive_menu.py "$@"`)
+- **`gen_reports.py` `--team` filter** — `run_wild()` now uses partial case-insensitive match (was exact match, broke single-team PDF regeneration)
+- **`load_wild_roster()`** — now indexes each player under both `"R B"` (roster.txt key) and `"Ryder B"` (game-file format) so jersey numbers resolve correctly for Wild/Storm PDFs *(Bug 11 — see Bugs_List.txt)*
+
+### Fixed
+- **Wild/Storm PDF cards missing jersey numbers** — `load_wild_roster()` key format mismatch with game-file initials format *(Bug 11)*
+- **Step 2 ignored `--team` for Wild/Storm** — `scrape_box_scores.py` always scraped all division teams even for single-team runs *(Bug 10)*
+- **`SCHEDULE_JS` `final` detection broken for Wild/Storm team pages** — score pattern `/^[WL]\s+\d+-\d+/` added alongside `FINAL` check *(Bug 7)*
+- **SCHEDULE_JS team-page filenames had wrong date and team name** — leaf-node date detection + `is_home` + team-name-based filename construction *(Bug 8)*
+- **`NameError: date not defined` in `scrape_box_scores.py`** *(Bug 9)*
+
+---
+
+## [1.0.0] - 2026-04-23
+
+> Tagged retroactively on `0e4c05e` — last commit before interactive menu and `run_scout.sh` rename.
+> Represents the fully working pipeline with Majors, Minors, Wild, and Storm all operational
+> under the original `run_weekly.sh` launcher.
+
+### State at v1.0.0
+- All 4 divisions generating PDFs: Majors (11 teams), Minors (14 teams), Wild (5 opponents), Storm (5 opponents)
+- `run_weekly.sh` — CLI-only launcher (no interactive menu)
+- Wild/Storm scraping fully operational (Bugs 7/8/9 fixed in this cycle before tagging)
+- SS spray chart zone fix applied *(Bug 6)*
+- Full pipeline verified clean on Apr 23 2026
 
 ---
 

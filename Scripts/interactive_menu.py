@@ -88,11 +88,14 @@ except ImportError:
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
+__version__ = "2.0.0"
+
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
     print()
     print("=" * 58)
     print("  WCWAA 2026 Spring — Scouting Pipeline")
+    print(f"  v{__version__}")
     print("=" * 58)
     print()
 
