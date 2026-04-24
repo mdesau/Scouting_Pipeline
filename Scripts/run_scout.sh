@@ -1,10 +1,10 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# run_weekly.sh — WCWAA 2026 Spring  |  Full pipeline, one command
+# run_scout.sh — WCWAA 2026 Spring  |  Full pipeline, one command
 #
 # Run this from the Scripts folder after each game week:
 #   cd ~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My\ Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts
-#   bash run_weekly.sh
+#   bash run_scout.sh
 #
 # What it does (in order):
 #   1. Scrape all new FINAL play-by-play files from GameChanger (all 4 divisions)

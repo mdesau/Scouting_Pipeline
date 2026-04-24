@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+### Added
+- **Two new Wild opponents** added to `gc_scraper.py`, `scrape_box_scores.py`, and `Instructions.md`:
+  - SBA Alabama National 12U — team_id `Wn2Abf32IXOz`, slug `2026-summer-sba-alabama-national-12u`
+  - TN Nationals Heichelbech 12U — team_id `QebtI4WHVMPn`, slug `2026-summer-tn-nationals-heichelbech-12u`
+  - Folder structures created: `Wild/SBA Alabama National 12U/Games/` and `Wild/TN Nationals Heichelbech 12U/Games/`
+
+### Changed
+- **Renamed `run_weekly.sh` → `run_scout.sh`** — all references updated in `Instructions.md`, `README.md`, `CHANGELOG.md`, and the script header
+
 ---
 
 ## [0.2.0] - 2026-04-22

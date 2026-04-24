@@ -80,7 +80,7 @@ python3 gc_scraper.py --login
 
 ```bash
 cd Scripts
-bash run_weekly.sh
+bash run_scout.sh
 ```
 
 That's it. New PDFs appear in the Google Drive folder automatically. No browser interaction required.
@@ -96,7 +96,7 @@ The table below lists every script in the order it is run, what it does, and wha
 | 1 | `gc_scraper.py` | Navigates GC schedule pages for all 4 divisions; finds new FINAL games; downloads play-by-play text; saves `.txt` game files to the correct folder | `parse_gc_text.py` (called internally), `gc_session.json` (auth) | `--login` `--division` `--team` `--check` `--force` `--verbose` |
 | 2 | `scrape_box_scores.py` | Navigates GC box score pages; extracts player names + jersey numbers; builds `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm); writes `box_verify.json` for cross-checking | `gc_session.json` (auth) | `--division` `--force` `--verbose` |
 | 3 | `gen_reports.py` | Reads all `.txt` game files; parses every plate appearance; computes batting stats + archetypes; generates multi-page PDF scouting reports via ReportLab | `rosters.json` / `roster.txt` (from step 2), game `.txt` files (from step 1) | `--division` `--team` `--verbose` |
-| — | `run_weekly.sh` | Shell wrapper that runs steps 1 → 2 → 3 in sequence with one command; activates the venv automatically | All three scripts above | *(none — runs everything)* |
+| — | `run_scout.sh` | Shell wrapper that runs steps 1 → 2 → 3 in sequence with one command; activates the venv automatically | All three scripts above | *(none — runs everything)* |
 | — | `parse_gc_text.py` | Utility: converts raw GC page text into the WCWAA-structured `.txt` game file format; applies name-fix corrections (e.g. `$awyer` → `Sawyer`) | *(none — pure utility, no external deps)* | *(imported by `gc_scraper.py`, not run directly)* |
 | — | `diag_schedule.py` | Diagnostic only: dumps the raw GC schedule page DOM to help debug layout changes; not part of the normal pipeline | `gc_session.json` (auth) | `--division` |
 
@@ -183,7 +183,7 @@ Scouting_Pipeline/
     scrape_box_scores.py
     parse_gc_text.py
     gen_reports.py
-    run_weekly.sh
+    run_scout.sh
     diag_schedule.py
     archetype_reference.txt
   examples/

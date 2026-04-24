@@ -41,7 +41,7 @@ bb1aa14  docs: update CLAUDE.md with session 2 results
 | `scrape_box_scores.py` | 820 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
 | `gen_reports.py` | 1756 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
 | `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
-| `run_weekly.sh` | 82 | Shell orchestrator | — | — | — |
+| `run_scout.sh` | 82 | Shell orchestrator | — | — | — |
 
 ---
 
@@ -78,7 +78,7 @@ Spring/
       scrape_box_scores.py     ← Playwright: GC box scores → rosters.json + roster.txt
       parse_gc_text.py         ← converts raw GC page text → WCWAA .txt format
       gen_reports.py           ← stat engine + ReportLab PDF generator (all 4 divisions)
-      run_weekly.sh            ← one-command wrapper: steps 1→2→3 in sequence
+      run_scout.sh             ← one-command wrapper: steps 1→2→3 in sequence
       gc_session.json          ← saved Playwright GC login session (auth cookies) [gitignored]
       archetype_reference.txt  ← archetype system design notes
     Logs/                      ← runtime logs [gitignored]
@@ -120,7 +120,7 @@ Spring/
 **One command covers the full pipeline:**
 ```bash
 cd ~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My\ Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts
-bash run_weekly.sh
+bash run_scout.sh
 ```
 
 **Step by step:**
@@ -176,7 +176,7 @@ playwright install chromium
 ```bash
 source .../Scout_Development/venv/bin/activate
 ```
-(`run_weekly.sh` activates the venv automatically.)
+(`run_scout.sh` activates the venv automatically.)
 
 Then run login once to save session:
 ```bash
@@ -449,6 +449,8 @@ Passive Overmatched/Walker   → Attack the Zone
 | Weddington Wild 11U | `Ye94sB963tUX` | Active |
 | T24 Garnet 11U | `I2XcyUwmye3p` | 0 FINAL games on GC — not a priority |
 | QC Flight Baseball 11U | `1gqDRuls0oER` | Active — slug: `2026-spring-qc-flight-baseball-11u` |
+| SBA Alabama National 12U | `Wn2Abf32IXOz` | Added Apr 23 — slug: `2026-summer-sba-alabama-national-12u` |
+| TN Nationals Heichelbech 12U | `QebtI4WHVMPn` | Added Apr 23 — slug: `2026-summer-tn-nationals-heichelbech-12u` |
 
 ### Storm Opponents (ITAA 9U travel)
 | Team | GC Team ID | Status |
