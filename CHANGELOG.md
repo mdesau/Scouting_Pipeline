@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
 ### Added
+- **`--team` filter in `scrape_box_scores.py`** — Step 2 now respects single-team
+  selection for Wild/Storm divisions. `scrape_team_division()` and `run()` accept a
+  `team_filter` param (partial, case-insensitive match against team name). `argparse`
+  gains a `--team` argument. `interactive_menu.py` Step 2 now passes `team_args`
+  alongside `div_args` so a single-team run only scrapes that one team's box scores.
+  *(Bug 10 — see Bugs_List.txt)*
 - **`interactive_menu.py`** — new interactive pipeline launcher:
   - Numbered menu: `[0]` full pipeline (default), `[1]` single division, `[2]` single team, `[3]` add new Wild/Storm opponent, `[Q]` quit
   - CLI passthrough mode: `bash run_scout.sh --division Wild --team "QC Flight"` skips the menu and runs directly

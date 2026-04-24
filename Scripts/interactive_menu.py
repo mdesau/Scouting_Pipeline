@@ -233,14 +233,14 @@ def run_pipeline(division=None, team=None):
     _run(["python3", "gc_scraper.py"] + div_args + team_args)
 
     # Step 2: Update rosters
-    # scrape_box_scores.py accepts --division but not --team (always does full division)
-    # WHY no --team here: roster updates are fast and per-division; partial team
-    # roster updates would leave other players stale in the same JSON file.
+    # --team is now supported by scrape_box_scores.py for Wild/Storm team-based divisions.
+    # For Majors/Minors (org-based), --team is ignored — the full division roster JSON
+    # is always updated together since all teams share one file.
     print()
     print("─" * 58)
-    print(f"▶ Step 2/3  Update rosters    [{division or 'ALL'}]")
+    print(f"▶ Step 2/3  Update rosters    [{scope}]")
     print("─" * 58)
-    _run(["python3", "scrape_box_scores.py"] + div_args)
+    _run(["python3", "scrape_box_scores.py"] + div_args + team_args)
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).

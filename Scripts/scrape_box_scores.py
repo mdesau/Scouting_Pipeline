@@ -638,7 +638,7 @@ def scrape_division(page, div_name, cfg, log, force=False):
     return rosters, verify
 
 
-def scrape_team_division(page, div_name, cfg, log, force=False):
+def scrape_team_division(page, div_name, cfg, log, force=False, team_filter=None):
     """
     Scrape box scores for Wild or Storm team-based divisions.
     For each team, identifies games from that team's schedule page,
@@ -657,6 +657,10 @@ def scrape_team_division(page, div_name, cfg, log, force=False):
     teams    = cfg.get("teams", [])
 
     for team_id, slug, team_name in teams:
+        # Skip this team if a filter was supplied and it doesn't match
+        # WHY case-insensitive: user may type "weddington wild" and we want it to match
+        if team_filter and team_filter.lower() not in team_name.lower():
+            continue
         log.info(f"\n[{div_name}] Team: {team_name}")
         team_dir    = base_dir / team_name
         roster_path = team_dir / "roster.txt"
@@ -783,7 +787,7 @@ def scrape_team_division(page, div_name, cfg, log, force=False):
 # MAIN
 # ─────────────────────────────────────────────────────────────
 
-def run(divisions_filter=None, force=False, verbose=False):
+def run(divisions_filter=None, team_filter=None, force=False, verbose=False):
     log = setup_logging(verbose=verbose)
 
     if not SESSION_FILE.exists():
@@ -804,7 +808,7 @@ def run(divisions_filter=None, force=False, verbose=False):
             if cfg["type"] == "org":
                 scrape_division(page, div_name, cfg, log, force=force)
             else:
-                scrape_team_division(page, div_name, cfg, log, force=force)
+                scrape_team_division(page, div_name, cfg, log, force=force, team_filter=team_filter)
 
         ctx.storage_state(path=str(SESSION_FILE))
         browser.close()
@@ -819,7 +823,9 @@ if __name__ == "__main__":
                         help="Divisions to scrape (default: all)")
     parser.add_argument("--force", action="store_true",
                         help="Re-scrape all games even if already in JSON/roster.txt")
+    parser.add_argument("--team", default=None,
+                        help="Only scrape this team (Wild/Storm only; partial match, case-insensitive)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Show DEBUG-level messages on screen (normally only written to log file)")
     args = parser.parse_args()
-    run(divisions_filter=args.division, force=args.force, verbose=args.verbose)
+    run(divisions_filter=args.division, team_filter=args.team, force=args.force, verbose=args.verbose)

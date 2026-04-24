@@ -187,6 +187,25 @@ Fix:      Changed import line:
 Workaround: N/A — fully fixed.
 
 
+--------------------------------------------------------------------------------
+BUG 10: Step 2 (scrape_box_scores.py) ignored --team filter; always scraped all division teams
+--------------------------------------------------------------------------------
+Date:     Apr 2026
+Problem:  When running the pipeline for a single Wild/Storm team (e.g. "QC Flight"),
+          Step 2 (roster scrape) would loop through ALL teams in that division even
+          though only one team was requested. No --team arg existed in argparse;
+          run() and scrape_team_division() had no team_filter param; interactive_menu.py
+          passed div_args but not team_args to Step 2.
+Fix:      Added team_filter=None param to scrape_team_division() and run().
+          Inside scrape_team_division() team loop, added:
+            if team_filter and team_filter.lower() not in team_name.lower(): continue
+          Added --team arg to argparse; wired to run().
+          Updated interactive_menu.py Step 2 call to pass team_args alongside div_args.
+          Files: scrape_box_scores.py, interactive_menu.py
+          Commit: (next commit)
+Workaround: N/A — fully fixed.
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================
