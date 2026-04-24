@@ -170,7 +170,10 @@ SCHEDULE_JS = """
                     date: currentDate,
                     id: m[1],
                     text: lines.join(' | '),
-                    final: lines.includes('FINAL')
+                    // WHY TWO CONDITIONS: see gc_scraper.py SCHEDULE_JS comment.
+                    // Org pages show 'FINAL'; team pages (Wild/Storm) show 'W 7-5' / 'L 9-11'.
+                    final: lines.includes('FINAL') ||
+                           lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
                 });
             }
         }

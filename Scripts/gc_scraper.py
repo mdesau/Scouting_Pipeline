@@ -236,7 +236,13 @@ SCHEDULE_JS = """
                     away:  away,
                     home:  home,
                     text:  lines.join(' | '),   // kept for debugging
-                    final: lines.includes('FINAL')
+                    // WHY TWO CONDITIONS:
+                    // Org pages (Majors/Minors) show 'FINAL' as explicit text.
+                    // Team pages (Wild/Storm) show a score like 'W 7-5' or 'L 9-11'
+                    // instead of 'FINAL' — no 'FINAL' text ever appears on those pages.
+                    // A score pattern means the game is over and has play-by-play data.
+                    final: lines.includes('FINAL') ||
+                           lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
                 });
             }
         }
