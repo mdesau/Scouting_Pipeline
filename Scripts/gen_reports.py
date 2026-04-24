@@ -1654,7 +1654,11 @@ def run_wild(teams_filter=None, division="Wild"):
         logger.warning(f"No opponent teams found in {wild_base}")
         return
 
-    targets = [t for t in all_opponents if (teams_filter is None or t in teams_filter)]
+    targets = [
+        t for t in all_opponents
+        if teams_filter is None
+        or any(f.lower() in t.lower() for f in teams_filter)
+    ]
 
     for opponent_name in targets:
         try:
