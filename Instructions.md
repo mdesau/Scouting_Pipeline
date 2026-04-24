@@ -18,20 +18,21 @@ across the full build history of this project.
 - **Virtual environment:** `Scout_Development/venv/` — always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in project root
-- **Git:** Local repo, 9 commits on `main`, tagged `v0.1.0` and `v0.2.0`
+- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0` (current)
 - **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
 ```
-b9cd1b3  fix: SS spray chart zone — shortstop was incorrectly mapped to 3B zone in FIELDER_ZONES
-17ec390  docs: session 3 Instructions.md overhaul — function maps, stale content removed
-7d1d815  docs: add Instructions.md context file explanation to README
-683d8ee  docs: add README.md with setup guide, scripts reference, troubleshooting
-48c8efa  refactor: rename CLAUDE.md → Instructions.md, remove ManualGuide + VSCODE_PLAN, add examples/
-d0812da  fix: INNING_RE tolerates missing closing === in inning headers
-bb1aa14  docs: update CLAUDE.md with session 2 results
-4e1ce0e  feat: Infield Fly mapping, QC Flight team_id, verify Minors all-clear
-8b082f9  (tag: v0.1.0) feat: initial project setup v0.1.0
+e9f338e  (tag: v2.0.0) chore: __version__ = 2.0.0, version banner, CHANGELOG v1.0.0+v2.0.0
+0d7e2e7  fix: gen_reports --team filter uses partial match for Wild/Storm
+fd26a40  fix: Wild/Storm PDF jersey numbers missing — load_wild_roster dual key format (Bug 11)
+c7a0109  fix: scrape_box_scores --team filter; Step 2 respects single-team selection (Bug 10)
+cc76d6e  docs: log Bugs 7-9 in Bugs_List.txt, Instructions.md, CHANGELOG
+00d8d40  fix: SCHEDULE_JS team-page date/filename + date import (Bugs 8-9)
+ea04909  fix: SCHEDULE_JS final detection for Wild/Storm team pages (Bug 7)
+f858c3d  feat: add interactive_menu.py — numbered pipeline menu
+c2828e4  feat: rename run_weekly.sh → run_scout.sh; add SBA Alabama + TN Nationals
+0e4c05e  (tag: v1.0.0) docs: log Bug 6 — SS spray chart zone mapped to 3B
 ```
 
 ### Scripts Overview (line counts as of Apr 23, 2026)
@@ -522,18 +523,18 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `Instructions.md` (this file), `CHANGELOG.md`
 
-1. **Build interactive single-team scraping feature** — Add support for scraping
-   a single team on demand: `gc_scraper.py --team "Cubs" --division Majors` or
-   just `--team "QC Flight Baseball 11U"` for Wild/Storm (division inferred from
-   team name). Currently all-or-nothing per division. Target: `scrape_team_division()`
-   in `gc_scraper.py` (~line 200) and `run_division()` in `scrape_box_scores.py`
-   (~line 580).
+**Current version: v2.0.0** — interactive menu pipeline fully operational.
 
-2. **Run `gc_scraper.py`** after session 4 to pick up any new FINAL games
-   added since Apr 22 (season is ongoing).
+1. **Run full pipeline** — `bash run_scout.sh` → pick `[0] Full pipeline` to pick
+   up any new FINAL games since last run (season is ongoing).
 
-3. **Consider v0.3.0 tag** — After the interactive scraping feature is built,
-   tested, and the next batch of games is verified.
+2. **Add `--team` filter to `gc_scraper.py` Step 1** — Currently `scrape_team_division()`
+   in `gc_scraper.py` has no team filter; single-team runs still scrape all division
+   games in Step 1. Target: same pattern as `scrape_box_scores.py` `team_filter` param
+   added in v2.0.0. Low urgency — Step 1 is fast and idempotent.
+
+3. **Verify SBA Alabama + TN Nationals PDFs** — First PDFs generated Apr 24;
+   confirm jersey numbers showing correctly (Bug 11 fix applied).
 
 ---
 

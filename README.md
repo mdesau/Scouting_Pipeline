@@ -1,5 +1,5 @@
 # WCWAA Scouting Pipeline
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -232,5 +232,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 | Version | Date | Summary |
 |---|---|---|
+| `v2.0.0` | Apr 24, 2026 | Interactive menu (`interactive_menu.py`), `run_scout.sh` rename, `--team` filter, Wild/Storm jersey numbers fixed (Bugs 10–11) |
+| `v1.0.0` | Apr 23, 2026 | All 4 divisions fully operational under `run_weekly.sh`; Bugs 6–9 fixed |
 | `v0.2.0` | Apr 22, 2026 | Full pipeline verified across all 4 divisions; INNING_RE fix; QC Flight added; Infield Fly mapping |
 | `v0.1.0` | Apr 21, 2026 | Initial setup — venv, Playwright, ReportLab, full pipeline transfer to local VS Code |
