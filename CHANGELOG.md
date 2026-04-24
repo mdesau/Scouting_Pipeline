@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timeout or crash no longer kills the entire pipeline
 
 ### Fixed
+- **`SCHEDULE_JS` `final` detection broken for Wild/Storm team pages** — GC team schedule
+  pages show a score (`W 7-5`, `L 9-11`) for completed games instead of the word `FINAL`.
+  The org pages (Majors/Minors) still show `FINAL`. Added score-pattern check
+  (`/^[WL]\s+\d+-\d+/`) alongside the existing `FINAL` check in both `gc_scraper.py`
+  and `scrape_box_scores.py`. All Wild/Storm games were returning 0 FINAL found; fix
+  restores detection of all completed games (Weddington Wild: 19 games confirmed visible)
 - **INNING_RE regex** (`gc_scraper.py`) — regex now tolerates missing closing `===`
   in inning headers. Was causing opponent PAs to leak into the wrong team's report;
   affected 8 game files. Patched 12 broken inning headers in existing scorebooks.

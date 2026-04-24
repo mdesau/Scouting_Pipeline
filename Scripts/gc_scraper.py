@@ -197,52 +197,94 @@ SCHEDULE_JS = """
         'May':'May','June':'Jun','July':'Jul','August':'Aug',
         'September':'Sep','October':'Oct','November':'Nov','December':'Dec'
     };
-    const DAY_ABBRS = new Set(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']);
+    // Uppercase day abbreviations used on team pages (SUN, SAT, MON, etc.)
+    const DAY_ABBRS_UPPER = new Set(['MON','TUE','WED','THU','FRI','SAT','SUN']);
+    // Title-case day abbreviations used on org pages inside card lines
+    const DAY_ABBRS_TITLE = new Set(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']);
 
     let currentMonthYear = '';  // e.g. 'March 2026'
     let currentDateTag   = '';  // e.g. 'Mar21' — carried forward for same-day games
+    let pendingDayAbbr   = '';  // uppercase day seen outside a card (team pages)
 
     document.body.querySelectorAll('*').forEach(el => {
-        // Detect month/year section headers like 'March 2026'
         if (el.children.length === 0 && el.innerText) {
             const t = el.innerText.trim();
+
+            // Month/year section headers: 'March 2026'
             if (/^(January|February|March|April|May|June|July|August|September|October|November|December) \\d{4}$/.test(t)) {
                 currentMonthYear = t;
+                return;
+            }
+
+            // Team-page date layout: day-abbr (MON/TUE/...) and day-number appear
+            // as SEPARATE leaf nodes OUTSIDE the <a> card.
+            // We capture them here so they're available when the card link is processed.
+            if (DAY_ABBRS_UPPER.has(t)) {
+                pendingDayAbbr = t;
+                return;
+            }
+            // Day number follows immediately after the day-abbr leaf node
+            if (pendingDayAbbr && /^\\d{1,2}$/.test(t)) {
+                const monthParts = currentMonthYear.split(' ');
+                const abbr = MONTH_ABBR[monthParts[0]] || monthParts[0].slice(0, 3);
+                currentDateTag = abbr + t.padStart(2, '0');
+                pendingDayAbbr = '';  // consumed
+                return;
+            }
+            // Any non-digit non-day-abbr resets the pending day abbr
+            // (prevents stale day-abbr sticking across month boundaries)
+            if (pendingDayAbbr && !/^\\d{1,2}$/.test(t)) {
+                pendingDayAbbr = '';
             }
         }
+
         if (el.tagName === 'A') {
             const m = el.href.match(uuidRe);
             if (m && !seen.has(m[1])) {
                 seen.add(m[1]);
                 const lines = el.innerText.trim().split('\\n').map(x => x.trim()).filter(x => x);
 
-                // First game of a new date has day-abbr + day-number as first two lines
-                // e.g. ['Sat', '21', 'Marlins-Eberlin', '@ Angels-Casper', ...]
+                // Org-page card layout: day-abbr + day-number INSIDE the card as first two lines
+                // e.g. ['Sat', '21', 'Marlins-Eberlin', '@ Angels-Casper', 'FINAL', ...]
+                // Team-page card layout: ['vs. TeamName', 'location', 'W 7-5']
+                //   — date is already in currentDateTag from the leaf-node detection above
                 let offset = 0;
-                if (lines.length >= 2 && DAY_ABBRS.has(lines[0]) && /^\\d{1,2}$/.test(lines[1])) {
+                if (lines.length >= 2 && DAY_ABBRS_TITLE.has(lines[0]) && /^\\d{1,2}$/.test(lines[1])) {
+                    // Org page — date embedded in card
                     offset = 2;
                     const monthParts = currentMonthYear.split(' ');
                     const abbr = MONTH_ABBR[monthParts[0]] || monthParts[0].slice(0, 3);
                     currentDateTag = abbr + lines[1].padStart(2, '0');
                 }
-                // Subsequent same-day games: currentDateTag carries forward automatically
+                // If offset=0 (team page), currentDateTag was already set by leaf-node scan above.
+                // Same-day subsequent cards: currentDateTag carries forward automatically.
 
-                const away = lines[offset]    || 'Away';
-                const home = (lines[offset+1] || 'Home').replace(/^@\\s*/, '');
-
+                // On team pages lines[0] = 'vs. TeamName' or '@ TeamName'
+                // On org pages  lines[offset] = 'TeamA', lines[offset+1] = '@ TeamB'
+                // We clean vs./@ prefixes from both.
+                const rawAway = lines[offset]    || 'Away';
+                const rawHome = lines[offset + 1] || '';
+                const away = rawAway.replace(/^(vs\\.\\s*|@\\s*)/, '');
+                // On team pages home is the location string — skip it; use our team name instead
+                // On org pages home is '@ TeamName'
+                const home = rawHome.replace(/^@\\s*/, '');                // is_home: true if the card starts with 'vs.' (we are home team on team pages)
+                // On org pages this field is unused — away/home are already correct absolute names.
+                const is_home = rawAway.startsWith('vs.');
                 results.push({
-                    date:  currentDateTag,
-                    id:    m[1],
-                    away:  away,
-                    home:  home,
-                    text:  lines.join(' | '),   // kept for debugging
+                    date:    currentDateTag,
+                    id:      m[1],
+                    away:    away,
+                    home:    home,
+                    is_home: is_home,   // true = we are home (card said 'vs.'); false = we are away ('@')
+                    text:    lines.join(' | '),   // kept for debugging
                     // WHY TWO CONDITIONS:
                     // Org pages (Majors/Minors) show 'FINAL' as explicit text.
                     // Team pages (Wild/Storm) show a score like 'W 7-5' or 'L 9-11'
                     // instead of 'FINAL' — no 'FINAL' text ever appears on those pages.
                     // A score pattern means the game is over and has play-by-play data.
                     final: lines.includes('FINAL') ||
-                           lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
+                           lines.some(l => /^[WL]\\s+\\d+-\\d+/.test(l))
+
                 });
             }
         }
@@ -402,13 +444,19 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
 
             missing = 0
             for g in final_games:
-                # SCHEDULE_JS now returns away/home as separate fields — no more splitting
-                date_tag = g.get("date", "")      # e.g. 'Mar21'
-                game_id  = g["id"]
-                away = safe(g.get("away", "Away"))
-                home = safe(g.get("home", "Home"))
+                date_tag  = g.get("date", "")      # e.g. 'Mar21'
+                game_id   = g["id"]
+                opponent  = safe(g.get("away", "Opponent"))  # opponent name (vs./@ stripped by JS)
+                our_team  = safe(team_name)
 
-                fname = f"{date_tag}-{away}_vs_{home}.txt"
+                # is_home=True  → card said 'vs. Opponent' → we are home team
+                #                  filename: opponent_vs_ourTeam
+                # is_home=False → card said '@ Opponent'   → we are away team
+                #                  filename: ourTeam_vs_opponent
+                if g.get("is_home", False):
+                    fname = f"{date_tag}-{opponent}_vs_{our_team}.txt"
+                else:
+                    fname = f"{date_tag}-{our_team}_vs_{opponent}.txt"
 
                 if check_only:
                     if not is_covered(out_dir, fname):
@@ -425,11 +473,11 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
                     continue
 
                 plays_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule/{game_id}/plays"
-                logger.info(f"  Scraping {date_tag} {away} vs {home} …")
+                logger.info(f"  Scraping {date_tag} {fname} …")
 
                 raw_text = extract_plays_raw(page, plays_url)
                 if not raw_text or "No Plays Yet" in raw_text:
-                    logger.warning(f"  NO PLAYS — {date_tag} {away} vs {home}")
+                    logger.warning(f"  NO PLAYS — {fname}")
                     failed += 1
                     continue
 

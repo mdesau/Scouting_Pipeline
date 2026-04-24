@@ -34,7 +34,7 @@ import json
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 
 try:
