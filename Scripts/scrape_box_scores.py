@@ -105,7 +105,8 @@ DIVISIONS = {
         "teams": [
             ("lTxYlYLH52KU", "2026-spring-itaa-9u-spartans",  "ITAA 9U Spartans"),
             ("VdoWDJdlCgAH", "2026-spring-mara-9u-stingers",  "MARA 9U Stingers"),
-            ("XIMp3aUceUsY", "2026-spring-militia-9u",         "MILITIA 9U"),
+            ("lc7rtdls8Ht6", "2026-spring-south-charlotte-challenge-9u-doggett", "South Charlotte Challenge 9U Doggett"),
+            ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),            
         ],
     },
 }
