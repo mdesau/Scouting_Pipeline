@@ -206,6 +206,28 @@ Fix:      Added team_filter=None param to scrape_team_division() and run().
 Workaround: N/A — fully fixed.
 
 
+--------------------------------------------------------------------------------
+BUG 11: Wild/Storm PDF cards show no jersey numbers (display falls back to "Ryder B" not "Ryder B. #1")
+--------------------------------------------------------------------------------
+Date:     Apr 2026
+Problem:  parse_game_for_team() extracts pa["initials"] as "FirstName LastInitial"
+          (e.g. "Ryder B") because DESC_RE captures the full first name from the
+          game .txt file. But roster.txt keys written by scrape_box_scores.py use
+          "FirstInitial LastInitial" format (e.g. "R B"). When gen_reports.py
+          builds roster_wild = {init: init} and then roster_wild.update(roster),
+          "Ryder B" never matches "R B", so the display always stays "Ryder B"
+          (no jersey number) rather than "Ryder B. #1".
+Fix:      Extended load_wild_roster() in gen_reports.py to index each entry under
+          BOTH key formats:
+            "R B"     → "Ryder B. #1"   (original key from roster.txt)
+            "Ryder B" → "Ryder B. #1"   (alt key derived from display first-token + last-initial)
+          Now roster_wild.update(roster) correctly resolves game-file initials to
+          full display names with jersey numbers.
+          File: gen_reports.py → load_wild_roster()
+          Commit: (next commit)
+Workaround: N/A — fully fixed.
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================

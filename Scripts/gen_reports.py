@@ -1443,7 +1443,15 @@ def get_wild_opponents(wild_base):
     return teams
 
 def load_wild_roster(team_dir):
-    """Load optional roster.txt: lines of 'INITIALS, Display Name'. # = comment."""
+    """Load optional roster.txt: lines of 'INITIALS, Display Name'. # = comment.
+
+    Indexes each entry under two keys so both lookup formats work:
+      1. "R B"      — roster.txt key format (FirstInitial LastInitial)
+      2. "Ryder B"  — game-file format (FirstName LastInitial) used by parse_game_for_team
+
+    The game parser returns pa["initials"] = "Ryder B" so we need the second key
+    to resolve jersey numbers from the roster.
+    """
     roster = {}
     roster_path = os.path.join(team_dir, "roster.txt")
     if not os.path.exists(roster_path):
@@ -1455,7 +1463,19 @@ def load_wild_roster(team_dir):
                 continue
             parts = line.split(",", 1)
             if len(parts) == 2:
-                roster[parts[0].strip()] = parts[1].strip()
+                key     = parts[0].strip()           # e.g. "R B"
+                display = parts[1].strip()            # e.g. "Ryder B. #1"
+                roster[key] = display
+                # Also index by "FirstName LastInitial" (game-file initials format)
+                # Derive from display: first token is the first name; last token of
+                # key is the last initial.  e.g. "Ryder B. #1" → first="Ryder", last="B"
+                key_parts = key.split()
+                first_name = display.split()[0] if display else ""
+                if first_name and key_parts:
+                    last_init = key_parts[-1]
+                    alt_key = f"{first_name} {last_init}"
+                    if alt_key != key and alt_key not in roster:
+                        roster[alt_key] = display
     return roster
 
 def build_league_context(game_files, rosters, config, all_collision_maps=None):
