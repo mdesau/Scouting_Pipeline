@@ -41,7 +41,8 @@ bb1aa14  docs: update CLAUDE.md with session 2 results
 | `scrape_box_scores.py` | 820 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
 | `gen_reports.py` | 1756 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
 | `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
-| `run_scout.sh` | 82 | Shell orchestrator | — | — | — |
+| `run_scout.sh` | 55 | Shell launcher — activates venv, calls interactive_menu.py | — | — | — |
+| `interactive_menu.py` | ~300 | Interactive pipeline menu — numbered team/division picker, add-new-team flow | — | — | — |
 
 ---
 
@@ -78,7 +79,8 @@ Spring/
       scrape_box_scores.py     ← Playwright: GC box scores → rosters.json + roster.txt
       parse_gc_text.py         ← converts raw GC page text → WCWAA .txt format
       gen_reports.py           ← stat engine + ReportLab PDF generator (all 4 divisions)
-      run_scout.sh             ← one-command wrapper: steps 1→2→3 in sequence
+      run_scout.sh             ← pipeline launcher: activates venv, calls interactive_menu.py
+      interactive_menu.py      ← interactive numbered menu (division/team picker, add-new-team)
       gc_session.json          ← saved Playwright GC login session (auth cookies) [gitignored]
       archetype_reference.txt  ← archetype system design notes
     Logs/                      ← runtime logs [gitignored]

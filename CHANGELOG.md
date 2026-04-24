@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
 ### Added
+- **`interactive_menu.py`** — new interactive pipeline launcher:
+  - Numbered menu: `[0]` full pipeline (default), `[1]` single division, `[2]` single team, `[3]` add new Wild/Storm opponent, `[Q]` quit
+  - CLI passthrough mode: `bash run_scout.sh --division Wild --team "QC Flight"` skips the menu and runs directly
+  - Team lists built dynamically from `gc_scraper.DIVISIONS` (single source of truth — no duplication)
+  - Majors/Minors team lists read from `rosters.json` keys
+  - Add-new-team flow: parses GC URL → suggests folder name → inserts into both scraper files → creates folder structure
+  - Session file check upfront — warns before menu if `gc_session.json` is missing
+- `run_scout.sh` simplified to ~55 lines (venv activation + `python3 interactive_menu.py "$@"`)
 - **Two new Wild opponents** added to `gc_scraper.py`, `scrape_box_scores.py`, and `Instructions.md`:
   - SBA Alabama National 12U — team_id `Wn2Abf32IXOz`, slug `2026-summer-sba-alabama-national-12u`
   - TN Nationals Heichelbech 12U — team_id `QebtI4WHVMPn`, slug `2026-summer-tn-nationals-heichelbech-12u`
