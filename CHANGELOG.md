@@ -56,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`/^[WL]\s+\d+-\d+/`) alongside the existing `FINAL` check in both `gc_scraper.py`
   and `scrape_box_scores.py`. All Wild/Storm games were returning 0 FINAL found; fix
   restores detection of all completed games (Weddington Wild: 19 games confirmed visible)
+- **SCHEDULE_JS team-page filenames had wrong date and wrong team name** — day-abbr (SUN/SAT)
+  and day-number are separate leaf nodes outside the `<a>` card on team pages (unlike org
+  pages where they are inside the card). Added leaf-node date detection for uppercase
+  day-abbrs + `is_home` boolean field + `team_name`-based filename construction in
+  `scrape_team_division()`. Bad files from aborted run deleted before re-scrape.
+- **`NameError: date not defined` in `scrape_box_scores.py`** — pre-existing lint error;
+  `date` class was not imported alongside `datetime`. Fixed: `from datetime import datetime, date`
 - **INNING_RE regex** (`gc_scraper.py`) — regex now tolerates missing closing `===`
   in inning headers. Was causing opponent PAs to leak into the wrong team's report;
   affected 8 game files. Patched 12 broken inning headers in existing scorebooks.

@@ -115,6 +115,78 @@ Fix:      Changed mapping from ("shortstop","3B") to ("shortstop","SS").
 Workaround: N/A — fully fixed.
 
 
+--------------------------------------------------------------------------------
+BUG 7: SCHEDULE_JS 'final' detection broken for Wild/Storm team pages
+--------------------------------------------------------------------------------
+Date:     Apr 24, 2026
+Problem:  GC team schedule pages (Wild/Storm) display completed games with a
+          score (e.g. "W 7-5", "L 9-11") instead of the word "FINAL".
+          Org pages (Majors/Minors) still show "FINAL" as explicit text.
+          SCHEDULE_JS only checked lines.includes('FINAL'), so every Wild/Storm
+          game was evaluated as non-final and skipped entirely.
+          Result: gc_scraper.py and scrape_box_scores.py reported "0 FINAL games
+          found" for ALL Wild/Storm teams — no new games were ever scraped.
+          Discovered via diagnostic run Apr 24; root cause confirmed by screenshot
+          showing score-only display on team pages.
+Fix:      Added score-pattern check alongside FINAL:
+            final: lines.includes('FINAL') ||
+                   lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
+          Files: gc_scraper.py and scrape_box_scores.py → SCHEDULE_JS
+          Commit: ea04909
+Workaround: N/A — fully fixed.
+
+
+--------------------------------------------------------------------------------
+BUG 8: SCHEDULE_JS team-page filenames had wrong date, wrong team name
+--------------------------------------------------------------------------------
+Date:     Apr 24, 2026
+Problem:  After Bug 7 was fixed and Wild/Storm games were detected, the generated
+          filenames were malformed: leading dash (no date), and team name replaced
+          by location string (e.g. "-vs._Weddington_Vipers_12U_vs_No_location.txt"
+          instead of "Mar01-Weddington_Wild_11U_vs_Weddington_Vipers_12U.txt").
+          Two root causes:
+          1. DATE: On team pages, the day-abbr (SUN, SAT) and day-number (1, 7)
+             are separate leaf nodes OUTSIDE the <a> card element. The existing
+             JS only detected day-abbr inside the card (org page layout), so
+             currentDateTag remained empty for all team-page games → no date prefix.
+          2. TEAM NAMES: On team pages, lines[0] = "vs. Opponent" or "@ Opponent",
+             lines[1] = location string, lines[2] = score. The JS extracted
+             lines[0] as 'away' (correct after stripping vs./@) and lines[1] as
+             'home' (location string — wrong). The correct home name is the team
+             we're scouting (known from the loop variable team_name).
+          Bad files written during one aborted run; all deleted before re-scrape.
+Fix:      Three changes to gc_scraper.py:
+          1. SCHEDULE_JS: Added leaf-node detection for uppercase day-abbr (MON/
+             TUE/.../SUN) and following digit as a separate code path that sets
+             currentDateTag before the <a> card is processed.
+          2. SCHEDULE_JS: Added is_home field (true if card starts with 'vs.').
+          3. scrape_team_division(): Uses is_home + team_name to build filename:
+             is_home=True  → "{opponent}_vs_{our_team}.txt"  (we are home)
+             is_home=False → "{our_team}_vs_{opponent}.txt"  (we are away)
+          File: gc_scraper.py → SCHEDULE_JS + scrape_team_division()
+          Commit: 00d8d40
+Workaround: N/A — fully fixed.
+
+
+--------------------------------------------------------------------------------
+BUG 9: scrape_box_scores.py crashed with NameError: 'date' not defined
+--------------------------------------------------------------------------------
+Date:     Apr 24, 2026
+Problem:  scrape_team_division() in scrape_box_scores.py writes a roster.txt
+          header comment using date.today().isoformat(). The 'date' class from
+          the datetime module was not imported — only 'datetime' was imported.
+          This was a pre-existing lint error (flagged in Known Issues since
+          session 3) that only triggered in production when scrape_team_division()
+          was first exercised after Bug 7 was fixed (Wild/Storm games now found).
+Fix:      Changed import line:
+            from datetime import datetime
+          to:
+            from datetime import datetime, date
+          File: scrape_box_scores.py → top-level imports (line 37)
+          Commit: 00d8d40
+Workaround: N/A — fully fixed.
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================

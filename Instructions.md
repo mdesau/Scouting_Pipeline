@@ -487,7 +487,14 @@ Passive Overmatched/Walker   → Attack the Zone
 | ~~SS spray chart zone always 0~~ | ~~Parser mapped both SS and 3B to zone "3B" in `FIELDER_ZONES`~~ | **FIXED** — `("shortstop","SS")` corrected in `gen_reports.py` line 317; all PDFs regenerated Apr 23 |
 | ~~`?N P?` and `?C C?` in Cubs-Holtzer~~ | ~~Players not in rosters.json~~ | **RESOLVED** — Nathan P. #10 and Chase C. #3 confirmed in rosters.json |
 | Rays-Madero jersey gap | Only 2/13 players have jersey #s in rosters.json | Run `scrape_box_scores.py --force --division Majors` if data improves |
-| `date` variable not defined at line ~767 in `scrape_box_scores.py` | Pre-existing lint error, not from our changes | Check scope; likely needs `date` passed into function |
+| `date` variable not defined at line ~767 in `scrape_box_scores.py` | Pre-existing lint error, not from our changes | **FIXED** Apr 24 — added `date` to `from datetime import datetime, date` |
+
+### Apr 24 2026 (Session 4) — Bugs 7–9 Fixed
+| Bug | Details | Fix |
+|---|---|---|
+| **SCHEDULE_JS `final` detection broken (Wild/Storm)** | Team pages show score (`W 7-5`) not `FINAL` — 0 games found for all Wild/Storm | Added `/^[WL]\s+\d+-\d+/` score-pattern check alongside `FINAL` in both scrapers. Commit `ea04909` |
+| **Team-page filenames: no date, wrong team name** | Day-abbr/number outside `<a>` tag — `currentDateTag` stayed empty; location string used as team name | Added leaf-node date detection + `is_home` field + `team_name`-based filename logic. Commit `00d8d40` |
+| **`NameError: date not defined`** | `scrape_box_scores.py` crashed on first Wild/Storm roster write | Added `date` to `from datetime import datetime, date`. Commit `00d8d40` |
 
 ---
 
