@@ -161,6 +161,7 @@ DIVISIONS = {
             ("VdoWDJdlCgAH", "2026-spring-mara-9u-stingers",  "MARA 9U Stingers"),
             ("lc7rtdls8Ht6", "2026-spring-south-charlotte-challenge-9u-doggett", "South Charlotte Challenge 9U Doggett"),
             ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),
+            ("xduuY8fEkGLx", "2026-spring-lkn-lightning-10u", "LKN Lightning 10U"),
         ],
         "output_base": SPRING_DIR / "Storm",
         "label":       "Storm",
