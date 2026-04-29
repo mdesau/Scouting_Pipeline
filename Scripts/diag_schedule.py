@@ -2,13 +2,13 @@
 diag_schedule.py — Diagnostic: dump raw schedule JS output from GC
 
 PURPOSE:
-    The gc_scraper.py filenames are coming out wrong:
+    The scrape_gc_playbyplay.py filenames are coming out wrong:
       - Missing date prefix (files start with '-' instead of 'Apr21-')
       - Some files named like '-Sat_vs_18.txt' instead of proper team names
 
     This script loads the Minors schedule page and prints exactly what
     the browser returns so we can see what the DOM looks like NOW and
-    fix the SCHEDULE_JS and date/team parsing logic in gc_scraper.py.
+    fix the SCHEDULE_JS and date/team parsing logic in scrape_gc_playbyplay.py.
 
 USAGE:
     cd Scripts/

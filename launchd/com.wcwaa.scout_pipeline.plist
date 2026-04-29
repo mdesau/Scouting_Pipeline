@@ -49,7 +49,7 @@
 
   LOG FILES:
     StandardOutPath / StandardErrorPath below capture this script's output.
-    Each pipeline script (gc_scraper, scrape_box_scores, gen_reports) also
+    Each pipeline script (scrape_gc_playbyplay, scrape_gc_boxscores, gen_reports) also
     writes its own dated log to Scout_Development/Logs/.
 -->
 

@@ -90,7 +90,7 @@ DIVISIONS = {
         "label_suffix": "Majors",
         "teams": [
             ("Guardians","Esau"), ("Royals","Hall"), ("Diamondbacks","Vandiford"),
-            ("Marlins","McLendon"), ("Dodgers","Pearson"), ("As","Blanco"),
+            ("Marlins","McLendon"), ("Dodgers","Pearson"), ("A's","Blanco"),
             ("Braves","Rue"), ("Twins","Ewart"), ("Padres","Schick"),
             ("Cubs","Holtzer"), ("Rays","Madero"),
         ],
@@ -179,7 +179,7 @@ def load_box_rosters(json_path, roster_additions=None):
         roster_additions = {}
     if not os.path.exists(json_path):
         logger.warning(f"rosters.json not found at {json_path} — falling back to empty rosters")
-        logger.warning("Run scrape_box_scores.py first to build the roster file.")
+        logger.warning("Run scrape_gc_boxscores.py first to build the roster file.")
         return {}, {}
     with open(json_path, encoding="utf-8") as f:
         raw = json.load(f)
@@ -1538,7 +1538,7 @@ def run_league(division, teams_filter=None):
                         f"{sorted(all_collision_maps.keys())}")
     else:
         logger.warning(f"[{division}] rosters.json not found — falling back to CSV. "
-                       f"Run scrape_box_scores.py to build it.")
+                       f"Run scrape_gc_boxscores.py to build it.")
         rosters = build_rosters(csv_path, roster_additions)
 
     # Load box score verification data (may be empty if not yet scraped)
@@ -1563,6 +1563,7 @@ def run_league(division, teams_filter=None):
     for team_name, coach_last in targets:
         t_start = time.time()
         team_key = f"{team_name}-{coach_last}"
+        file_team_key = team_key.replace("'", "")   # filenames strip apostrophes
         csv_team = csv_overrides.get(team_name, team_name)
         roster = rosters.get(f"{csv_team}-{coach_last}", {})
         logger.info(f"\n=== {team_key} ===")
@@ -1575,7 +1576,7 @@ def run_league(division, teams_filter=None):
         total_warnings = 0
         cmap = all_collision_maps.get(team_key, {})
         for fname in game_files:
-            if team_key not in fname:
+            if team_key not in fname and file_team_key not in fname:
                 continue
             fpath = os.path.join(scorebooks_dir, fname)
             try:

@@ -59,7 +59,7 @@ The scripts expect a specific Google Drive folder structure at:
 ~/Library/CloudStorage/GoogleDrive-.../My Drive/Baseball/WCWAA/2026/Spring/
 ```
 
-If your Google Drive path differs, update the `SPRING_DIR` constant near the top of `gc_scraper.py`, `scrape_box_scores.py`, and `gen_reports.py`.
+If your Google Drive path differs, update the `SPRING_DIR` constant near the top of `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`, and `gen_reports.py`.
 
 ### 6. Log in to GameChanger (one time)
 
@@ -67,7 +67,7 @@ This opens a real browser window. Log in manually — the session is saved to `g
 
 ```bash
 cd Scripts
-python3 gc_scraper.py --login
+python3 scrape_gc_playbyplay.py --login
 ```
 
 > **When to repeat:** Only when you see a "session expired" or "not logged in" error — typically every few weeks. Re-run `--login` to refresh.
@@ -93,11 +93,11 @@ The table below lists every script in the order it is run, what it does, and wha
 
 | # | Script | What it does | Depends on | Key flags |
 |---|---|---|---|---|
-| 1 | `gc_scraper.py` | Navigates GC schedule pages for all 4 divisions; finds new FINAL games; downloads play-by-play text; saves `.txt` game files to the correct folder | `parse_gc_text.py` (called internally), `gc_session.json` (auth) | `--login` `--division` `--team` `--check` `--force` `--verbose` |
-| 2 | `scrape_box_scores.py` | Navigates GC box score pages; extracts player names + jersey numbers; builds `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm); writes `box_verify.json` for cross-checking | `gc_session.json` (auth) | `--division` `--force` `--verbose` |
+| 1 | `scrape_gc_playbyplay.py` | Navigates GC schedule pages for all 4 divisions; finds new FINAL games; downloads play-by-play text; saves `.txt` game files to the correct folder | `parse_gc_text.py` (called internally), `gc_session.json` (auth) | `--login` `--division` `--team` `--check` `--force` `--verbose` |
+| 2 | `scrape_gc_boxscores.py` | Navigates GC box score pages; extracts player names + jersey numbers; builds `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm); writes `box_verify.json` for cross-checking | `gc_session.json` (auth) | `--division` `--force` `--verbose` |
 | 3 | `gen_reports.py` | Reads all `.txt` game files; parses every plate appearance; computes batting stats + archetypes; generates multi-page PDF scouting reports via ReportLab | `rosters.json` / `roster.txt` (from step 2), game `.txt` files (from step 1) | `--division` `--team` `--verbose` |
 | — | `run_scout.sh` | Shell wrapper that runs steps 1 → 2 → 3 in sequence with one command; activates the venv automatically | All three scripts above | *(none — runs everything)* |
-| — | `parse_gc_text.py` | Utility: converts raw GC page text into the WCWAA-structured `.txt` game file format; applies name-fix corrections (e.g. `$awyer` → `Sawyer`) | *(none — pure utility, no external deps)* | *(imported by `gc_scraper.py`, not run directly)* |
+| — | `parse_gc_text.py` | Utility: converts raw GC page text into the WCWAA-structured `.txt` game file format; applies name-fix corrections (e.g. `$awyer` → `Sawyer`) | *(none — pure utility, no external deps)* | *(imported by `scrape_gc_playbyplay.py`, not run directly)* |
 | — | `diag_schedule.py` | Diagnostic only: dumps the raw GC schedule page DOM to help debug layout changes; not part of the normal pipeline | `gc_session.json` (auth) | `--division` |
 
 ---
@@ -112,16 +112,16 @@ python3 gen_reports.py --division Majors --team Cubs
 python3 gen_reports.py --division Wild --team "QC Flight Baseball 11U"
 
 # Scrape one division only
-python3 gc_scraper.py --division Storm
+python3 scrape_gc_playbyplay.py --division Storm
 
 # Check what new games are available without downloading anything
-python3 gc_scraper.py --check
+python3 scrape_gc_playbyplay.py --check
 
 # See detailed output while running
 python3 gen_reports.py --division Minors --verbose
 
 # Force re-scrape games already on disk
-python3 gc_scraper.py --force --division Majors
+python3 scrape_gc_playbyplay.py --force --division Majors
 ```
 
 ---
@@ -160,9 +160,9 @@ Each PDF scouting report includes:
 | Symptom | Likely Cause | Fix |
 |---|---|---|
 | `ImportError: playwright` | venv not activated | Run `source venv/bin/activate` first |
-| `Session expired` / login error | `gc_session.json` stale | Run `python3 gc_scraper.py --login` |
+| `Session expired` / login error | `gc_session.json` stale | Run `python3 scrape_gc_playbyplay.py --login` |
 | `0 PAs` for a team | Team name mismatch between folder name and GC inning header | Check spelling in game file header vs. folder name |
-| `?X X?` in report output | Player initials not in `rosters.json` | Run `scrape_box_scores.py` |
+| `?X X?` in report output | Player initials not in `rosters.json` | Run `scrape_gc_boxscores.py` |
 | `WARNING UNKNOWN` in logs | Play description not recognised by parser | Check the game file; if valid play, add to `OUTCOME_TYPES` in `gen_reports.py` |
 | `WARNING BOX-VERIFY` in logs | Parsed AB count differs from GC box score | Review game file for missed or duplicate plays |
 | PDFs not appearing | Google Drive not synced | Toggle the folder's offline availability to force a re-sync |
@@ -179,8 +179,8 @@ Scouting_Pipeline/
   requirements.txt
   .gitignore
   Scripts/
-    gc_scraper.py
-    scrape_box_scores.py
+    scrape_gc_playbyplay.py
+    scrape_gc_boxscores.py
     parse_gc_text.py
     gen_reports.py
     run_scout.sh
@@ -232,7 +232,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 | Version | Date | Summary |
 |---|---|---|
-| `v2.0.0` | Apr 24, 2026 | Interactive menu (`interactive_menu.py`), `run_scout.sh` rename, `--team` filter, Wild/Storm jersey numbers fixed (Bugs 10–11) |
+| `v2.0.0` | Apr 24, 2026 | Interactive menu (`run_menu.py`), `run_scout.sh` rename, `--team` filter, Wild/Storm jersey numbers fixed (Bugs 10–11) |
 | `v1.0.0` | Apr 23, 2026 | All 4 divisions fully operational under `run_weekly.sh`; Bugs 6–9 fixed |
 | `v0.2.0` | Apr 22, 2026 | Full pipeline verified across all 4 divisions; INNING_RE fix; QC Flight added; Infield Fly mapping |
 | `v0.1.0` | Apr 21, 2026 | Initial setup — venv, Playwright, ReportLab, full pipeline transfer to local VS Code |

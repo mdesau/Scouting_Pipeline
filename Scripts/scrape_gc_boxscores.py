@@ -1,0 +1,836 @@
+#!/usr/bin/env python3
+"""
+scrape_gc_boxscores.py — GameChanger Box Score Scraper for WCWAA 2026 Spring
+===========================================================================
+Scrapes /box-score pages for all FINAL Majors and Minors games.
+
+Outputs (one file per division):
+  Majors/Reports/rosters.json      — team-keyed roster: initials → display + jersey
+  Majors/Reports/box_verify.json   — per-game batter AB/BB/SO for PA verification
+  Minors/Reports/rosters.json
+  Minors/Reports/box_verify.json
+
+Usage
+-----
+  python3 scrape_gc_boxscores.py                    # both divisions
+  python3 scrape_gc_boxscores.py --division Majors
+  python3 scrape_gc_boxscores.py --force            # re-scrape even if JSON exists
+
+Roster format (rosters.json):
+  {
+    "Royals-Hall": {
+      "T A": { "display": "Tyler A. #1", "jersey": "1",
+                "ab": 18, "bb": 3, "so": 4 }
+    },
+    ...
+  }
+
+Display name convention: "FirstName LastInitial. #jersey"  (e.g. "Tyler A. #1")
+This mirrors Wild/Storm naming — consistent across all four divisions.
+"""
+
+import argparse
+import json
+import logging
+import re
+import time
+from datetime import datetime, date
+from pathlib import Path
+
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+except ImportError:
+    print("ERROR: playwright not installed.")
+    print("Run: pip3 install playwright --break-system-packages && playwright install chromium")
+    raise
+
+# ─────────────────────────────────────────────────────────────
+# DEBUG CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+# Flip these to True when diagnosing box score scraping issues.
+# --verbose shows logger.debug() messages; these flags dump RAW data.
+DEBUG_BOX_SCORE_RAW = False   # Dump full JS return from each box score page
+DEBUG_TEAM_NAMES    = False   # Log team name before/after normalization
+
+# ─────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────
+
+SPRING_DIR = Path(
+    "~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com"
+    "/My Drive/Baseball/WCWAA/2026/Spring"
+).expanduser()
+
+SCRIPTS_DIR  = Path(__file__).parent
+SESSION_FILE = SCRIPTS_DIR / "gc_session.json"
+LOGS_DIR     = SCRIPTS_DIR.parent / "Logs"
+
+GC_BASE_URL = "https://web.gc.com"
+
+DIVISIONS = {
+    "Majors": {
+        "type":        "org",
+        "org_id":      "1CMI2BBazG8C",
+        "roster_out":  SPRING_DIR / "Majors" / "Reports" / "rosters.json",
+        "verify_out":  SPRING_DIR / "Majors" / "Reports" / "box_verify.json",
+    },
+    "Minors": {
+        "type":        "org",
+        "org_id":      "GdcFopba2PbE",
+        "roster_out":  SPRING_DIR / "Minors" / "Reports" / "rosters.json",
+        "verify_out":  SPRING_DIR / "Minors" / "Reports" / "box_verify.json",
+    },
+    # ── Wild opponents ────────────────────────────────────────────────────────
+    # Builds roster.txt per team folder from box score pages.
+    # To add a new opponent, follow the same pattern as scrape_gc_playbyplay.py:
+    #   ("team_id", "slug", "Exact Folder Name")
+    # ─────────────────────────────────────────────────────────────────────────
+    "Wild": {
+        "type":        "teams",
+        "base_dir":    SPRING_DIR / "Wild",
+        "teams": [
+            ("1yv2qtI89QSD", "2026-spring-arena-national-browning-11u", "Arena National Browning 11U"),
+            ("Kih0oavXNZB3", "2026-spring-south-charlotte-panthers-11u", "South Charlotte Panthers 11U"),
+            ("Ye94sB963tUX", "2026-spring-weddington-wild-11u",          "Weddington Wild 11U"),
+            ("1gqDRuls0oER", "2026-spring-qc-flight-baseball-11u",          "QC Flight Baseball 11U"),
+            ("I2XcyUwmye3p", "2026-spring-t24-garnet-11u",                   "T24 Garnet 11U"),
+            ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
+            ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
+        ],
+    },
+    # ── Storm opponents ───────────────────────────────────────────────────────
+    "Storm": {
+        "type":        "teams",
+        "base_dir":    SPRING_DIR / "Storm",
+        "teams": [
+            ("lTxYlYLH52KU", "2026-spring-itaa-9u-spartans",  "ITAA 9U Spartans"),
+            ("VdoWDJdlCgAH", "2026-spring-mara-9u-stingers",  "MARA 9U Stingers"),
+            ("lc7rtdls8Ht6", "2026-spring-south-charlotte-challenge-9u-doggett", "South Charlotte Challenge 9U Doggett"),
+            ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),            
+            ("xduuY8fEkGLx", "2026-spring-lkn-lightning-10u", "LKN Lightning 10U"),
+            ("HZ3pkdRb5s6P", "2026-spring-park-sharon-nationals-10u", "Park Sharon Nationals 10U"),
+            ("L3KLX1oI2VGl", "2026-spring-weddington-stormtroopers", "Weddington Stormtroopers"),
+
+        ],
+    },
+}
+
+# ─────────────────────────────────────────────────────────────
+# LOGGING
+# ─────────────────────────────────────────────────────────────
+
+def setup_logging(verbose=False):
+    """Configure logging to both stdout and a dated log file.
+
+    Args:
+        verbose: If True, stdout shows DEBUG-level messages.
+                 Default is INFO-only on screen; DEBUG always goes to log file.
+    """
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    stamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = LOGS_DIR / f"scrape_gc_boxscores_{stamp}.log"
+
+    fmt = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s",
+                            datefmt="%H:%M:%S")
+
+    fh = logging.FileHandler(log_path, encoding="utf-8")
+    fh.setFormatter(fmt)
+    fh.setLevel(logging.DEBUG)
+
+    sh = logging.StreamHandler()
+    sh.setFormatter(fmt)
+    sh.setLevel(logging.DEBUG if verbose else logging.INFO)
+
+    log = logging.getLogger("box_scores")
+    log.setLevel(logging.DEBUG)
+    log.addHandler(fh)
+    log.addHandler(sh)
+
+    log.info(f"Log file: {log_path}")
+    return log
+
+# ─────────────────────────────────────────────────────────────
+# JAVASCRIPT — runs inside the browser page
+# ─────────────────────────────────────────────────────────────
+
+SCHEDULE_JS = """
+() => {
+    const uuidRe = /\\/schedule\\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
+    const results = [];
+    const seen = new Set();
+    let currentDate = '';
+    document.body.querySelectorAll('*').forEach(el => {
+        if (el.children.length === 0 && el.innerText) {
+            const t = el.innerText.trim();
+            if (/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \\w+ \\d+, \\d{4}$/.test(t)) {
+                currentDate = t;
+            }
+        }
+        if (el.tagName === 'A') {
+            const m = el.href.match(uuidRe);
+            if (m && !seen.has(m[1])) {
+                seen.add(m[1]);
+                const lines = el.innerText.trim().split('\\n').map(x => x.trim()).filter(x => x);
+                results.push({
+                    date: currentDate,
+                    id: m[1],
+                    text: lines.join(' | '),
+                    // WHY TWO CONDITIONS: see scrape_gc_playbyplay.py SCHEDULE_JS comment.
+                    // Org pages show 'FINAL'; team pages (Wild/Storm) show 'W 7-5' / 'L 9-11'.
+                    final: lines.includes('FINAL') ||
+                           lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
+                });
+            }
+        }
+    });
+    return results;
+}
+"""
+
+EXTRACT_BOXSCORE_JS = """
+() => {
+    const awayDiv = document.querySelector('.BoxScore__awayLineup');
+    const homeDiv = document.querySelector('.BoxScore__homeLineup');
+
+    // Team names live in dedicated divs immediately preceding each lineup grid
+    const awayName = (document.querySelector('.BoxScore__awayTeamName') || {}).innerText || '';
+    const homeName = (document.querySelector('.BoxScore__homeTeamName') || {}).innerText || '';
+
+    function extractLineup(container) {
+        if (!container) return { players: [] };
+        const players = [];
+        const cells = container.querySelectorAll('.BoxScoreComponents__playerCell');
+        cells.forEach(cell => {
+            const row = cell.closest('[role="row"]');
+            if (!row) return;
+            const gridCells = [...row.querySelectorAll('[role="gridcell"]')];
+            const nameEl = cell.querySelector('.BoxScoreComponents__playerName');
+            const infoEl = cell.querySelector('.BoxScoreComponents__playerInfo');
+            const name = nameEl ? nameEl.innerText.trim() : '';
+            const info = infoEl ? infoEl.innerText.trim() : '';
+            if (!name) return;
+
+            // Stats cells: index 1..6 = AB, R, H, RBI, BB, SO
+            const stats = gridCells.slice(1).map(c => parseInt(c.innerText.trim()) || 0);
+
+            // Jersey from info like "#1 (C, P)" or "#12"
+            const jerseyMatch = info.match(/#(\\d+)/);
+            const jersey = jerseyMatch ? jerseyMatch[1] : '';
+
+            // Initials: "Tyler A" → "T A"
+            const parts = name.split(' ');
+            const initials = parts.length >= 2
+                ? parts[0][0] + ' ' + parts[parts.length - 1][0]
+                : name;
+
+            players.push({
+                name,
+                initials,
+                jersey,
+                ab:  stats[0] || 0,
+                r:   stats[1] || 0,
+                h:   stats[2] || 0,
+                rbi: stats[3] || 0,
+                bb:  stats[4] || 0,
+                so:  stats[5] || 0
+            });
+        });
+        return { players };
+    }
+
+    return {
+        away_team: awayName.trim(),
+        home_team: homeName.trim(),
+        away: extractLineup(awayDiv),
+        home: extractLineup(homeDiv)
+    };
+}
+"""
+
+# ─────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────
+
+def fmt_date(date_str):
+    """'Saturday March 21, 2026' → 'Mar21'"""
+    try:
+        from datetime import datetime as dt
+        d = dt.strptime(date_str, "%A %B %d, %Y")
+        return d.strftime("%b") + str(d.day)
+    except Exception:
+        return re.sub(r'.*?(\w{3})\w*\s+(\d+),.*', r'\1\2', date_str)
+
+
+# Canonical team name map: GC box score name → game file inning header name
+# WHY THIS EXISTS:
+#   GC's box score pages sometimes render team names differently from how they
+#   appear in the play-by-play inning headers. For example, the box score may
+#   show 'As-Blanco' (apostrophe stripped) or 'Dbacks-Vandiford' (abbreviated)
+#   while the game file uses 'A\'s-Blanco' or 'Diamondbacks-Vandiford'.
+#   The stat engine in gen_reports.py matches rosters.json keys against inning
+#   headers — so the keys MUST match the game file names exactly.
+#
+#   When to update this map:
+#   If you see a team appearing twice in rosters.json (e.g. both 'Twins-Ewart'
+#   and 'Twins-Ewart Majors'), add the variant as a key mapping to the
+#   canonical game-file name as the value.
+TEAM_NAME_ALIASES = {
+    # Box score variant      : Canonical (matches inning header in .txt files)
+    "As-Blanco"             : "A's-Blanco",
+    "Dbacks-Vandiford"      : "Diamondbacks-Vandiford",
+    "Twins-Ewart Majors"    : "Twins-Ewart",   # game files drop the 'Majors' suffix
+}
+
+
+def normalize_team_name(name):
+    """
+    Translate a GC box score team name to the canonical name used in game files.
+
+    GC occasionally shows abbreviated or punctuation-stripped team names on
+    box score pages. This function maps those variants to the exact names that
+    appear in inning headers (e.g. '===Top 3rd - A\'s-Blanco===') so that
+    rosters.json keys always match what gen_reports.py expects.
+
+    Args:
+        name (str): Team name as returned by the box score page JS extractor.
+    Returns:
+        str: Canonical team name, or the original if no alias is defined.
+    """
+    return TEAM_NAME_ALIASES.get(name, name)
+
+
+def display_name(gc_name, jersey):
+    """
+    Build display string from GC box score name + jersey.
+    "Tyler A" + "1"  → "Tyler A. #1"
+    "Tyler A" + ""   → "Tyler A."
+    Mirrors Wild/Storm naming convention: FirstName LastInitial. #jersey
+    """
+    parts = gc_name.strip().split()
+    if not parts:
+        return gc_name
+    if len(parts) == 1:
+        # Only first name visible — shouldn't happen in practice
+        core = parts[0]
+    else:
+        # "Tyler A" → "Tyler A."
+        core = f"{parts[0]} {parts[-1]}."
+    return f"{core} #{jersey}" if jersey else core
+
+
+def merge_player(existing, player, game_id):
+    """
+    Merge a new box score player record into the accumulated roster entry.
+    Accumulates AB/BB/SO totals; uses the most recently seen jersey.
+
+    WHY THE MIGRATION GUARD:
+    Roster entries created by older versions of this script may be missing
+    the 'games' or 'games_seen' keys (schema evolved over the season).
+    Setdefault() initializes the key only if absent — safe to run on both
+    old and new entries without overwriting existing data.
+    """
+    # Migration guard: ensure keys exist for entries written by older code
+    existing.setdefault("games", [])
+    existing.setdefault("games_seen", 0)
+
+    existing["ab"]         += player["ab"]
+    existing["bb"]         += player["bb"]
+    existing["so"]         += player["so"]
+    existing["games_seen"] += 1
+    # Update jersey and display if we got a value (in case it was blank earlier)
+    if player["jersey"]:
+        existing["jersey"]  = player["jersey"]
+        existing["display"] = display_name(player["name"], player["jersey"])
+    existing["games"].append(game_id)
+    return existing
+
+
+# ─────────────────────────────────────────────────────────────
+# DUPLICATE INITIALS HANDLING
+# ─────────────────────────────────────────────────────────────
+
+def _first_name_from(name_str="", entry=None, key=""):
+    """
+    Infer a player's first name from (in priority order):
+      1. GC box score name string (e.g. "Brian Allen")
+      2. Roster entry's cached _first_name field
+      3. Roster entry's display field (e.g. "Brian A. #5")
+      4. A disambiguated key like "Bri A" (use first 3 chars)
+    """
+    if name_str:
+        return name_str.split()[0]
+    if entry:
+        if entry.get("_first_name"):
+            return entry["_first_name"]
+        display = entry.get("display", "")
+        if display:
+            return display.split()[0]
+    if len(key) == 5 and key[3] == " ":   # e.g. "Bri A"
+        return key[:3]
+    return ""
+
+
+def _disambig_key(init, first_name):
+    """
+    Build a 5-char disambiguation key.
+    init="B A", first_name="Brian"  →  "Bri A"
+    init="B A", first_name="Ben"    →  "Ben A"
+    """
+    return first_name[:3] + " " + init[-1]
+
+
+def _accum_player(rosters, team_name, p, game_id, batting_pos=None, log=None):
+    """
+    Collision-aware player accumulation.
+
+    Normally keyed by 2-char initials ("B A").  If two players on the SAME
+    team share initials (e.g. "Brian Allen" and "Ben Allen" both → "B A"),
+    they are automatically stored under disambiguated 5-char keys ("Bri A",
+    "Ben A") and a "_collision_map" entry is added to the team roster:
+
+        "_collision_map": {"B A": ["Bri A", "Ben A"]}   # ordered by batting pos
+
+    gen_reports.py reads this map to split plate appearances between the two
+    players using within-game batting-order occurrence counting.
+
+    batting_pos: 1-indexed batting-order position from the box score (players
+                 are returned from JS in lineup order, so enumerate() gives it).
+    """
+    init       = p["initials"]
+    first_name = _first_name_from(name_str=p.get("name", ""))
+    bpos       = batting_pos or 99
+
+    if team_name not in rosters:
+        rosters[team_name] = {}
+    team = rosters[team_name]
+
+    cmap = team.get("_collision_map", {})
+
+    # ── Case 1: initials already involved in a known collision ────────────────
+    if init in cmap:
+        matched_key = None
+        for dk in cmap[init]:
+            stored_fn = _first_name_from(entry=team.get(dk, {}), key=dk)
+            if first_name and stored_fn and first_name.lower() == stored_fn.lower():
+                matched_key = dk
+                break
+        if matched_key:
+            merge_player(team[matched_key], p, game_id)
+        else:
+            # Third player sharing the same 2-char initials (extreme edge case)
+            dk = _disambig_key(init, first_name)
+            team[dk] = {
+                "display": display_name(p["name"], p["jersey"]),
+                "jersey":  p["jersey"],
+                "ab": p["ab"], "bb": p["bb"], "so": p["so"],
+                "games_seen": 1, "games": [game_id],
+                "_first_name": first_name, "batting_order_pos": bpos,
+            }
+            cmap[init].append(dk)
+            team["_collision_map"] = cmap
+        return
+
+    # ── Case 2: brand-new initials ────────────────────────────────────────────
+    if init not in team:
+        team[init] = {
+            "display": display_name(p["name"], p["jersey"]),
+            "jersey":  p["jersey"],
+            "ab": p["ab"], "bb": p["bb"], "so": p["so"],
+            "games_seen": 1, "games": [game_id],
+            "_first_name": first_name, "batting_order_pos": bpos,
+        }
+        return
+
+    # ── Case 3: initials already exist — check for same vs. different player ──
+    existing    = team[init]
+    existing_fn = _first_name_from(entry=existing)
+
+    if not existing_fn or not first_name or first_name.lower() == existing_fn.lower():
+        # Same player (or can't tell) — normal accumulation
+        merge_player(existing, p, game_id)
+        return
+
+    # ── COLLISION DETECTED ────────────────────────────────────────────────────
+    msg = (f"  ⚠ COLLISION [{team_name}]: initials '{init}' shared by "
+           f"'{existing_fn}' and '{first_name}' — applying 3-char disambiguation")
+    if log:
+        log.warning(msg)
+    else:
+        print(msg)
+
+    dk_existing = _disambig_key(init, existing_fn)
+    dk_incoming = _disambig_key(init, first_name)
+
+    # Move existing entry to its disambiguated key
+    existing["_first_name"] = existing_fn          # ensure field is set
+    team[dk_existing] = existing
+    del team[init]
+
+    # Add incoming player under its disambiguated key
+    team[dk_incoming] = {
+        "display": display_name(p["name"], p["jersey"]),
+        "jersey":  p["jersey"],
+        "ab": p["ab"], "bb": p["bb"], "so": p["so"],
+        "games_seen": 1, "games": [game_id],
+        "_first_name": first_name, "batting_order_pos": bpos,
+    }
+
+    # Sort collision map entries by batting-order position (earlier batter first)
+    existing_bpos = existing.get("batting_order_pos", 99)
+    ordered = sorted(
+        [(existing_bpos, dk_existing), (bpos, dk_incoming)],
+        key=lambda x: x[0]
+    )
+    cmap[init] = [dk for _, dk in ordered]
+    team["_collision_map"] = cmap
+
+
+def _prepare_for_save(rosters):
+    """
+    Strip internal tracking fields (_first_name, batting_order_pos) from
+    roster entries before JSON serialization.  Retains _collision_map.
+    """
+    _strip = {"_first_name", "batting_order_pos"}
+    cleaned = {}
+    for team, players in rosters.items():
+        cleaned[team] = {}
+        for key, entry in players.items():
+            if key == "_collision_map":
+                cleaned[team][key] = entry   # keep as-is
+            elif isinstance(entry, dict):
+                cleaned[team][key] = {k: v for k, v in entry.items()
+                                      if k not in _strip}
+            else:
+                cleaned[team][key] = entry
+    return cleaned
+
+
+# ─────────────────────────────────────────────────────────────
+# CORE SCRAPE
+# ─────────────────────────────────────────────────────────────
+
+def scrape_division(page, div_name, cfg, log, force=False):
+    """
+    Scrape all FINAL box scores for one division (Majors or Minors).
+    Returns (rosters_dict, verify_dict).
+
+    rosters_dict: { team_name: { initials: { display, jersey, ab, bb, so, games_seen } } }
+    verify_dict:  { game_id:   { away_team, home_team,
+                                 away: [{initials, ab, bb, so}],
+                                 home: [{initials, ab, bb, so}] } }
+    """
+    org_id      = cfg["org_id"]
+    roster_out  = cfg["roster_out"]
+    verify_out  = cfg["verify_out"]
+
+    # Load existing data if not forcing
+    rosters = {}
+    verify  = {}
+    if not force and roster_out.exists():
+        log.info(f"[{div_name}] Loading existing rosters.json (use --force to re-scrape)")
+        rosters = json.loads(roster_out.read_text(encoding="utf-8"))
+        if verify_out.exists():
+            verify = json.loads(verify_out.read_text(encoding="utf-8"))
+
+    sched_url = f"{GC_BASE_URL}/organizations/{org_id}/schedule"
+    log.info(f"[{div_name}] Loading schedule: {sched_url}")
+    page.goto(sched_url, wait_until="networkidle", timeout=30_000)
+    time.sleep(2)
+    games = page.evaluate(SCHEDULE_JS) or []
+    final_games = [g for g in games if g.get("final")]
+    log.info(f"[{div_name}] Found {len(final_games)} FINAL games")
+
+    scraped = skipped = failed = 0
+
+    for g in final_games:
+        game_id  = g["id"]
+        date_tag = fmt_date(g.get("date", ""))
+
+        # Skip if already in verify dict (already scraped this game)
+        if game_id in verify and not force:
+            log.debug(f"[{div_name}] skip {date_tag} {game_id[:8]}… (already scraped)")
+            skipped += 1
+            continue
+
+        bs_url = f"{GC_BASE_URL}/organizations/{org_id}/schedule/{game_id}/box-score"
+        log.info(f"[{div_name}] Scraping {date_tag} {game_id[:8]}…  {bs_url}")
+
+        try:
+            page.goto(bs_url, wait_until="networkidle", timeout=30_000)
+            time.sleep(1)
+            data = page.evaluate(EXTRACT_BOXSCORE_JS)
+        except PWTimeout:
+            log.error(f"[{div_name}] TIMEOUT loading {bs_url}")
+            failed += 1
+            continue
+        except Exception as e:
+            log.error(f"[{div_name}] ERROR loading {bs_url}: {e}")
+            failed += 1
+            continue
+
+        away_team = data.get("away_team", "").strip()
+        home_team = data.get("home_team", "").strip()
+
+        # Normalize: map GC box score name variants to canonical game-file names
+        # (e.g. 'As-Blanco' → 'A\'s-Blanco', 'Dbacks-Vandiford' → 'Diamondbacks-Vandiford')
+        away_raw, home_raw = away_team, home_team
+        away_team = normalize_team_name(away_team)
+        home_team = normalize_team_name(home_team)
+        if DEBUG_TEAM_NAMES and (away_raw != away_team or home_raw != home_team):
+            log.debug(f"    Team name normalized: {away_raw!r}→{away_team!r}  {home_raw!r}→{home_team!r}")
+        away_players = data.get("away", {}).get("players", [])
+        home_players = data.get("home", {}).get("players", [])
+
+        if not away_team or not home_team:
+            log.warning(f"[{div_name}] Could not extract team names for game {game_id[:8]}")
+            failed += 1
+            continue
+
+        if not away_players and not home_players:
+            log.warning(f"[{div_name}] No player data for {away_team} vs {home_team} ({game_id[:8]})")
+            failed += 1
+            continue
+
+        log.info(f"  {away_team} ({len(away_players)} batters) vs {home_team} ({len(home_players)} batters)")
+
+        # ── Accumulate roster data (collision-aware) ──
+        for team_name, players in [(away_team, away_players), (home_team, home_players)]:
+            for batting_pos, p in enumerate(players, 1):
+                if not p["initials"]:
+                    continue
+                _accum_player(rosters, team_name, p, game_id,
+                              batting_pos=batting_pos, log=log)
+
+        # ── Store per-game verification snapshot ──
+        verify[game_id] = {
+            "date":      date_tag,
+            "away_team": away_team,
+            "home_team": home_team,
+            "away": [{"initials": p["initials"], "ab": p["ab"],
+                      "bb": p["bb"], "so": p["so"]} for p in away_players],
+            "home": [{"initials": p["initials"], "ab": p["ab"],
+                      "bb": p["bb"], "so": p["so"]} for p in home_players],
+        }
+
+        scraped += 1
+        time.sleep(0.4)
+
+    # ── Save outputs ──
+    roster_out.parent.mkdir(parents=True, exist_ok=True)
+    roster_out.write_text(
+        json.dumps(_prepare_for_save(rosters), indent=2, ensure_ascii=False),
+        encoding="utf-8"
+    )
+    verify_out.write_text(json.dumps(verify,  indent=2, ensure_ascii=False), encoding="utf-8")
+
+    log.info(f"[{div_name}] Done — scraped:{scraped}  skipped:{skipped}  failed:{failed}")
+    log.info(f"[{div_name}] Roster  → {roster_out}")
+    log.info(f"[{div_name}] Verify  → {verify_out}")
+
+    # ── Ambiguity check — flag duplicate initials on same team ──
+    for team, roster in rosters.items():
+        # Group by first-letter of display to catch different-name collisions
+        seen_display = {}
+        for init, entry in roster.items():
+            key = init  # initials are already the dedup key; warn if two names map here
+            # This can't self-collide by design; but warn if name changed across games
+            pass
+        # Detect initials collision: two GC names on same team that share F+L initials
+        # (e.g., "Tyler A" and "Thomas A" both → "T A")
+        # We surface this if games_seen is high but display name is ambiguous
+    log.info(f"[{div_name}] Teams in roster: {sorted(rosters.keys())}")
+
+    return rosters, verify
+
+
+def scrape_team_division(page, div_name, cfg, log, force=False, team_filter=None):
+    """
+    Scrape box scores for Wild or Storm team-based divisions.
+    For each team, identifies games from that team's schedule page,
+    extracts their lineup from each box score, and writes a roster.txt
+    file to the team's folder.
+
+    roster.txt format (jersey embedded in display):
+        # initials, display_name
+        T A, Tyler A. #1
+        S G, Srijan G. #4
+
+    This format is compatible with load_wild_roster() in gen_reports.py.
+    The draw_card() function splits on "#" to render jersey in amber.
+    """
+    base_dir = cfg["base_dir"]
+    teams    = cfg.get("teams", [])
+
+    for team_id, slug, team_name in teams:
+        # Skip this team if a filter was supplied and it doesn't match
+        # WHY case-insensitive: user may type "weddington wild" and we want it to match
+        if team_filter and team_filter.lower() not in team_name.lower():
+            continue
+        log.info(f"\n[{div_name}] Team: {team_name}")
+        team_dir    = base_dir / team_name
+        roster_path = team_dir / "roster.txt"
+
+        # Load existing roster to avoid overwriting manually added entries
+        existing_roster = {}
+        if roster_path.exists() and not force:
+            with open(roster_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = line.split(",", 1)
+                    if len(parts) == 2:
+                        existing_roster[parts[0].strip()] = parts[1].strip()
+
+        sched_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule"
+        log.info(f"  Loading schedule: {sched_url}")
+        try:
+            page.goto(sched_url, wait_until="networkidle", timeout=30_000)
+            time.sleep(2)
+            games = page.evaluate(SCHEDULE_JS) or []
+        except Exception as e:
+            log.error(f"  Failed to load schedule: {e}")
+            continue
+
+        final_games = [g for g in games if g.get("final")]
+        log.info(f"  {len(final_games)} FINAL games found")
+
+        # Accumulated player data keyed by initials
+        players_acc = {}   # { initials: {display, jersey, ab, bb, so, games_seen} }
+        scraped = skipped = failed = 0
+
+        for g in final_games:
+            game_id  = g["id"]
+            date_tag = fmt_date(g.get("date", ""))
+
+            # Use team-based box score URL
+            bs_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule/{game_id}/box-score"
+            log.info(f"  Scraping {date_tag} {game_id[:8]}…")
+
+            try:
+                page.goto(bs_url, wait_until="networkidle", timeout=30_000)
+                time.sleep(1)
+                data = page.evaluate(EXTRACT_BOXSCORE_JS)
+            except Exception as e:
+                log.error(f"  ERROR {date_tag}: {e}")
+                failed += 1
+                continue
+
+            away_team = data.get("away_team", "").strip()
+            home_team = data.get("home_team", "").strip()
+            away_players = data.get("away", {}).get("players", [])
+            home_players = data.get("home", {}).get("players", [])
+
+            if not away_team or not home_team:
+                log.warning(f"  Could not read team names for {game_id[:8]}")
+                failed += 1
+                continue
+
+            # Identify which side is our team — fuzzy match on team_name
+            tn_lower = team_name.lower()
+            if tn_lower in away_team.lower():
+                our_players = away_players
+            elif tn_lower in home_team.lower():
+                our_players = home_players
+            else:
+                # Try partial word match
+                words = [w for w in tn_lower.split() if len(w) > 3]
+                away_l = away_team.lower(); home_l = home_team.lower()
+                away_score = sum(1 for w in words if w in away_l)
+                home_score = sum(1 for w in words if w in home_l)
+                if away_score >= home_score and away_score > 0:
+                    our_players = away_players
+                elif home_score > 0:
+                    our_players = home_players
+                else:
+                    log.warning(f"  Could not match '{team_name}' to '{away_team}' or '{home_team}'")
+                    failed += 1
+                    continue
+
+            log.info(f"    {away_team} vs {home_team} → our team has {len(our_players)} batters")
+
+            for batting_pos, p in enumerate(our_players, 1):
+                if not p["initials"]:
+                    continue
+                _accum_player(players_acc, "_team", p, game_id,
+                              batting_pos=batting_pos, log=log)
+
+            scraped += 1
+            time.sleep(0.4)
+
+        # _accum_player stores under players_acc["_team"] — extract that sub-dict
+        team_players = players_acc.get("_team", {})
+        if not team_players:
+            log.warning(f"  No player data collected for {team_name}")
+            continue
+
+        # Merge with any existing manual entries (existing wins on conflict)
+        # Skip internal metadata keys
+        for key, entry in team_players.items():
+            if key.startswith("_"):
+                continue
+            if key not in existing_roster and isinstance(entry, dict):
+                existing_roster[key] = entry.get("display", "")
+
+        # Write roster.txt
+        team_dir.mkdir(parents=True, exist_ok=True)
+        lines = [
+            f"# {team_name} — roster built from box score data",
+            f"# Format: INITIALS, Display Name (jersey embedded: 'Tyler A. #1')",
+            f"# Generated {date.today().isoformat()} — edit manually to correct names",
+            "#",
+        ]
+        for key in sorted(k for k in existing_roster.keys() if not k.startswith("_")):
+            lines.append(f"{key}, {existing_roster[key]}")
+
+        roster_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        log.info(f"  Done — scraped:{scraped}  skipped:{skipped}  failed:{failed}")
+        log.info(f"  Roster ({len(existing_roster)} players) → {roster_path}")
+
+
+# ─────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────
+
+def run(divisions_filter=None, team_filter=None, force=False, verbose=False):
+    log = setup_logging(verbose=verbose)
+
+    if not SESSION_FILE.exists():
+        log.error(f"No session file found at {SESSION_FILE}")
+        log.error("Run scrape_gc_playbyplay.py --login first to save a session.")
+        return
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        ctx     = browser.new_context(storage_state=str(SESSION_FILE))
+        page    = ctx.new_page()
+
+        for div_name, cfg in DIVISIONS.items():
+            if divisions_filter and div_name not in divisions_filter:
+                continue
+            log.info(f"\n{'─'*55}")
+            log.info(f"Division: {div_name}")
+            if cfg["type"] == "org":
+                scrape_division(page, div_name, cfg, log, force=force)
+            else:
+                scrape_team_division(page, div_name, cfg, log, force=force, team_filter=team_filter)
+
+        ctx.storage_state(path=str(SESSION_FILE))
+        browser.close()
+
+    log.info("\nAll done.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="WCWAA Box Score Scraper")
+    parser.add_argument("--division", nargs="+",
+                        choices=["Majors", "Minors", "Wild", "Storm"],
+                        help="Divisions to scrape (default: all)")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-scrape all games even if already in JSON/roster.txt")
+    parser.add_argument("--team", default=None,
+                        help="Only scrape this team (Wild/Storm only; partial match, case-insensitive)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Show DEBUG-level messages on screen (normally only written to log file)")
+    args = parser.parse_args()
+    run(divisions_filter=args.division, team_filter=args.team, force=args.force, verbose=args.verbose)

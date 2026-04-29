@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-interactive_menu.py — Interactive pipeline launcher for WCWAA Scout Pipeline
+run_menu.py — Interactive pipeline launcher for WCWAA Scout Pipeline
 =============================================================================
 
 WORKFLOW SUMMARY
@@ -16,7 +16,7 @@ It behaves in one of two modes:
   MODE 2 — Interactive menu (when no args are supplied):
     run_scout.sh
     → Displays a numbered menu. User picks a scope, then the script
-      calls gc_scraper.py, scrape_box_scores.py, and gen_reports.py
+      calls scrape_gc_playbyplay.py, scrape_gc_boxscores.py, and gen_reports.py
       via subprocess with the correct --division / --team flags.
 
 MENU OPTIONS
@@ -29,7 +29,7 @@ MENU OPTIONS
 
 WHY SUBPROCESS INSTEAD OF IMPORT + CALL?
 ─────────────────────────────────────────
-Each script (gc_scraper.py, scrape_box_scores.py, gen_reports.py) configures
+Each script (scrape_gc_playbyplay.py, scrape_gc_boxscores.py, gen_reports.py) configures
 its own argparse and logging. Calling them as subprocesses:
   - Keeps their stdout/stderr streaming live to the terminal (user sees progress)
   - Avoids logging config conflicts between scripts
@@ -42,8 +42,8 @@ HOW "ADD NEW TEAM" WORKS
   2. Script parses team_id and slug from the URL.
   3. Script suggests a folder name (derived from slug); user confirms or edits.
   4. User picks Wild or Storm.
-  5. Script inserts one line into DIVISIONS in gc_scraper.py and
-     scrape_box_scores.py (both files updated atomically).
+  5. Script inserts one line into DIVISIONS in scrape_gc_playbyplay.py and
+     scrape_gc_boxscores.py (both files updated atomically).
   6. Script creates Wild/<TeamName>/Games/ or Storm/<TeamName>/Games/.
   7. User is reminded to verify the folder name after the first game is scraped
      (folder name MUST match GC's inning header spelling exactly).
@@ -65,21 +65,21 @@ SPRING_DIR = Path(
     "/My Drive/Baseball/WCWAA/2026/Spring"
 ).expanduser()
 
-# Session file written by gc_scraper.py --login
+# Session file written by scrape_gc_playbyplay.py --login
 SESSION_FILE = SCRIPTS_DIR / "gc_session.json"
 
 # Rosters for Majors/Minors (keyed by team name like "Cubs-Holtzer")
 MAJORS_ROSTER = SPRING_DIR / "Majors" / "Reports" / "rosters.json"
 MINORS_ROSTER = SPRING_DIR / "Minors" / "Reports" / "rosters.json"
 
-# ── Import DIVISIONS from gc_scraper ───────────────────────────────────────
+# ── Import DIVISIONS from scrape_gc_playbyplay ───────────────────────────────────────
 # WHY: We import the live DIVISIONS dict rather than duplicating it here.
-# This means adding a team to gc_scraper.py automatically updates the menu —
+# This means adding a team to scrape_gc_playbyplay.py automatically updates the menu —
 # no second place to edit. This is the DRY principle in action.
 try:
-    from gc_scraper import DIVISIONS
+    from scrape_gc_playbyplay import DIVISIONS
 except ImportError:
-    print("ERROR: Could not import DIVISIONS from gc_scraper.py.")
+    print("ERROR: Could not import DIVISIONS from scrape_gc_playbyplay.py.")
     print("Make sure you are running this from the Scripts/ directory.")
     sys.exit(1)
 
@@ -104,8 +104,8 @@ def check_session():
     """
     Warn the user if gc_session.json is missing.
 
-    The session file holds GC login cookies saved by gc_scraper.py --login.
-    Without it, both gc_scraper.py and scrape_box_scores.py will fail
+    The session file holds GC login cookies saved by scrape_gc_playbyplay.py --login.
+    Without it, both scrape_gc_playbyplay.py and scrape_gc_boxscores.py will fail
     immediately with an authentication error.
 
     We warn here (before showing the menu) so the user can fix it upfront
@@ -115,7 +115,7 @@ def check_session():
         print("⚠️  WARNING: gc_session.json not found.")
         print("   The scraper needs a saved GameChanger login session.")
         print("   Run this first, then re-launch:")
-        print("     python3 gc_scraper.py --login")
+        print("     python3 scrape_gc_playbyplay.py --login")
         print()
 
 
@@ -192,7 +192,7 @@ def get_team_list(division):
     # Majors / Minors — read team keys from rosters.json
     roster_path = MAJORS_ROSTER if division == "Majors" else MINORS_ROSTER
     if not roster_path.exists():
-        print(f"  ⚠️  {roster_path} not found — run scrape_box_scores.py first.")
+        print(f"  ⚠️  {roster_path} not found — run scrape_gc_boxscores.py first.")
         return []
     with open(roster_path, encoding="utf-8") as f:
         data = json.load(f)
@@ -209,8 +209,8 @@ def run_pipeline(division=None, team=None):
     Execute the full 3-step pipeline for the given scope.
 
     Steps:
-      1. gc_scraper.py        — scrape new game files from GameChanger
-      2. scrape_box_scores.py — update rosters.json / roster.txt
+      1. scrape_gc_playbyplay.py — scrape new game files from GameChanger
+      2. scrape_gc_boxscores.py  — update rosters.json / roster.txt
       3. gen_reports.py       — regenerate PDFs
 
     Step 1 skips games that already have a .txt or -Reviewed.txt on disk,
@@ -227,23 +227,23 @@ def run_pipeline(division=None, team=None):
     team_args = ["--team",     team]     if team     else []
 
     # Step 1: Scrape new game files
-    # gen_reports.py accepts --team natively; gc_scraper uses it as a name filter
+    # gen_reports.py accepts --team natively; scrape_gc_playbyplay uses it as a name filter
     print()
     print("─" * 58)
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
     print(f"▶ Step 1/3  Scrape new games  [{scope}]")
     print("─" * 58)
-    _run(["python3", "gc_scraper.py"] + div_args + team_args)
+    _run(["python3", "scrape_gc_playbyplay.py"] + div_args + team_args)
 
     # Step 2: Update rosters
-    # --team is now supported by scrape_box_scores.py for Wild/Storm team-based divisions.
+    # --team is now supported by scrape_gc_boxscores.py for Wild/Storm team-based divisions.
     # For Majors/Minors (org-based), --team is ignored — the full division roster JSON
     # is always updated together since all teams share one file.
     print()
     print("─" * 58)
     print(f"▶ Step 2/3  Update rosters    [{scope}]")
     print("─" * 58)
-    _run(["python3", "scrape_box_scores.py"] + div_args + team_args)
+    _run(["python3", "scrape_gc_boxscores.py"] + div_args + team_args)
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).
@@ -279,7 +279,7 @@ def _run(cmd):
       - Shell injection is not possible (args are a list, not a string)
 
     Args:
-        cmd: List of command + arguments, e.g. ["python3", "gc_scraper.py", "--division", "Wild"]
+        cmd: List of command + arguments, e.g. ["python3", "scrape_gc_playbyplay.py", "--division", "Wild"]
 
     Raises:
         SystemExit if the command returns a non-zero exit code.
@@ -390,12 +390,12 @@ def _insert_team_into_file(filepath, division, team_id, slug, folder_name):
     # so we need different anchor strings for each file.
     filename = Path(filepath).name
 
-    if filename == "gc_scraper.py":
+    if filename == "scrape_gc_playbyplay.py":
         anchors = {
             "Wild":  '        ],\n        "output_base": SPRING_DIR / "Wild",',
             "Storm": '        ],\n        "output_base": SPRING_DIR / "Storm",',
         }
-    else:  # scrape_box_scores.py
+    else:  # scrape_gc_boxscores.py
         anchors = {
             "Wild":  '        ],\n    },\n    # \u2500\u2500 Storm opponents',
             "Storm": '        ],\n    },\n}',
@@ -430,7 +430,7 @@ def add_new_team():
       1. Paste a GC schedule URL → auto-parse team_id and slug
       2. Confirm or edit the suggested folder name
       3. Choose Wild or Storm division
-      4. Insert into gc_scraper.py and scrape_box_scores.py
+      4. Insert into scrape_gc_playbyplay.py and scrape_gc_boxscores.py
       5. Create the Games/ folder structure on disk
       6. Print reminder about verifying folder name after first scrape
 
@@ -482,12 +482,12 @@ def add_new_team():
     print()
     print(f"  Adding \"{folder_name}\" to {division}...")
 
-    # Modify gc_scraper.py
-    scraper_path = SCRIPTS_DIR / "gc_scraper.py"
+    # Modify scrape_gc_playbyplay.py
+    scraper_path = SCRIPTS_DIR / "scrape_gc_playbyplay.py"
     ok1 = _insert_team_into_file(scraper_path, division, team_id, slug, folder_name)
 
-    # Modify scrape_box_scores.py
-    boxscore_path = SCRIPTS_DIR / "scrape_box_scores.py"
+    # Modify scrape_gc_boxscores.py
+    boxscore_path = SCRIPTS_DIR / "scrape_gc_boxscores.py"
     ok2 = _insert_team_into_file(boxscore_path, division, team_id, slug, folder_name)
 
     # Create folder structure
@@ -497,8 +497,8 @@ def add_new_team():
     if ok1 and ok2:
         print()
         print(f"  ✅ \"{folder_name}\" added to {division}.")
-        print(f"     gc_scraper.py       — updated (backup: gc_scraper.py.bak)")
-        print(f"     scrape_box_scores.py — updated (backup: scrape_box_scores.py.bak)")
+        print(f"     scrape_gc_playbyplay.py — updated (backup: scrape_gc_playbyplay.py.bak)")
+        print(f"     scrape_gc_boxscores.py  — updated (backup: scrape_gc_boxscores.py.bak)")
         print(f"     Folder created: {division}/{folder_name}/Games/")
         print()
         print("  Next steps:")
@@ -508,7 +508,7 @@ def add_new_team():
         print("  3. If they differ, rename the folder (two-step to avoid macOS case bug):")
         print(f'       mv "{division}/{folder_name}" "{division}/tmp"')
         print(f'       mv "{division}/tmp" "{division}/<Corrected Name>"')
-        print("     Then update the folder name in gc_scraper.py and scrape_box_scores.py.")
+        print("     Then update the folder name in scrape_gc_playbyplay.py and scrape_gc_boxscores.py.")
     else:
         print()
         print("  ⚠️  Partial failure — check messages above and edit scripts manually.")

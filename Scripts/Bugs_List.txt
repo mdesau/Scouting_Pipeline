@@ -124,14 +124,14 @@ Problem:  GC team schedule pages (Wild/Storm) display completed games with a
           Org pages (Majors/Minors) still show "FINAL" as explicit text.
           SCHEDULE_JS only checked lines.includes('FINAL'), so every Wild/Storm
           game was evaluated as non-final and skipped entirely.
-          Result: gc_scraper.py and scrape_box_scores.py reported "0 FINAL games
+          Result: scrape_gc_playbyplay.py and scrape_gc_boxscores.py reported "0 FINAL games
           found" for ALL Wild/Storm teams — no new games were ever scraped.
           Discovered via diagnostic run Apr 24; root cause confirmed by screenshot
           showing score-only display on team pages.
 Fix:      Added score-pattern check alongside FINAL:
             final: lines.includes('FINAL') ||
                    lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
-          Files: gc_scraper.py and scrape_box_scores.py → SCHEDULE_JS
+          Files: scrape_gc_playbyplay.py and scrape_gc_boxscores.py → SCHEDULE_JS
           Commit: ea04909
 Workaround: N/A — fully fixed.
 
@@ -155,7 +155,7 @@ Problem:  After Bug 7 was fixed and Wild/Storm games were detected, the generate
              'home' (location string — wrong). The correct home name is the team
              we're scouting (known from the loop variable team_name).
           Bad files written during one aborted run; all deleted before re-scrape.
-Fix:      Three changes to gc_scraper.py:
+Fix:      Three changes to scrape_gc_playbyplay.py:
           1. SCHEDULE_JS: Added leaf-node detection for uppercase day-abbr (MON/
              TUE/.../SUN) and following digit as a separate code path that sets
              currentDateTag before the <a> card is processed.
@@ -163,16 +163,16 @@ Fix:      Three changes to gc_scraper.py:
           3. scrape_team_division(): Uses is_home + team_name to build filename:
              is_home=True  → "{opponent}_vs_{our_team}.txt"  (we are home)
              is_home=False → "{our_team}_vs_{opponent}.txt"  (we are away)
-          File: gc_scraper.py → SCHEDULE_JS + scrape_team_division()
+          File: scrape_gc_playbyplay.py → SCHEDULE_JS + scrape_team_division()
           Commit: 00d8d40
 Workaround: N/A — fully fixed.
 
 
 --------------------------------------------------------------------------------
-BUG 9: scrape_box_scores.py crashed with NameError: 'date' not defined
+BUG 9: scrape_gc_boxscores.py crashed with NameError: 'date' not defined
 --------------------------------------------------------------------------------
 Date:     Apr 24, 2026
-Problem:  scrape_team_division() in scrape_box_scores.py writes a roster.txt
+Problem:  scrape_team_division() in scrape_gc_boxscores.py writes a roster.txt
           header comment using date.today().isoformat(). The 'date' class from
           the datetime module was not imported — only 'datetime' was imported.
           This was a pre-existing lint error (flagged in Known Issues since
@@ -182,26 +182,26 @@ Fix:      Changed import line:
             from datetime import datetime
           to:
             from datetime import datetime, date
-          File: scrape_box_scores.py → top-level imports (line 37)
+          File: scrape_gc_boxscores.py → top-level imports (line 37)
           Commit: 00d8d40
 Workaround: N/A — fully fixed.
 
 
 --------------------------------------------------------------------------------
-BUG 10: Step 2 (scrape_box_scores.py) ignored --team filter; always scraped all division teams
+BUG 10: Step 2 (scrape_gc_boxscores.py) ignored --team filter; always scraped all division teams
 --------------------------------------------------------------------------------
 Date:     Apr 2026
 Problem:  When running the pipeline for a single Wild/Storm team (e.g. "QC Flight"),
           Step 2 (roster scrape) would loop through ALL teams in that division even
           though only one team was requested. No --team arg existed in argparse;
-          run() and scrape_team_division() had no team_filter param; interactive_menu.py
+          run() and scrape_team_division() had no team_filter param; run_menu.py
           passed div_args but not team_args to Step 2.
 Fix:      Added team_filter=None param to scrape_team_division() and run().
           Inside scrape_team_division() team loop, added:
             if team_filter and team_filter.lower() not in team_name.lower(): continue
           Added --team arg to argparse; wired to run().
-          Updated interactive_menu.py Step 2 call to pass team_args alongside div_args.
-          Files: scrape_box_scores.py, interactive_menu.py
+          Updated run_menu.py Step 2 call to pass team_args alongside div_args.
+          Files: scrape_gc_boxscores.py, run_menu.py
           Commit: (next commit)
 Workaround: N/A — fully fixed.
 
@@ -212,7 +212,7 @@ BUG 11: Wild/Storm PDF cards show no jersey numbers (display falls back to "Ryde
 Date:     Apr 2026
 Problem:  parse_game_for_team() extracts pa["initials"] as "FirstName LastInitial"
           (e.g. "Ryder B") because DESC_RE captures the full first name from the
-          game .txt file. But roster.txt keys written by scrape_box_scores.py use
+          game .txt file. But roster.txt keys written by scrape_gc_boxscores.py use
           "FirstInitial LastInitial" format (e.g. "R B"). When gen_reports.py
           builds roster_wild = {init: init} and then roster_wild.update(roster),
           "Ryder B" never matches "R B", so the display always stays "Ryder B"

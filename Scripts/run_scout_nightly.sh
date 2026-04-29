@@ -13,7 +13,7 @@
 # run_scout.sh        — for manual use; shows an interactive numbered menu
 # run_nightly_scout.sh — for automated/scheduled use; no menu, no stdin needed
 #
-# Both share the same underlying pipeline logic (interactive_menu.py run_pipeline).
+# Both share the same underlying pipeline logic (run_menu.py run_pipeline).
 # This script simply passes --all to skip the menu entirely.
 #
 # SCHEDULE
@@ -25,7 +25,7 @@
 # ────
 # stdout + stderr from this wrapper go to:
 #   Scout_Development/Logs/nightly_YYYYMMDD_HHMMSS.log
-# Each pipeline script (gc_scraper, scrape_box_scores, gen_reports) also
+# Each pipeline script (scrape_gc_playbyplay, scrape_gc_boxscores, gen_reports) also
 # writes its own dated log to Logs/ as usual.
 #
 # MANUAL TEST RUN
@@ -74,10 +74,10 @@ else
 fi
 
 # ── Run the pipeline ──────────────────────────────────────────────────────────
-# --all tells interactive_menu.py to skip the menu and run the full pipeline
+# --all tells run_menu.py to skip the menu and run the full pipeline
 # (all divisions, all teams). No stdin interaction required.
 cd "$SCRIPTS_DIR"
-python3 interactive_menu.py --all
+python3 run_menu.py --all
 
 echo ""
 echo "========================================================"

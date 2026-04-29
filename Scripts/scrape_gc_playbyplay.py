@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gc_scraper.py — GameChanger DOM Scraper for WCWAA 2026 Spring
+scrape_gc_playbyplay.py — GameChanger DOM Scraper for WCWAA 2026 Spring
 =============================================================
 Navigates every game's /plays page via Playwright, extracts
 play-by-play text from the React DOM, converts it to WCWAA format
@@ -11,25 +11,25 @@ Covers all four divisions: Majors, Minors, Wild, Storm.
 Usage
 -----
 # First time only — opens a real browser window for you to log in
-python3 gc_scraper.py --login
+python3 scrape_gc_playbyplay.py --login
 
 # All subsequent runs — fully automated, browser hidden
-python3 gc_scraper.py
+python3 scrape_gc_playbyplay.py
 
 # One division only
-python3 gc_scraper.py --division Majors
-python3 gc_scraper.py --division Storm
+python3 scrape_gc_playbyplay.py --division Majors
+python3 scrape_gc_playbyplay.py --division Storm
 
 # One team only
-python3 gc_scraper.py --team "Braves-Rue"
-python3 gc_scraper.py --team "ITAA 9U Spartans"
+python3 scrape_gc_playbyplay.py --team "Braves-Rue"
+python3 scrape_gc_playbyplay.py --team "ITAA 9U Spartans"
 
 # Check which games are missing without scraping (safe, read-only)
-python3 gc_scraper.py --check
-python3 gc_scraper.py --check --division Minors --team Rangers
+python3 scrape_gc_playbyplay.py --check
+python3 scrape_gc_playbyplay.py --check --division Minors --team Rangers
 
 # Force re-scrape even if .txt or -Reviewed.txt already exists
-python3 gc_scraper.py --force
+python3 scrape_gc_playbyplay.py --force
 
 Setup (one time)
 -----
@@ -94,7 +94,7 @@ def setup_logging(verbose=False):
     """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = LOGS_DIR / f"gc_scraper_{stamp}.log"
+    log_path = LOGS_DIR / f"scrape_gc_playbyplay_{stamp}.log"
 
     fmt = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s",
                             datefmt="%H:%M:%S")
@@ -104,14 +104,14 @@ def setup_logging(verbose=False):
     sh = logging.StreamHandler()
     sh.setFormatter(fmt); sh.setLevel(logging.DEBUG if verbose else logging.INFO)
 
-    log = logging.getLogger("gc_scraper")
+    log = logging.getLogger("scrape_gc_playbyplay")
     log.setLevel(logging.DEBUG)
     log.addHandler(fh)
     log.addHandler(sh)
     log.info(f"Log → {log_path}")
     return log
 
-logger = logging.getLogger("gc_scraper")
+logger = logging.getLogger("scrape_gc_playbyplay")
 logger.addHandler(logging.NullHandler())
 
 # Majors and Minors: org-based schedule URLs
@@ -162,6 +162,8 @@ DIVISIONS = {
             ("lc7rtdls8Ht6", "2026-spring-south-charlotte-challenge-9u-doggett", "South Charlotte Challenge 9U Doggett"),
             ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),
             ("xduuY8fEkGLx", "2026-spring-lkn-lightning-10u", "LKN Lightning 10U"),
+            ("HZ3pkdRb5s6P", "2026-spring-park-sharon-nationals-10u", "Park Sharon Nationals 10U"),
+            ("L3KLX1oI2VGl", "2026-spring-weddington-stormtroopers", "Weddington Stormtroopers"),
         ],
         "output_base": SPRING_DIR / "Storm",
         "label":       "Storm",
