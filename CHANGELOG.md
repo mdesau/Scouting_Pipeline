@@ -12,6 +12,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-04-28
+
+### Added
+- **Team Aggregate Card** (`gen_reports.py`) — first card (top-left, green header) on the player
+  card page shows the team's combined offensive profile: aggregate spray chart, AVG/OBP/SLG/C%
+  stat boxes, GB%/FB+LD% bars, SM%/CStr%/FPT% footer, and overall archetype label. Applies to
+  all four divisions (Majors, Minors, Wild, Storm).
+- **Team Totals row in summary table** (`gen_reports.py`) — amber-highlighted bold row at the
+  bottom of the summary table showing aggregate AVG, OBP, SLG, C%, top-4 hit zones, GB%, FB+%,
+  SM%, CStr%, and FPT% across the full lineup.
+- **`compute_team_totals(batters)`** (`gen_reports.py`) — new function; sums all batter counting
+  stats (PA, AB, H, BB, BIP, zones, raw pitch counts, etc.) and recomputes all derived stats
+  from aggregated totals. Returns a batter-shaped dict for seamless use in `draw_card()` and
+  the summary table builder with no special-casing.
+
+### Changed
+- **`draw_card()`** (`gen_reports.py`) — accepts optional `header_color` parameter (defaults to
+  `C_NAVY`); team aggregate card passes `C_GREEN` to visually distinguish it from player cards.
+- **`compute_stats()` return dict** (`gen_reports.py`) — now includes raw pitch counting fields
+  (`p_balls`, `p_called_str`, `p_swing_miss`, `p_fouls`, `p_in_play`, `fpt_takes`, `fpt_swings`)
+  so `compute_team_totals()` can sum them correctly. SM%, CStr%, and FPT% now calculate properly
+  on the team card (were `None` when only derived ratios were available).
+
+
+---
+
 ## [2.1.0] - 2026-04-28
 
 ### Added

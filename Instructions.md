@@ -251,21 +251,25 @@ python3 scrape_gc_playbyplay.py --login
 **Key functions & locations:**
 | Function | ~Line | Purpose |
 |---|---|---|
-| `main()` | ~1700 | CLI entry point — parses `--division`, `--team`, `--verbose` |
-| `run_majors()` / `run_minors()` | ~1550 | Division runners: pre-scan all teams for league-wide percentile thresholds, then generate each PDF |
-| `run_wild()` / `run_storm()` | ~1600 | Travel division runners: per-opponent loop with try/except isolation |
-| `parse_game_file()` | ~420 | Core parser: reads `.txt` file, applies `INNING_RE` + `DESC_RE`, extracts PAs per batter |
-| `INNING_RE` | ~95 | Regex matching `===Top/Bottom N - TeamName===` headers — **critical: exact team name match** |
-| `parse_outcome()` | ~300 | Maps play description string → outcome code (1B, 2B, K, BB, FO, GO, etc.) |
-| `OUTCOME_TYPES` | ~110 | Dict of all recognised outcome strings — **add new play types here** |
-| `compute_stats()` | ~560 | Aggregates PA list → per-batter stat dict (AVG, OBP, SLG, SM%, etc.) |
-| `assign_archetype()` | ~650 | Applies Approach × Result label using league percentiles or fixed thresholds |
-| `_disambiguate_pas()` | ~480 | Splits shared-initials PAs using `_collision_map` + batting order alternation |
-| `build_pdf()` | ~750 | ReportLab PDF assembly: player cards + summary page |
-| `draw_player_card()` | ~800 | Renders one player card: spray chart, stat bars, archetype label, pitching approach |
-| `draw_summary_page()` | ~1100 | Renders summary table + two-sentence scouting notes per batter |
-| `DIVISIONS` dict | ~130 | Folder paths + roster file locations per division |
-| `DEBUG_PA_PARSING`, `DEBUG_ARCHETYPES`, `DEBUG_PITCH_SEQ` | ~42 | Debug flags |
+| `main()` | ~1890 | CLI entry point — parses `--division`, `--team`, `--verbose` |
+| `run_league()` | ~1647 | Division runner for Majors/Minors: pre-scan for percentiles, generate each PDF |
+| `run_wild()` | ~1776 | Travel division runner (Wild/Storm): per-opponent loop with try/except isolation |
+| `parse_game_for_team()` | ~430 | Core parser: reads `.txt` file, applies `INNING_RE` + `DESC_RE`, extracts PAs per batter |
+| `INNING_RE` | ~420 | Regex matching `===Top/Bottom N - TeamName===` headers — **critical: exact team name match** |
+| `parse_outcome()` | ~340 | Maps play description string → outcome code (1B, 2B, K, BB, FO, GO, etc.) |
+| `BIP_OUTCOMES` | ~312 | Set of all ball-in-play outcome codes — **add new play types to `parse_outcome()` too** |
+| `compute_stats()` | ~614 | Aggregates PA list → per-batter stat dict (AVG, OBP, SLG, SM%, etc.) + raw pitch counts |
+| `compute_team_totals()` | ~728 | Aggregates all batters → single team-level stat dict; powers team card + totals row |
+| `get_archetype()` | ~843 | Applies Approach × Result label using league percentiles or fixed thresholds |
+| `_disambiguate_pas()` | ~213 | Splits shared-initials PAs using `_collision_map` + batting order alternation |
+| `generate_pdf()` | ~1386 | ReportLab PDF assembly: team card + player cards + summary/notes page |
+| `draw_card()` | ~1277 | Renders one player or team card: spray chart, stat bars, archetype label, pitching approach |
+| `draw_field_spray_chart()` | ~1149 | Heat-map spray chart with BIP dots |
+| `generate_notes_short()` | ~1020 | 1-2 sentence compact note for summary page |
+| `build_league_context()` | ~1614 | Pre-scans all teams' scorebooks to build league-wide batter list for percentile thresholds |
+| `DIVISIONS` dict | ~80 | Folder paths + roster file locations per division |
+| `PITCHING_APPROACH` | ~952 | Archetype → pitching recommendation lookup dict |
+| `DEBUG_PA_PARSING`, `DEBUG_ARCHETYPES`, `DEBUG_PITCH_SEQ` | ~38 | Debug flags |
 
 **Dependencies:** `rosters.json` or `roster.txt` (from step 2), `.txt` game files (from step 1).
 

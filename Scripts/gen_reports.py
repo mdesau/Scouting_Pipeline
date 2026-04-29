@@ -710,9 +710,90 @@ def compute_stats(pas, roster):
             "zone_detail":dict(b["zone_detail"]),
             "singles":b["singles"],"doubles":b["doubles"],
             "triples":b["triples"],"hrs":b["hrs"],
+            # Raw pitch counts — included so compute_team_totals() can sum them
+            # directly rather than trying to reverse-engineer totals from ratios.
+            # Not displayed on individual cards; only consumed by the aggregator.
+            "p_balls":      b["p_balls"],
+            "p_called_str": b["p_called_str"],
+            "p_swing_miss": b["p_swing_miss"],
+            "p_fouls":      b["p_fouls"],
+            "p_in_play":    b["p_in_play"],
+            "fpt_takes":    b["fpt_takes"],
+            "fpt_swings":   b["fpt_swings"],
         })
     results.sort(key=lambda x:(x.get("avg_batting_pos", 999), x["display"]))
     return results
+
+
+def compute_team_totals(batters):
+    """
+    Aggregate all individual batter stat dicts into a single team-level record.
+
+    WHY THIS EXISTS:
+        Coaches want to see the team's collective offensive profile — not just
+        individual players. A team card with aggregate AVG/OBP/SLG and a
+        combined spray chart shows where the lineup as a whole makes contact
+        and what their collective plate discipline looks like.
+
+    The returned dict is shaped identically to a regular batter record so it
+    can be passed directly to draw_card() and the summary table builder —
+    no special-casing needed downstream.
+
+    Returns None if no active batters (PA > 0) exist.
+    """
+    active = [b for b in batters if b["pa"] > 0]
+    if not active:
+        return None
+
+    # Aggregate zones and zone_detail separately (they use defaultdict structures)
+    zones = defaultdict(int)
+    zone_detail = defaultdict(lambda: {"gb": 0, "fb_ld": 0, "other": 0})
+
+    # All counting stats that aggregate by simple addition
+    COUNT_KEYS = (
+        "pa", "ab", "h", "bb", "hbp", "tb", "bip", "k_sw", "k_lk", "gb", "fb_ld",
+        "p_balls", "p_called_str", "p_swing_miss", "p_fouls", "p_in_play",
+        "fpt_takes", "fpt_swings", "singles", "doubles", "triples", "hrs",
+    )
+    sums = {k: 0 for k in COUNT_KEYS}
+
+    for b in active:
+        for k in COUNT_KEYS:
+            sums[k] += b.get(k, 0)
+        for z, cnt in b["zones_sorted"]:
+            zones[z] += cnt
+        for z, det in b["zone_detail"].items():
+            for bt in ("gb", "fb_ld", "other"):
+                zone_detail[z][bt] += det.get(bt, 0)
+
+    # Compute derived stats from aggregated counting stats (same formulas as compute_stats)
+    ab      = sums["ab"];  h   = sums["h"];  bb  = sums["bb"];  hbp = sums["hbp"]
+    tb      = sums["tb"];  bip = sums["bip"]
+    gb      = sums["gb"];  fb_ld = sums["fb_ld"]
+    k_total = sums["k_sw"] + sums["k_lk"]
+    swings  = sums["p_swing_miss"] + sums["p_fouls"] + sums["p_in_play"]
+    total_p = sums["p_balls"] + sums["p_called_str"] + swings
+    fpt_total = sums["fpt_takes"] + sums["fpt_swings"]
+
+    result = dict(sums)
+    result.update({
+        "initials":        "TEAM",
+        "display":         f"Team Totals  ({len(active)} players)",
+        "avg":             h / ab                        if ab > 0          else None,
+        "obp":             (h + bb + hbp) / (ab+bb+hbp) if (ab+bb+hbp) > 0 else None,
+        "slg":             tb / ab                       if ab > 0          else None,
+        "c_pct":           (ab - k_total) / ab           if ab > 0          else None,
+        "gb_pct":          gb / bip                      if bip > 0         else None,
+        "fb_pct":          fb_ld / bip                   if bip > 0         else None,
+        "sm_pct":          sums["p_swing_miss"] / swings   if swings > 0    else None,
+        "cstr_pct":        sums["p_called_str"] / total_p  if total_p > 0   else None,
+        "fpt_pct":         sums["fpt_takes"] / fpt_total   if fpt_total > 0 else None,
+        "avg_batting_pos": 999,
+        "zones_sorted":    sorted(zones.items(), key=lambda x: -x[1]),
+        "zone_detail":     {z: dict(v) for z, v in zone_detail.items()},
+    })
+    return result
+
 
 def fmt_avg(v):
     if v is None: return "---"
@@ -1193,7 +1274,14 @@ def draw_bar(c, x, y, w, h, pct, col, lbl, fill_text_white=False):
     c.setFillColor(C_WHITE if (pct_on_fill and fill_text_white) else colors.black)
     c.drawRightString(x+w-2, y+2, fmt_pct(pct))
 
-def draw_card(c, b, x, y, cw, ch, all_batters=None):
+def draw_card(c, b, x, y, cw, ch, all_batters=None, header_color=None):
+    """
+    Draw one batter card (player or team aggregate) at position (x, y).
+
+    header_color: optional ReportLab color for the card header background.
+        Defaults to C_NAVY for player cards; pass C_GREEN for the team
+        aggregate card so it's visually distinct at a glance.
+    """
     c.setFillColor(C_WHITE); c.setStrokeColor(C_NAVY); c.setLineWidth(0.5)
     c.roundRect(x, y, cw, ch, 4, fill=1, stroke=1)
     pad = 5; iw = cw - 2*pad; ix = x + pad
@@ -1203,7 +1291,7 @@ def draw_card(c, b, x, y, cw, ch, all_batters=None):
     #   Row 2: Archetype    centered full-width (bold white)
     #   Row 3: Approach     centered (amber italic)  |  values (right white)
     header_h = 38
-    c.setFillColor(C_NAVY)
+    c.setFillColor(header_color or C_NAVY)
     c.roundRect(x, y+ch-header_h, cw, header_h, 4, fill=1, stroke=0)
 
     arch     = get_archetype(b, all_batters) or "—"
@@ -1320,7 +1408,15 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
     card_h = (avail_h - (MAX_ROWS - 1) * row_gap) / MAX_ROWS
     card_h = max(140, min(320, card_h))
 
-    card_pages = [active[i:i+per_page] for i in range(0, max(1, len(active)), per_page)]
+    # Prepend the team aggregate card as card index 0 so it appears in the
+    # top-left slot of the first page alongside the individual player cards.
+    # A "_is_team_card" flag lets the draw loop pass header_color=C_GREEN
+    # for just that one card without any special-casing in draw_card() itself.
+    team_totals = compute_team_totals(active)
+    if team_totals:
+        team_totals["_is_team_card"] = True
+    all_cards  = ([team_totals] if team_totals else []) + active
+    card_pages = [all_cards[i:i+per_page] for i in range(0, max(1, len(all_cards)), per_page)]
 
     for page_num, page_batters in enumerate(card_pages):
         if page_num > 0:
@@ -1332,7 +1428,9 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             row = idx // ncols
             cx2 = MARGIN + col * (card_w + col_gap)
             cy2 = top_y - (row + 1) * (card_h + row_gap) + row_gap
-            draw_card(c, b, cx2, cy2, card_w, card_h, all_batters=arch_ctx)
+            hdr_col = C_GREEN if b.get("_is_team_card") else None
+            draw_card(c, b, cx2, cy2, card_w, card_h, all_batters=arch_ctx,
+                      header_color=hdr_col)
 
     # ── PAGE 3: Summary Table + Compact Notes ────────────────────────────────
     c.showPage()
@@ -1360,22 +1458,57 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             fmt_pct(b["sm_pct"]),fmt_pct(b["cstr_pct"]),fmt_pct(b.get("fpt_pct")),
         ])
 
+    # ── Team Totals row ────────────────────────────────────────────────────────
+    # Aggregate all active batters into a single summary row at the bottom.
+    # Displayed in amber with bold text so it's immediately distinguishable
+    # from individual player rows. C% and SM% use the same team-aggregate
+    # values as the team card — consistent across both views.
+    tt = compute_team_totals(active)
+    if tt:
+        tt_zs = tt["zones_sorted"]; tt_bip = tt["bip"]
+        tt_zcells = []
+        for i in range(4):
+            if i < len(tt_zs):
+                z, cnt = tt_zs[i]; p = int(round(cnt / tt_bip * 100)) if tt_bip > 0 else 0
+                tt_zcells.append(f"{z} {p}%")
+            else:
+                tt_zcells.append("—")
+        data.append([
+            "TEAM TOTALS",
+            fmt_avg(tt["avg"]), fmt_avg(tt["obp"]), fmt_avg(tt["slg"]), fmt_pct(tt["c_pct"]),
+        ] + tt_zcells + [
+            fmt_pct(tt["gb_pct"]), fmt_pct(tt["fb_pct"]),
+            fmt_pct(tt["sm_pct"]), fmt_pct(tt["cstr_pct"]), fmt_pct(tt.get("fpt_pct")),
+        ])
+
     col_ws = [1.00*inch,
               0.38*inch,0.38*inch,0.38*inch,0.38*inch,
               0.56*inch,0.56*inch,0.56*inch,0.56*inch,
               0.36*inch,0.36*inch,0.36*inch,0.38*inch,0.36*inch]
     tbl = Table(data, colWidths=col_ws)
-    tbl.setStyle(TableStyle([
+
+    # Build style list: base styles + team totals row highlight
+    last_row = len(data) - 1
+    tbl_styles = [
         ("BACKGROUND",(0,0),(-1,0),C_NAVY),("TEXTCOLOR",(0,0),(-1,0),C_WHITE),
         ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,0),6.5),
         ("FONTNAME",(0,1),(-1,-1),"Helvetica"),("FONTSIZE",(0,1),(-1,-1),6.5),
-        ("ROWBACKGROUNDS",(0,1),(-1,-1),[C_WHITE,C_LGRAY]),
+        ("ROWBACKGROUNDS",(0,1),(-1,last_row - (1 if tt else 0)),[C_WHITE,C_LGRAY]),
         ("ALIGN",(0,0),(-1,-1),"CENTER"),("ALIGN",(0,0),(0,-1),"LEFT"),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("GRID",(0,0),(-1,-1),0.3,C_GRAY),
         ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
         ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
-    ]))
+    ]
+    # Team totals row: amber background + bold font to make it pop
+    if tt:
+        tbl_styles += [
+            ("BACKGROUND",  (0, last_row), (-1, last_row), C_AMBER),
+            ("FONTNAME",    (0, last_row), (-1, last_row), "Helvetica-Bold"),
+            ("TEXTCOLOR",   (0, last_row), (-1, last_row), C_NAVY),
+            ("LINEABOVE",   (0, last_row), (-1, last_row), 0.8, C_NAVY),
+        ]
+    tbl.setStyle(TableStyle(tbl_styles))
     t_top = PAGE_H - 58
     tw, th = tbl.wrapOn(c, PAGE_W - 2*MARGIN, PAGE_H)
     tbl.drawOn(c, MARGIN, t_top - th)
