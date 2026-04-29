@@ -66,7 +66,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts/run_nightly_scout.sh</string>
+        <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts/run_scout_nightly.sh</string>
     </array>
 
     <!-- Working directory — set to Scripts/ so relative paths inside the

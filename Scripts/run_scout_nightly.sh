@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# run_nightly_scout.sh — Headless scheduled pipeline runner
+# run_scout_nightly.sh — Headless scheduled pipeline runner
 #
 # PURPOSE
 # ───────
@@ -32,7 +32,7 @@
 # ───────────────
 # To test this script runs cleanly without waiting for the scheduler:
 #   cd .../Scout_Development/Scripts
-#   bash run_nightly_scout.sh
+#   bash run_scout_nightly.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Exit immediately if any command fails (so a scraper crash doesn't silently
