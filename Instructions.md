@@ -18,11 +18,13 @@ across the full build history of this project.
 - **Virtual environment:** `Scout_Development/venv/` — always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in project root
-- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0`, `v2.1.0` (current)
+- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0`, `v2.1.0`, `v2.2.0`, `v2.3.0` (current)
 - **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
 ```
+(tag: v2.3.0) feat: league rank row + team totals in summary table v2.3.0
+(tag: v2.2.0) feat: team aggregate card + team totals row in summary table v2.2.0
 e9f338e  (tag: v2.0.0) chore: __version__ = 2.0.0, version banner, CHANGELOG v1.0.0+v2.0.0
 0d7e2e7  fix: gen_reports --team filter uses partial match for Wild/Storm
 fd26a40  fix: Wild/Storm PDF jersey numbers missing — load_wild_roster dual key format (Bug 11)
@@ -40,7 +42,7 @@ c2828e4  feat: rename run_weekly.sh → run_scout.sh; add SBA Alabama + TN Natio
 |---|---|---|---|---|---|
 | `scrape_gc_playbyplay.py` | 532 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
 | `scrape_gc_boxscores.py` | 820 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
-| `gen_reports.py` | 1756 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
+| `gen_reports.py` | 2002 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
 | `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
 | `run_scout.sh` | 55 | Shell launcher — activates venv, calls run_menu.py | — | — | — |
 | `run_scout_nightly.sh` | ~55 | Headless launcher — no menu; calls run_menu.py --all; used by launchd | — | — | — |
@@ -260,13 +262,15 @@ python3 scrape_gc_playbyplay.py --login
 | `BIP_OUTCOMES` | ~312 | Set of all ball-in-play outcome codes — **add new play types to `parse_outcome()` too** |
 | `compute_stats()` | ~614 | Aggregates PA list → per-batter stat dict (AVG, OBP, SLG, SM%, etc.) + raw pitch counts |
 | `compute_team_totals()` | ~728 | Aggregates all batters → single team-level stat dict; powers team card + totals row |
+| `fmt_pct()` | ~803 | Formats a ratio as `".NNN"` string or `"—"` |
+| `_rank_stat()` | ~807 | Dense rank helper — rank 1 = highest; returns `"rank/n"` or `"—"`; used in LG RANK row |
 | `get_archetype()` | ~843 | Applies Approach × Result label using league percentiles or fixed thresholds |
 | `_disambiguate_pas()` | ~213 | Splits shared-initials PAs using `_collision_map` + batting order alternation |
-| `generate_pdf()` | ~1386 | ReportLab PDF assembly: team card + player cards + summary/notes page |
-| `draw_card()` | ~1277 | Renders one player or team card: spray chart, stat bars, archetype label, pitching approach |
+| `generate_pdf()` | ~1408 | ReportLab PDF assembly: team card + player cards + summary/notes page |
+| `draw_card()` | ~1299 | Renders one player or team card: spray chart, stat bars, archetype label, pitching approach |
 | `draw_field_spray_chart()` | ~1149 | Heat-map spray chart with BIP dots |
 | `generate_notes_short()` | ~1020 | 1-2 sentence compact note for summary page |
-| `build_league_context()` | ~1614 | Pre-scans all teams' scorebooks to build league-wide batter list for percentile thresholds |
+| `build_league_context()` | ~1675 | Pre-scans all teams' scorebooks; returns `(league_batters, league_team_totals)` tuple for percentiles + LG RANK |
 | `DIVISIONS` dict | ~80 | Folder paths + roster file locations per division |
 | `PITCHING_APPROACH` | ~952 | Archetype → pitching recommendation lookup dict |
 | `DEBUG_PA_PARSING`, `DEBUG_ARCHETYPES`, `DEBUG_PITCH_SEQ` | ~38 | Debug flags |
@@ -374,12 +378,12 @@ has been manually patched with the disambiguation and `_collision_map`.
 
 | Layer | Check | Logged as |
 |---|---|---|
-| 1 | Inning continuity — no skipped innings per team per game | `WARNING INNING GAP` |
+| 1 | Inning continuity — no skipped innings per team per game | `DEBUG INNING GAP` (log only) |
 | 2 | Unknown outcomes — unrecognised play descriptions | `WARNING UNKNOWN` |
 | 3 | Batting order — PA counts consistent with lineup (debug only) | `DEBUG ORDER/GAP` |
-| 4 | Box score cross-check — parsed AB/BB vs. box_verify.json | `WARNING BOX-VERIFY` |
+| 4 | Box score cross-check — parsed AB/BB vs. box_verify.json | `DEBUG BOX-VERIFY` (log only) |
 
-Warnings appear in the log file and on stdout. They do NOT stop PDF generation.
+Layer 2 (`WARNING UNKNOWN`) appears on stdout. Layers 1, 3, 4 are debug-only (log file only). None stop PDF generation.
 
 ---
 
@@ -543,7 +547,7 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `Instructions.md` (this file), `CHANGELOG.md`
 
-**Current version: v2.1.0** — nightly scheduled pipeline + script rename refactor.
+**Current version: v2.3.0** — league rank row, team aggregate card, team totals row.
 
 1. **Monitor nightly runs** — verify `launchd` fires correctly at 10pm EDT on game nights;
    check `Logs/nightly_*.log` and `Logs/launchd_stdout.log` after first automated run.
@@ -560,9 +564,9 @@ Passive Overmatched/Walker   → Attack the Zone
 |---|---|---|
 | `0 PAs` for a team | Team name mismatch (folder vs. inning header) | Check exact spelling in game file header vs. folder name |
 | `?F L?` in output | Player initials not in rosters.json | Run scrape_gc_boxscores.py; or add to roster_additions in gen_reports.py |
-| `WARNING INNING GAP` | Skipped inning in parse | Check raw game file for noise text blocking inning header match |
+| `INNING GAP` in log file | Skipped inning in parse (debug-only, log file only) | Check raw game file for noise text blocking inning header match |
 | `WARNING UNKNOWN` | Play outcome not in OUTCOME_TYPES | Check the play text; if valid, add to parser |
-| `WARNING BOX-VERIFY` | Parsed AB/BB differs from box score | Review game file for missed plays |
+| `BOX-VERIFY` in log file | Parsed AB/BB differs from box score (debug-only, log file only) | Review game file for missed plays |
 | Jersey numbers missing (Majors) | rosters.json not yet populated | Run `scrape_gc_boxscores.py --division Majors` locally |
 | Jersey numbers missing (Minors) | Box scores inaccessible | Known permanent limitation |
 | Session expired error | gc_session.json expired | Run `python3 scrape_gc_playbyplay.py --login` |

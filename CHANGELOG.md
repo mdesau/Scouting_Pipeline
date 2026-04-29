@@ -12,6 +12,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] - 2026-04-29
+
+### Added
+- **LG RANK row in summary table** (`gen_reports.py`) — light-blue row below the Team Totals
+  row showing each stat's dense rank among all teams in the division (e.g. `3/11`).
+  Rank 1 = highest value; user interprets good/bad per category. Appears only when
+  `league_team_totals` is passed (Majors and Minors only; Wild/Storm unchanged).
+- **`_rank_stat(value, league_team_totals, stat_key)`** (`gen_reports.py ~line 807`) — dense
+  rank helper; rank 1 = highest, ties share rank; returns `"rank/n"` string or `"—"` if
+  value is `None`.
+
+### Changed
+- **`build_league_context()`** (`gen_reports.py ~line 1675`) — now returns a 2-tuple
+  `(league_batters, league_team_totals)` instead of just `league_batters`. Callers
+  (`run_league()`) unpack the tuple.
+- **`generate_pdf()`** (`gen_reports.py ~line 1408`) — added `league_team_totals=None`
+  parameter; when provided, appends the LG RANK row to the summary table.
+- **`run_league()`** (`gen_reports.py ~line 1729`) — unpacks 2-tuple from
+  `build_league_context()` and passes `league_team_totals` to `generate_pdf()`.
+
+### Fixed
+- **Majors LG RANK showed `x/10` instead of `x/11`** — `build_league_context()` used
+  `team_key` (which contains `A's-Blanco`) to match PDF filenames, but files are stored
+  as `As-Blanco` (apostrophe stripped). Added `file_team_key = team_key.replace("'", "")`
+  fallback; A's-Blanco now included in league totals giving correct 11-team ranks.
+- **INNING GAP warnings demoted to `logger.debug()`** — `check_inning_continuity()` and
+  `verify_game()` no longer emit INNING GAP at WARNING level. Still written to log file;
+  suppressed from terminal output.
+- **BOX-VERIFY warnings demoted to `logger.debug()`** — `verify_box_score()` AB/BB
+  discrepancy messages no longer appear at WARNING level. Still written to log file.
+
+---
+
 ## [2.2.0] - 2026-04-28
 
 ### Added

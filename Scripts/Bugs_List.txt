@@ -228,6 +228,46 @@ Fix:      Extended load_wild_roster() in gen_reports.py to index each entry unde
 Workaround: N/A — fully fixed.
 
 
+--------------------------------------------------------------------------------
+BUG 12: INNING GAP and BOX-VERIFY warnings producing terminal noise
+--------------------------------------------------------------------------------
+Date:     Apr 29, 2026
+Problem:  Every run of gen_reports.py printed WARNING-level messages for
+          INNING GAP (check_inning_continuity / verify_game) and BOX-VERIFY
+          (verify_box_score) to the terminal. The per-game INFO line showed
+          "[⚠ N warning(s)]" for nearly every game, making it difficult to
+          spot genuine issues (e.g. WARNING UNKNOWN outcomes).
+          These checks produce a large volume of low-signal hits because
+          GC play-by-play doesn't always align perfectly with box score counts,
+          and one-batter inning gaps are common in short-inning games.
+Fix:      Demoted all INNING GAP and BOX-VERIFY log calls from logger.warning()
+          to logger.debug(). They are still written to the log file for review
+          but no longer appear on stdout.
+          File: gen_reports.py → check_inning_continuity(), verify_game(),
+                verify_box_score()
+          Commit: v2.3.0
+Workaround: N/A — fully fixed.
+
+
+--------------------------------------------------------------------------------
+BUG 13: Majors LG RANK showed x/10 instead of x/11 (A's-Blanco excluded)
+--------------------------------------------------------------------------------
+Date:     Apr 29, 2026
+Problem:  build_league_context() matched each team's PDFs by checking whether
+          team_key appeared in the filename. For A's-Blanco the team_key
+          contains an apostrophe ("A's-Blanco"), but all stored PDF/scorebook
+          filenames use the apostrophe-stripped form ("As-Blanco").
+          The filename match always failed → A's-Blanco was skipped → only
+          10 entries in league_team_totals instead of 11 → all Majors LG RANK
+          rows showed x/10.
+Fix:      Added file_team_key = team_key.replace("'", "") as a fallback.
+          Filename check now accepts a match against either team_key or
+          file_team_key. A's-Blanco now resolves correctly.
+          File: gen_reports.py → build_league_context()
+          Commit: v2.3.0
+Workaround: N/A — fully fixed. Run confirmed: "11 team totals built".
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================

@@ -293,13 +293,13 @@ def verify_box_score(team_key, batters, box_verify):
         ab_diff = abs(b["ab"] - bs["ab"])
         bb_diff = abs(b["bb"] - bs["bb"])
         if ab_diff > 1:
-            logger.warning(
-                f"  ⚠ BOX-VERIFY [{team_key}] {init}: "
+            logger.debug(
+                f"  BOX-VERIFY [{team_key}] {init}: "
                 f"parsed AB={b['ab']} vs box score AB={bs['ab']} (diff={ab_diff})"
             )
         if bb_diff > 1:
-            logger.warning(
-                f"  ⚠ BOX-VERIFY [{team_key}] {init}: "
+            logger.debug(
+                f"  BOX-VERIFY [{team_key}] {init}: "
                 f"parsed BB={b['bb']} vs box score BB={bs['bb']} (diff={bb_diff})"
             )
 
@@ -514,7 +514,7 @@ def check_inning_continuity(filepath, team_key):
     missing = [n for n in range(1, max_inn + 1) if n not in innings_found]
     if missing:
         warnings.append(
-            f"  ⚠ INNING GAP: '{team_key}' missing inning(s) "
+            f"  INNING GAP: '{team_key}' missing inning(s) "
             f"{missing} (found: {sorted(innings_found)}) in {os.path.basename(filepath)}"
         )
     return warnings
@@ -604,7 +604,7 @@ def verify_game(fpath, team_key, pas, fname):
         logger.debug(w.strip())   # debug level: not shown in normal output
 
     for w in warnings:
-        logger.warning(w.strip())
+        logger.debug(w.strip())   # INNING GAP + UNKNOWN demoted to debug
     return len(warnings)
 
 
@@ -803,6 +803,28 @@ def fmt_avg(v):
 def fmt_pct(v):
     if v is None: return "--"
     return f"{int(round(v*100))}%"
+
+def _rank_stat(value, league_team_totals, stat_key):
+    """
+    Rank this team's aggregate stat among all league team totals.
+    Returns a compact 'rank/n' string, e.g. '3/11'.
+
+    Rank 1 = highest value in the division, regardless of whether high is
+    offensively good or bad. The coach reads context: AVG rank 1/11 is great;
+    SM% rank 1/11 means most whiffs in the league (bad). Consistent direction
+    makes the row predictable without any per-column legend needed.
+
+    Ties share the same rank (dense rank — no gaps).
+    Returns '—' if value is None or no league data is available.
+    """
+    if value is None or not league_team_totals:
+        return "—"
+    all_vals = [t[stat_key] for t in league_team_totals if t.get(stat_key) is not None]
+    if not all_vals:
+        return "—"
+    n    = len(all_vals)
+    rank = sum(1 for v in all_vals if v > value) + 1
+    return f"{rank}/{n}"
 
 # ---------------------------------------------------------------------------
 # 6. Archetype — 2-word batter label (Approach × Result)
@@ -1383,7 +1405,7 @@ def draw_card(c, b, x, y, cw, ch, all_batters=None, header_color=None):
 # ---------------------------------------------------------------------------
 # 10. PDF generation
 # ---------------------------------------------------------------------------
-def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_batters=None, division_label="Majors"):
+def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_batters=None, division_label="Majors", league_team_totals=None):
     c = rl_canvas.Canvas(out_path, pagesize=letter)
     skip_note = f"  |  Skipped: {', '.join(skipped)}" if skipped else ""
     sub = f"{n_games} games  |  Generated {TODAY}{skip_note}"
@@ -1458,12 +1480,14 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             fmt_pct(b["sm_pct"]),fmt_pct(b["cstr_pct"]),fmt_pct(b.get("fpt_pct")),
         ])
 
-    # ── Team Totals row ────────────────────────────────────────────────────────
-    # Aggregate all active batters into a single summary row at the bottom.
-    # Displayed in amber with bold text so it's immediately distinguishable
-    # from individual player rows. C% and SM% use the same team-aggregate
-    # values as the team card — consistent across both views.
+    # ── Team Totals row (amber) ───────────────────────────────────────────────
+    # Aggregate all active batters into a summary row. Displayed in amber so
+    # coaches can find the team's collective profile at a glance.
     tt = compute_team_totals(active)
+    n_player_rows = len(active)   # save now — used for ROWBACKGROUNDS range below
+    totals_row_idx = None
+    rank_row_idx   = None
+
     if tt:
         tt_zs = tt["zones_sorted"]; tt_bip = tt["bip"]
         tt_zcells = []
@@ -1480,6 +1504,36 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             fmt_pct(tt["gb_pct"]), fmt_pct(tt["fb_pct"]),
             fmt_pct(tt["sm_pct"]), fmt_pct(tt["cstr_pct"]), fmt_pct(tt.get("fpt_pct")),
         ])
+        totals_row_idx = len(data) - 1
+
+    # ── League Rank row (light blue) — Majors/Minors only ────────────────────
+    # Shows where this team's aggregate stats rank among all teams in the
+    # division. Format: 'rank/n' where rank 1 = best offensive outcome.
+    #
+    # Direction conventions (rank 1 = best):
+    #   Higher is better: AVG, OBP, SLG, C%, FB+%, FPT%
+    #   Lower  is better: SM% (fewer whiffs), CStr% (fewer frozen strikes)
+    #   GB%: ranked higher = more ground balls; no universal preference —
+    #        shown for context; coaches interpret based on their game plan.
+    #   Zone cols: no meaningful cross-team ranking — shown as '—'.
+    if tt and league_team_totals:
+        # All stats ranked highest value = rank 1, lowest value = last.
+        # The user interprets whether high is good or bad per category
+        # (e.g. AVG rank 1 is desirable; SM% rank 1 means most whiffs — bad).
+        data.append([
+            "LG RANK",
+            _rank_stat(tt["avg"],         league_team_totals, "avg"),
+            _rank_stat(tt["obp"],         league_team_totals, "obp"),
+            _rank_stat(tt["slg"],         league_team_totals, "slg"),
+            _rank_stat(tt["c_pct"],       league_team_totals, "c_pct"),
+            "—", "—", "—", "—",   # zone columns — no cross-team ranking
+            _rank_stat(tt["gb_pct"],      league_team_totals, "gb_pct"),
+            _rank_stat(tt["fb_pct"],      league_team_totals, "fb_pct"),
+            _rank_stat(tt["sm_pct"],      league_team_totals, "sm_pct"),
+            _rank_stat(tt["cstr_pct"],    league_team_totals, "cstr_pct"),
+            _rank_stat(tt.get("fpt_pct"), league_team_totals, "fpt_pct"),
+        ])
+        rank_row_idx = len(data) - 1
 
     col_ws = [1.00*inch,
               0.38*inch,0.38*inch,0.38*inch,0.38*inch,
@@ -1487,26 +1541,33 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
               0.36*inch,0.36*inch,0.36*inch,0.38*inch,0.36*inch]
     tbl = Table(data, colWidths=col_ws)
 
-    # Build style list: base styles + team totals row highlight
-    last_row = len(data) - 1
+    # Base styles: header band + player rows zebra stripe.
+    # ROWBACKGROUNDS uses the explicit player row count so it never accidentally
+    # bleeds into the Totals or Rank rows regardless of how many special rows exist.
     tbl_styles = [
         ("BACKGROUND",(0,0),(-1,0),C_NAVY),("TEXTCOLOR",(0,0),(-1,0),C_WHITE),
         ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,0),6.5),
         ("FONTNAME",(0,1),(-1,-1),"Helvetica"),("FONTSIZE",(0,1),(-1,-1),6.5),
-        ("ROWBACKGROUNDS",(0,1),(-1,last_row - (1 if tt else 0)),[C_WHITE,C_LGRAY]),
+        ("ROWBACKGROUNDS",(0,1),(-1,n_player_rows),[C_WHITE,C_LGRAY]),
         ("ALIGN",(0,0),(-1,-1),"CENTER"),("ALIGN",(0,0),(0,-1),"LEFT"),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("GRID",(0,0),(-1,-1),0.3,C_GRAY),
         ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
         ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
     ]
-    # Team totals row: amber background + bold font to make it pop
-    if tt:
+    if totals_row_idx is not None:
         tbl_styles += [
-            ("BACKGROUND",  (0, last_row), (-1, last_row), C_AMBER),
-            ("FONTNAME",    (0, last_row), (-1, last_row), "Helvetica-Bold"),
-            ("TEXTCOLOR",   (0, last_row), (-1, last_row), C_NAVY),
-            ("LINEABOVE",   (0, last_row), (-1, last_row), 0.8, C_NAVY),
+            ("BACKGROUND", (0, totals_row_idx), (-1, totals_row_idx), C_AMBER),
+            ("FONTNAME",   (0, totals_row_idx), (-1, totals_row_idx), "Helvetica-Bold"),
+            ("TEXTCOLOR",  (0, totals_row_idx), (-1, totals_row_idx), C_NAVY),
+            ("LINEABOVE",  (0, totals_row_idx), (-1, totals_row_idx), 0.8, C_NAVY),
+        ]
+    if rank_row_idx is not None:
+        tbl_styles += [
+            ("BACKGROUND", (0, rank_row_idx), (-1, rank_row_idx), C_LTBLUE),
+            ("FONTNAME",   (0, rank_row_idx), (-1, rank_row_idx), "Helvetica-Bold"),
+            ("TEXTCOLOR",  (0, rank_row_idx), (-1, rank_row_idx), C_WHITE),
+            ("LINEABOVE",  (0, rank_row_idx), (-1, rank_row_idx), 0.8, C_NAVY),
         ]
     tbl.setStyle(TableStyle(tbl_styles))
     t_top = PAGE_H - 58
@@ -1613,35 +1674,56 @@ def load_wild_roster(team_dir):
 
 def build_league_context(game_files, rosters, config, all_collision_maps=None):
     """
-    Pre-scan ALL teams' scorebooks to build a league-wide batter list.
-    Used to compute league-relative percentile thresholds for archetype Result labels.
-    Silent — no output printed.
+    Pre-scan ALL teams' scorebooks in a single pass.
+
+    Returns: (league_batters, league_team_totals)
+
+      league_batters: flat list of all individual batter dicts across the whole
+          league — used by get_archetype() to compute percentile thresholds so
+          every player is ranked relative to all others in the division.
+
+      league_team_totals: list of per-team aggregate dicts (one per team), each
+          shaped like a batter dict plus a 'team_key' field — used by the
+          summary table to rank this team's totals against every other team.
+
+    WHY ONE PASS:
+        Both outputs are derived from the same per-team PA scan. Computing them
+        together avoids reading every game file twice — important for 11+ team
+        leagues with 5-10 game files each.
 
     all_collision_maps: optional {team_key: {2-char-init: [dis1, dis2]}} from
-        load_box_rosters() — passed through to parse_game_for_team() so duplicate-
-        initials splitting applies during the league pre-scan as well.
+        load_box_rosters() — ensures duplicate-initials splitting applies
+        consistently during the league scan.
     """
-    league_batters = []
+    league_batters     = []
+    league_team_totals = []
     csv_overrides = config.get("csv_overrides", {})
     scorebooks_dir = config.get("scorebooks")
     teams = config.get("teams", [])
     coll_maps = all_collision_maps or {}
 
     for team_name, coach_last in teams:
-        team_key = f"{team_name}-{coach_last}"
+        team_key      = f"{team_name}-{coach_last}"
+        file_team_key = team_key.replace("'", "")   # filenames strip apostrophes (e.g. A's → As)
         csv_team = csv_overrides.get(team_name, team_name)
         roster   = rosters.get(f"{csv_team}-{coach_last}", {})
         cmap     = coll_maps.get(team_key, {})
         all_pas  = []
         for fname in game_files:
-            if team_key not in fname: continue
+            if team_key not in fname and file_team_key not in fname: continue
             fpath = os.path.join(scorebooks_dir, fname)
             try:
                 all_pas.extend(parse_game_for_team(fpath, team_key, collision_map=cmap))
             except Exception:
                 pass
-        league_batters.extend(compute_stats(all_pas, roster))
-    return league_batters
+        batters = compute_stats(all_pas, roster)
+        league_batters.extend(batters)
+        tt = compute_team_totals(batters)
+        if tt:
+            tt["team_key"] = team_key
+            league_team_totals.append(tt)
+
+    return league_batters, league_team_totals
 
 
 def run_league(division, teams_filter=None):
@@ -1679,15 +1761,19 @@ def run_league(division, teams_filter=None):
 
     game_files = sorted(f for f in os.listdir(scorebooks_dir) if f.endswith(".txt"))
 
-    # Build league-wide context if enabled
-    league_batters = None
+    # Build league-wide context if enabled.
+    # Returns both individual batter list (for archetype percentiles) and
+    # per-team totals list (for league rank row in summary table).
+    league_batters     = None
+    league_team_totals = None
     if league_scan:
-        logger.info("Scanning league for archetype percentiles…")
-        league_batters = build_league_context(
+        logger.info("Scanning league for archetype percentiles and team totals…")
+        league_batters, league_team_totals = build_league_context(
             game_files, rosters, config, all_collision_maps=all_collision_maps
         )
         eligible = [b for b in league_batters if b["pa"] >= 5]
-        logger.info(f"{len(eligible)} qualifying players across {len(teams)} teams.")
+        logger.info(f"{len(eligible)} qualifying players across {len(teams)} teams. "
+                    f"{len(league_team_totals)} team totals built.")
 
     run_start = time.time()
     timings = []
@@ -1750,7 +1836,8 @@ def run_league(division, teams_filter=None):
         safe = team_name.replace(" ", "_")
         pdf_path = os.path.join(output_dir, f"{safe}_{coach_last}-Scout_2026.pdf")
         generate_pdf(team_key, label, batters, n_games, skipped, pdf_path,
-                     league_batters=league_batters, division_label=label_suffix)
+                     league_batters=league_batters, division_label=label_suffix,
+                     league_team_totals=league_team_totals)
 
         for fpath in parsed_paths:
             new_path = mark_reviewed(fpath)
