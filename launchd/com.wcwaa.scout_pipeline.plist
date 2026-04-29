@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+<!--
+  com.wcwaa.scout_pipeline.plist
+  ══════════════════════════════
+  macOS LaunchAgent — runs the WCWAA nightly scouting pipeline at 10:00 PM EDT
+  (02:00 UTC) every day.
+
+  WHY launchd INSTEAD OF cron:
+    launchd is the macOS-native scheduler. It is more reliable than cron on
+    modern macOS, supports start-on-login, and integrates with the macOS
+    logging system. cron is deprecated on macOS 10.15+.
+
+  INSTALL (one-time setup):
+    1. Ensure the script path in ProgramArguments below matches your machine.
+       The path uses your home directory — verify with: echo $HOME
+    2. Copy (or symlink) this file to your LaunchAgents folder:
+         ln -sf "$(pwd)/launchd/com.wcwaa.scout_pipeline.plist" \
+                ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+    3. Load it into launchd:
+         launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+    4. Verify it is scheduled:
+         launchctl list | grep wcwaa
+
+  UNINSTALL:
+    launchctl unload ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+    rm ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+
+  MANUAL TEST (runs the job right now without waiting for 10pm):
+    launchctl start com.wcwaa.scout_pipeline
+
+  CHECK LAST EXIT CODE:
+    launchctl list com.wcwaa.scout_pipeline
+    (look for "LastExitStatus" — 0 means success)
+
+  TIMING NOTE:
+    StartCalendarInterval Hour=2 Minute=0 is 02:00 UTC = 10:00 PM EDT (UTC-4).
+    During EST (winter, UTC-5) this fires at 9:00 PM local — adjust Hour to 3
+    for consistent 10 PM EST if needed after daylight saving ends.
+
+  SLEEPING LAPTOP:
+    If the laptop is asleep at 10pm, launchd will NOT wake it and the job will
+    be skipped for that night. It will run again the next night at 10pm.
+    To enable wake-on-schedule: System Settings → Battery → "Wake for network
+    access" (if available on your model). This is optional — the pipeline is
+    safe to skip nights; it only picks up genuinely new FINAL games.
+
+  LOG FILES:
+    StandardOutPath / StandardErrorPath below capture this script's output.
+    Each pipeline script (gc_scraper, scrape_box_scores, gen_reports) also
+    writes its own dated log to Scout_Development/Logs/.
+-->
+
+<plist version="1.0">
+<dict>
+
+    <!-- Unique identifier for this job — must match the filename -->
+    <key>Label</key>
+    <string>com.wcwaa.scout_pipeline</string>
+
+    <!-- The script to run.
+         /bin/bash is explicit because launchd runs in a minimal environment
+         without a full shell PATH — always use absolute paths here. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts/run_nightly_scout.sh</string>
+    </array>
+
+    <!-- Working directory — set to Scripts/ so relative paths inside the
+         shell script resolve correctly (same as running manually from Scripts/) -->
+    <key>WorkingDirectory</key>
+    <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts</string>
+
+    <!-- Schedule: 02:00 UTC daily = 10:00 PM EDT -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Capture stdout to a fixed log file (overwritten each run).
+         The nightly script also writes a dated log to the Logs/ folder. -->
+    <key>StandardOutPath</key>
+    <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Logs/launchd_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Logs/launchd_stderr.log</string>
+
+    <!-- Run at load time only if the job was missed (e.g. laptop was off).
+         RunAtLoad = false means it only runs on schedule, not immediately on install. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+</dict>
+</plist>

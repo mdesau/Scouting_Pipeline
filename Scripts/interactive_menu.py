@@ -612,11 +612,20 @@ def main():
         # run_pipeline() with the correct scope (which handles all 3 steps).
         #
         # Supported passthrough forms:
+        #   --all                                    (headless full pipeline — used by run_nightly_scout.sh)
         #   --division Wild
         #   --division Wild --team "QC Flight Baseball 11U"
         #   --team "Cubs-Holtzer"   (division inferred as None → all divisions searched)
         division = None
         team = None
+
+        # --all: explicit full-pipeline flag for headless/scheduled runs.
+        # Skips the menu and runs all divisions with no filtering.
+        if "--all" in user_args:
+            print_header()
+            print("▶ Headless mode — running full pipeline for ALL divisions")
+            run_pipeline(division=None, team=None)
+            return
 
         i = 0
         while i < len(user_args):
