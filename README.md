@@ -76,14 +76,76 @@ python3 scrape_gc_playbyplay.py --login
 
 ## Weekly Usage (After Each Game Week)
 
-**One command does everything:**
+There are two ways to run the pipeline depending on whether you want to trigger it manually or let it run automatically overnight.
+
+---
+
+### Option A — On-Demand (Manual Run)
+
+Run this any time you want to trigger the pipeline yourself — after a game weekend, mid-week spot check, or single-team update:
 
 ```bash
 cd Scripts
 bash run_scout.sh
 ```
 
-That's it. New PDFs appear in the Google Drive folder automatically. No browser interaction required.
+This opens an **interactive menu** where you can choose:
+- `[0]` Full pipeline — all divisions, all teams
+- `[1]` Single division
+- `[2]` Single team
+- `[3]` Add a new Wild / Storm opponent
+
+You can also skip the menu entirely by passing flags directly:
+
+```bash
+bash run_scout.sh --division Majors
+bash run_scout.sh --division Wild --team "QC Flight Baseball 11U"
+```
+
+---
+
+### Option B — Nightly Scheduled Run (Automatic)
+
+The pipeline can run automatically every night at **10:00 PM EDT** via macOS `launchd`. This uses a separate headless wrapper that skips the interactive menu entirely — no terminal interaction needed.
+
+**The scheduler is configured via:**
+```
+launchd/com.wcwaa.scout_pipeline.plist
+```
+
+**Install (one-time):**
+```bash
+ln -sf "$(pwd)/../launchd/com.wcwaa.scout_pipeline.plist" \
+       ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+```
+
+**Verify it's scheduled:**
+```bash
+launchctl list | grep wcwaa
+```
+
+**Trigger a manual test run immediately (without waiting for 10pm):**
+```bash
+launchctl start com.wcwaa.scout_pipeline
+```
+
+**Uninstall:**
+```bash
+launchctl unload ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+rm ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
+```
+
+> **Note:** If your laptop is asleep at 10pm, launchd will skip that night's run — it does not wake the machine. The pipeline is safe to skip; it only picks up genuinely new FINAL games on the next run.
+
+---
+
+| | `run_scout.sh` | `run_scout_nightly.sh` |
+|---|---|---|
+| **Triggered by** | You, manually | macOS launchd at 10pm EDT |
+| **Menu shown** | ✅ Yes (or CLI passthrough) | ❌ No — headless, no stdin |
+| **Scope** | Your choice | All divisions, all teams |
+| **Logs** | Per-script logs in `Logs/` | `Logs/nightly_YYYYMMDD_HHMMSS.log` + per-script logs |
 
 ---
 
@@ -96,7 +158,9 @@ The table below lists every script in the order it is run, what it does, and wha
 | 1 | `scrape_gc_playbyplay.py` | Navigates GC schedule pages for all 4 divisions; finds new FINAL games; downloads play-by-play text; saves `.txt` game files to the correct folder | `parse_gc_text.py` (called internally), `gc_session.json` (auth) | `--login` `--division` `--team` `--check` `--force` `--verbose` |
 | 2 | `scrape_gc_boxscores.py` | Navigates GC box score pages; extracts player names + jersey numbers; builds `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm); writes `box_verify.json` for cross-checking | `gc_session.json` (auth) | `--division` `--force` `--verbose` |
 | 3 | `gen_reports.py` | Reads all `.txt` game files; parses every plate appearance; computes batting stats + archetypes; generates multi-page PDF scouting reports via ReportLab | `rosters.json` / `roster.txt` (from step 2), game `.txt` files (from step 1) | `--division` `--team` `--verbose` |
-| — | `run_scout.sh` | Shell wrapper that runs steps 1 → 2 → 3 in sequence with one command; activates the venv automatically | All three scripts above | *(none — runs everything)* |
+| — | `run_scout.sh` | Interactive shell wrapper: shows numbered menu (or CLI passthrough); activates venv; calls steps 1 → 2 → 3 | All three scripts above | `--division` `--team` (passed through) |
+| — | `run_scout_nightly.sh` | Headless shell wrapper for scheduled runs: no menu, no stdin; calls `run_menu.py --all`; logs to `Logs/nightly_*.log` | `run_menu.py`, venv | *(none)* |
+| — | `run_menu.py` | Python pipeline orchestrator: builds the interactive menu, handles CLI passthrough, and calls the 3 steps as subprocesses | `scrape_gc_playbyplay.py` (imports DIVISIONS) | `--all` `--division` `--team` |
 | — | `parse_gc_text.py` | Utility: converts raw GC page text into the WCWAA-structured `.txt` game file format; applies name-fix corrections (e.g. `$awyer` → `Sawyer`) | *(none — pure utility, no external deps)* | *(imported by `scrape_gc_playbyplay.py`, not run directly)* |
 | — | `diag_schedule.py` | Diagnostic only: dumps the raw GC schedule page DOM to help debug layout changes; not part of the normal pipeline | `gc_session.json` (auth) | `--division` |
 
