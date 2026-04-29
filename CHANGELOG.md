@@ -12,6 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-04-28
+
+### Added
+- **`run_scout_nightly.sh`** — headless pipeline wrapper for scheduled/automated runs; no interactive menu, no stdin; passes `--all` to `run_menu.py`; logs to `Logs/nightly_YYYYMMDD_HHMMSS.log`
+- **`launchd/com.wcwaa.scout_pipeline.plist`** — macOS LaunchAgent that fires `run_scout_nightly.sh` at 10:00 PM EDT (02:00 UTC) nightly; installed via symlink to `~/Library/LaunchAgents/`; includes full install/uninstall/test instructions in file header
+- **`--all` flag on `run_menu.py`** — explicit headless flag; skips the interactive menu and runs the full pipeline (all divisions, all teams); used by `run_scout_nightly.sh`
+- **README Option A / Option B usage section** — distinguishes manual on-demand runs (`run_scout.sh`) from scheduled nightly runs (`run_scout_nightly.sh` via launchd); includes install/test/uninstall commands and side-by-side comparison table
+
+### Changed
+- **Script renames (refactor)** — standardized all script names for consistency:
+  - `gc_scraper.py` → `scrape_gc_playbyplay.py`
+  - `scrape_box_scores.py` → `scrape_gc_boxscores.py`
+  - `interactive_menu.py` → `run_menu.py`
+  - All references updated across 14 files (scripts, shell launchers, docs, plist)
+- **LKN Lightning 10U team_id corrected** — wrong ID `g5b5S2mmGZqX` replaced with `xduuY8fEkGLx` in both `scrape_gc_playbyplay.py` and `scrape_gc_boxscores.py`; stale folder deleted
+
+---
+
 ## [2.0.0] - 2026-04-24
 
 ### Added

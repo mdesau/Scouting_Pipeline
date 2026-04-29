@@ -18,7 +18,7 @@ across the full build history of this project.
 - **Virtual environment:** `Scout_Development/venv/` — always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in project root
-- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0` (current)
+- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0`, `v2.1.0` (current)
 - **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
@@ -43,6 +43,7 @@ c2828e4  feat: rename run_weekly.sh → run_scout.sh; add SBA Alabama + TN Natio
 | `gen_reports.py` | 1756 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
 | `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
 | `run_scout.sh` | 55 | Shell launcher — activates venv, calls run_menu.py | — | — | — |
+| `run_scout_nightly.sh` | ~55 | Headless launcher — no menu; calls run_menu.py --all; used by launchd | — | — | — |
 | `run_menu.py` | ~300 | Interactive pipeline menu — numbered team/division picker, add-new-team flow | — | — | — |
 
 ---
@@ -80,10 +81,13 @@ Spring/
       scrape_gc_boxscores.py     ← Playwright: GC box scores → rosters.json + roster.txt
       parse_gc_text.py         ← converts raw GC page text → WCWAA .txt format
       gen_reports.py           ← stat engine + ReportLab PDF generator (all 4 divisions)
-      run_scout.sh             ← pipeline launcher: activates venv, calls run_menu.py
-      run_menu.py      ← interactive numbered menu (division/team picker, add-new-team)
+      run_scout.sh             ← manual launcher: activates venv, calls run_menu.py (interactive)
+      run_scout_nightly.sh     ← headless launcher: no menu; calls run_menu.py --all (for launchd)
+      run_menu.py              ← pipeline orchestrator: interactive menu + CLI passthrough
       gc_session.json          ← saved Playwright GC login session (auth cookies) [gitignored]
       archetype_reference.txt  ← archetype system design notes
+    launchd/
+      com.wcwaa.scout_pipeline.plist  ← macOS LaunchAgent: fires run_scout_nightly.sh at 10pm EDT
     Logs/                      ← runtime logs [gitignored]
       gen_reports_YYYYMMDD_HHMMSS.log
       scrape_gc_playbyplay_YYYYMMDD_HHMMSS.log
@@ -120,11 +124,21 @@ Spring/
 
 ## Weekly Workflow
 
-**One command covers the full pipeline:**
+**Option A — manual on-demand run (interactive menu):**
 ```bash
 cd ~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My\ Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts
 bash run_scout.sh
 ```
+
+**Option B — nightly scheduled run (automatic via launchd at 10pm EDT):**
+```bash
+# Verify scheduler is active
+launchctl list | grep wcwaa
+# Trigger immediately for testing
+launchctl start com.wcwaa.scout_pipeline
+# Logs at: Scout_Development/Logs/nightly_YYYYMMDD_HHMMSS.log
+```
+See `launchd/com.wcwaa.scout_pipeline.plist` for install instructions.
 
 **Step by step:**
 ```bash
@@ -460,6 +474,8 @@ Passive Overmatched/Walker   → Attack the Zone
 |---|---|---|
 | ITAA 9U Spartans | `lTxYlYLH52KU` | Active |
 | MARA 9U Stingers | `VdoWDJdlCgAH` | Active |
+| South Charlotte Challenge 9U Doggett | `lc7rtdls8Ht6` | Active |
+| LKN Lightning 10U | `xduuY8fEkGLx` | Active — team_id corrected Apr 28 |
 | MILITIA 9U | `XIMp3aUceUsY` | 0 game files on disk yet |
 
 ---
@@ -523,19 +539,14 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `Instructions.md` (this file), `CHANGELOG.md`
 
-**Current version: v2.0.0** — interactive menu pipeline fully operational.
+**Current version: v2.1.0** — nightly scheduled pipeline + script rename refactor.
 
-1. **Scheduled / automatic pipeline runs (target v2.1)** — Implement a `launchd`
-   LaunchAgent to run the full pipeline automatically (e.g. every Sunday night) so
-   PDFs are ready Monday morning without a manual trigger. Create
-   `Scout_Development/launchd/com.wcwaa.scout_pipeline.plist` and add to repo
-   (user installs manually via symlink to `~/Library/LaunchAgents/`). Key design
-   questions to resolve:
-   - Full pipeline vs. separate scrape + generate steps (for failure isolation)?
-   - Sleeping laptop handling (Wake for network access? Skip + retry?)?
-   - stdout/stderr destination when running headless (log file vs. macOS Console)?
-   - macOS notification on completion / failure?
-   - Version bump to `v2.1.0` after implementation and testing.
+1. **Monitor nightly runs** — verify `launchd` fires correctly at 10pm EDT on game nights;
+   check `Logs/nightly_*.log` and `Logs/launchd_stdout.log` after first automated run.
+
+2. **macOS notification on pipeline completion/failure** — optional polish; would surface
+   a native macOS notification after each nightly run (success or error) without needing
+   to check log files manually. Could use `osascript` in `run_scout_nightly.sh`.
 
 ---
 

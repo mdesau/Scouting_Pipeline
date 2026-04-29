@@ -1,5 +1,5 @@
 # WCWAA Scouting Pipeline
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -16,7 +16,7 @@ Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes ba
 | **Majors** | 11U in-house | 11 teams | Full league |
 | **Minors** | 9U in-house | 14 teams | Full league |
 | **Wild** | 11U travel | 5 opponents | Opponent reports only |
-| **Storm** | 9U travel | 3+ opponents | Opponent reports only |
+| **Storm** | 9U travel | 4 opponents | Opponent reports only |
 
 ---
 
