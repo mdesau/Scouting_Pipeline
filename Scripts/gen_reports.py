@@ -1881,57 +1881,113 @@ def run_wild(teams_filter=None, division="Wild"):
         or any(f.lower() in t.lower() for f in teams_filter)
     ]
 
-    for opponent_name in targets:
+    # ── Pass 1: parse all opponents, collect batters + team totals ───────────
+    # We need every opponent's team totals before generating any PDF so we
+    # can show LG RANK relative to the full scouted field.  When --team
+    # filter is active we still parse all opponents for rank context but
+    # only write PDFs for the filtered team(s).
+    parsed_opponents = {}   # opponent_name -> dict of everything needed for PDF
+
+    all_opponents_for_rank = get_wild_opponents(wild_base)  # full list, no filter
+    for opponent_name in all_opponents_for_rank:
         try:
-            t_start = time.time()
-            team_dir = os.path.join(wild_base, opponent_name)
+            team_dir  = os.path.join(wild_base, opponent_name)
             games_dir = os.path.join(team_dir, "Games")
-            output_dir = team_dir  # PDFs go in opponent folder
+            if not os.path.isdir(games_dir):
+                continue
 
-            logger.info(f"\n=== {opponent_name} ===")
-
-            # Load optional roster
-            roster = load_wild_roster(team_dir)
-
-            # Collect game files
+            roster     = load_wild_roster(team_dir)
             game_files = sorted(f for f in os.listdir(games_dir) if f.endswith(".txt"))
-            logger.info(f"  Found {len(game_files)} game files")
 
-            all_game_pas = []
-            skipped = []
-            parsed_paths = []
+            all_game_pas  = []
+            skipped_files = []
+            parsed_paths  = []
             total_warnings = 0
             for fname in game_files:
                 fpath = os.path.join(games_dir, fname)
                 try:
                     pas = parse_game_for_team(fpath, opponent_name)
-                    # Annotate PAs with game_id and game_seq for batting order tracking
                     for i, pa in enumerate(pas, 1):
-                        pa["game_id"] = fname
+                        pa["game_id"]  = fname
                         pa["game_seq"] = i
                     all_game_pas.append((fname, pas))
                     parsed_paths.append(fpath)
                     nw = verify_game(fpath, opponent_name, pas, fname)
                     total_warnings += nw
-                    status = "✓" if nw == 0 else f"⚠ {nw} warning(s)"
-                    logger.info(f"  {fname}: {len(pas)} PAs  [{status}]")
                 except Exception as e:
                     logger.error(f"SKIP {fname}: {e}")
-                    skipped.append(fname)
+                    skipped_files.append(fname)
 
             all_pas = [pa for _, pas in all_game_pas for pa in pas]
             n_games = len(all_game_pas)
 
             if not all_pas:
-                logger.warning(f"No PAs found for {opponent_name}")
+                seen_names = set()
+                for fname in game_files:
+                    fpath = os.path.join(games_dir, fname)
+                    try:
+                        with open(fpath, encoding="utf-8") as fh:
+                            for line in fh:
+                                m = re.match(r"===(?:Top|Bottom)\s+\w+\s+-\s+(.+?)===", line)
+                                if m:
+                                    seen_names.add(m.group(1).strip())
+                    except Exception:
+                        pass
+                logger.warning(
+                    f"No PAs found for '{opponent_name}' — 0 plate appearances parsed across "
+                    f"{len(game_files)} game file(s). "
+                    f"If this is unexpected, check that the folder name exactly matches the "
+                    f"team name in the inning headers (===Top N - TeamName===). "
+                    f"Team names seen in these files: {sorted(seen_names) or ['(none found)']}"
+                )
                 continue
 
-            # For Wild, use initials directly as display (fallback when roster lookup fails)
             roster_wild = {init: init for init in set(pa["initials"] for pa in all_pas)}
             roster_wild.update(roster)
-
             batters = compute_stats(all_pas, roster_wild)
-            total_pa = sum(b["pa"] for b in batters)
+
+            parsed_opponents[opponent_name] = {
+                "batters":        batters,
+                "n_games":        n_games,
+                "skipped":        skipped_files,
+                "parsed_paths":   parsed_paths,
+                "total_warnings": total_warnings,
+                "total_pa":       sum(b["pa"] for b in batters),
+                "game_files":     game_files,
+            }
+        except Exception as exc:
+            logger.error(f"  ⚠ {opponent_name} parse failed: {exc}")
+
+    # Build division-level team totals list for LG RANK row.
+    # Only include opponents with ≥1 qualified batter (same threshold as Majors/Minors).
+    # Skip rank context when filtering to a single team — rank/1 is meaningless.
+    div_team_totals = []
+    for opp_data in parsed_opponents.values():
+        tt = compute_team_totals(opp_data["batters"])
+        if tt:
+            div_team_totals.append(tt)
+    use_rank = len(div_team_totals) > 1
+    logger.info(f"{len(div_team_totals)} team totals built for {division} LG RANK "
+                f"({'enabled' if use_rank else 'disabled — insufficient data'})")
+
+    # ── Pass 2: generate PDFs for filtered targets only ───────────────────
+    for opponent_name in targets:
+        if opponent_name not in parsed_opponents:
+            continue
+        try:
+            t_start   = time.time()
+            opp_data  = parsed_opponents[opponent_name]
+            batters   = opp_data["batters"]
+            n_games   = opp_data["n_games"]
+            skipped   = opp_data["skipped"]
+            total_pa  = opp_data["total_pa"]
+            total_warnings = opp_data["total_warnings"]
+
+            team_dir   = os.path.join(wild_base, opponent_name)
+            output_dir = team_dir
+
+            logger.info(f"\n=== {opponent_name} ===")
+            logger.info(f"  Found {len(opp_data['game_files'])} game files")
             verify_tag = "✓ all checks passed" if total_warnings == 0 else f"⚠ {total_warnings} total warning(s)"
             logger.info(f"  Total PA: {total_pa}  |  {n_games} games  |  {verify_tag}")
             for b in batters:
@@ -1940,17 +1996,15 @@ def run_wild(teams_filter=None, division="Wild"):
                             f"SLG={fmt_avg(b['slg'])}  C%={fmt_pct(b['c_pct'])}  "
                             f"SM%={fmt_pct(b['sm_pct'])}  CStr%={fmt_pct(b['cstr_pct'])}")
 
-            # PDF output
-            label = opponent_name
-            safe = opponent_name.replace(" ", "_")
+            label    = opponent_name
+            safe     = opponent_name.replace(" ", "_")
             pdf_path = os.path.join(output_dir, f"{safe}_Scout_2026.pdf")
 
-            # Pass None for league_batters to use fixed thresholds
             generate_pdf(opponent_name, label, batters, n_games, skipped, pdf_path,
-                         league_batters=None, division_label=label_suffix)
+                         league_batters=None, division_label=label_suffix,
+                         league_team_totals=div_team_totals if use_rank else None)
 
-            # Mark files as reviewed
-            for fpath in parsed_paths:
+            for fpath in opp_data["parsed_paths"]:
                 new_path = mark_reviewed(fpath)
                 if new_path != fpath:
                     logger.info(f"  → Marked reviewed: {os.path.basename(new_path)}")

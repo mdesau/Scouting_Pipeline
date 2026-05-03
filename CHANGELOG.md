@@ -12,6 +12,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] - 2026-05-02
+
+### Added
+- **LG RANK row for Wild and Storm divisions** (`gen_reports.py`) — `run_wild()` now
+  uses a two-pass approach: Pass 1 parses all opponent teams and builds
+  `div_team_totals`; Pass 2 generates each PDF passing that list as
+  `league_team_totals`. The light-blue LG RANK row now appears in Wild and Storm
+  summary tables exactly as it does in Majors/Minors. Rank 1 = highest value;
+  applies to full-division runs and single-team `--team` runs alike (full division
+  is always pre-scanned for rank context). Disabled only when fewer than 2 teams
+  have data.
+
+### Fixed
+- **"No PAs found" warning now surfaces actual team names from game files**
+  (`gen_reports.py → run_wild()`) — when 0 PAs are parsed for a Wild/Storm
+  opponent, the warning message now scans all game file inning headers and lists
+  every unique team name seen (e.g. `['Dilworth 9U - Navy', 'ITAA 9U Spartans',
+  ...]`). Makes folder-name/inning-header mismatches immediately self-diagnosing
+  without needing to open game files manually.
+- **Dilworth 9U - Navy team name corrected** (`scrape_gc_playbyplay.py`,
+  `scrape_gc_boxscores.py`) — team name was `"Dilworth 9U Navy"` but GC inning
+  headers write `"Dilworth 9U - Navy"` (with dash). Folder renamed to match;
+  both scrapers updated. Was causing 0 PAs for all Dilworth games.
+
+---
+
 ## [2.3.0] - 2026-04-29
 
 ### Added

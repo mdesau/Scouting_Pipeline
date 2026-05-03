@@ -268,6 +268,30 @@ Fix:      Added file_team_key = team_key.replace("'", "") as a fallback.
 Workaround: N/A — fully fixed. Run confirmed: "11 team totals built".
 
 
+--------------------------------------------------------------------------------
+BUG 14: Dilworth 9U - Navy produced 0 PAs — folder name missing dash
+--------------------------------------------------------------------------------
+Date:     May 2, 2026
+Problem:  The Storm opponent folder was named "Dilworth 9U Navy" but GC inning
+          headers write "Dilworth 9U - Navy" (with " - " before Navy).
+          INNING_RE does exact string matching on team names, so 0 PAs were
+          parsed across all 7 game files. gen_reports.py emitted only
+          "WARNING: No PAs found for Dilworth 9U Navy" with no diagnostic detail,
+          making the root cause non-obvious.
+Fix:      Two-part fix:
+          1. Renamed folder: "Dilworth 9U Navy" → "Dilworth 9U - Navy"
+          2. Updated team name in both scrape_gc_playbyplay.py and
+             scrape_gc_boxscores.py DIVISIONS["Storm"]["teams"] from
+             "Dilworth 9U Navy" → "Dilworth 9U - Navy"
+          Additionally: enhanced the "No PAs found" warning in run_wild() to
+          scan all game file inning headers and list every unique team name seen,
+          so future folder/name mismatches are self-diagnosing in the log.
+          Files: gen_reports.py → run_wild(); scrape_gc_playbyplay.py;
+                 scrape_gc_boxscores.py
+          Commit: v2.4.0
+Workaround: N/A — fully fixed.
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================

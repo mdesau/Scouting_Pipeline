@@ -96,6 +96,7 @@ DIVISIONS = {
             ("I2XcyUwmye3p", "2026-spring-t24-garnet-11u",                   "T24 Garnet 11U"),
             ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
             ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
+            ("PVUBGhDYocE0", "2026-spring-tega-cay-titans-11u", "Tega CAY Titans 11U"),
         ],
     },
     # ── Storm opponents ───────────────────────────────────────────────────────
@@ -111,6 +112,8 @@ DIVISIONS = {
             ("HZ3pkdRb5s6P", "2026-spring-park-sharon-nationals-10u", "Park Sharon Nationals 10U"),
             ("L3KLX1oI2VGl", "2026-spring-weddington-stormtroopers", "Weddington Stormtroopers"),
 
+            ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
+            ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
         ],
     },
 }

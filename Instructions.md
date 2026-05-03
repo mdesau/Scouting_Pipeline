@@ -18,11 +18,12 @@ across the full build history of this project.
 - **Virtual environment:** `Scout_Development/venv/` — always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in project root
-- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0`, `v2.1.0`, `v2.2.0`, `v2.3.0` (current)
+- **Git:** Local repo on `main`, tagged `v0.1.0`, `v0.2.0`, `v1.0.0`, `v2.0.0`, `v2.1.0`, `v2.2.0`, `v2.3.0`, `v2.4.0` (current)
 - **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
 ```
+(tag: v2.4.0) feat: LG RANK for Wild/Storm + No PAs diagnostic warning v2.4.0
 (tag: v2.3.0) feat: league rank row + team totals in summary table v2.3.0
 (tag: v2.2.0) feat: team aggregate card + team totals row in summary table v2.2.0
 e9f338e  (tag: v2.0.0) chore: __version__ = 2.0.0, version banner, CHANGELOG v1.0.0+v2.0.0
@@ -42,7 +43,7 @@ c2828e4  feat: rename run_weekly.sh → run_scout.sh; add SBA Alabama + TN Natio
 |---|---|---|---|---|---|
 | `scrape_gc_playbyplay.py` | 532 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
 | `scrape_gc_boxscores.py` | 820 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
-| `gen_reports.py` | 2002 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
+| `gen_reports.py` | 2060 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
 | `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
 | `run_scout.sh` | 55 | Shell launcher — activates venv, calls run_menu.py | — | — | — |
 | `run_scout_nightly.sh` | ~55 | Headless launcher — no menu; calls run_menu.py --all; used by launchd | — | — | — |
@@ -270,7 +271,8 @@ python3 scrape_gc_playbyplay.py --login
 | `draw_card()` | ~1299 | Renders one player or team card: spray chart, stat bars, archetype label, pitching approach |
 | `draw_field_spray_chart()` | ~1149 | Heat-map spray chart with BIP dots |
 | `generate_notes_short()` | ~1020 | 1-2 sentence compact note for summary page |
-| `build_league_context()` | ~1675 | Pre-scans all teams' scorebooks; returns `(league_batters, league_team_totals)` tuple for percentiles + LG RANK |
+| `build_league_context()` | ~1675 | Pre-scans all Majors/Minors scorebooks; returns `(league_batters, league_team_totals)` tuple for percentiles + LG RANK |
+| `run_wild()` two-pass | ~1864 | Pass 1 parses all opponents + builds `div_team_totals`; Pass 2 generates PDFs with LG RANK context (Wild/Storm) |
 | `DIVISIONS` dict | ~80 | Folder paths + roster file locations per division |
 | `PITCHING_APPROACH` | ~952 | Archetype → pitching recommendation lookup dict |
 | `DEBUG_PA_PARSING`, `DEBUG_ARCHETYPES`, `DEBUG_PITCH_SEQ` | ~38 | Debug flags |
@@ -547,7 +549,7 @@ Passive Overmatched/Walker   → Attack the Zone
 
 **Read these files first:** `Instructions.md` (this file), `CHANGELOG.md`
 
-**Current version: v2.3.0** — league rank row, team aggregate card, team totals row.
+**Current version: v2.4.0** — LG RANK for all four divisions; diagnostic No PAs warning.
 
 1. **Monitor nightly runs** — verify `launchd` fires correctly at 10pm EDT on game nights;
    check `Logs/nightly_*.log` and `Logs/launchd_stdout.log` after first automated run.
