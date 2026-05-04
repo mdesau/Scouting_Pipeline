@@ -114,6 +114,7 @@ DIVISIONS = {
 
             ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
             ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
+            ("XVsrx4NMoxtd", "2026-spring-crushers-white-10u", "Crushers White 10U"),
         ],
     },
 }

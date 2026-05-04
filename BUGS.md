@@ -292,6 +292,54 @@ Fix:      Two-part fix:
 Workaround: N/A — fully fixed.
 
 
+--------------------------------------------------------------------------------
+BUG 15: Split player cards — same player appears twice in PDF (data format issue)
+--------------------------------------------------------------------------------
+Date:     May 4, 2026
+Status:   CLOSED — NOT A CODE BUG. Data format inconsistency in game files.
+          Workaround applied (see below).
+
+Problem:  Crushers White 10U (Storm division) showed duplicate player cards in
+          the scouting PDF — e.g., "Andrew L. #1" appeared twice, once with
+          ~27 PAs (April games) and once with ~10 PAs (March games).
+          Affected players: Andrew L., Nico L., Devan P., Riley R., Jordan S.,
+          Asher C., Reilly B., Jack B. (all roster members with 2-char initials).
+
+Root Cause:
+          GameChanger (or the manual review process) used two different name
+          formats across the season for the same players:
+            March games  (7 files, Mar07–Mar22): 2-char initials — "A L", "N L"
+            April+ games (12 files, Apr11+):     full first name — "Andrew L",
+                                                  "Nico L"
+          gen_reports.py accumulates PA stats keyed by the raw name string from
+          each game file. Because "A L" ≠ "Andrew L", the engine creates two
+          separate stat buckets per player → two separate player cards in the PDF.
+
+          This is NOT a code bug. The parser and stat engine behave correctly
+          given their inputs. The inconsistency lives entirely in the source
+          game files.
+
+Workaround:
+          Patched the 7 affected March game files to replace 2-char initials
+          with full first-name format, matching the April files:
+            A C  → Asher C      A L  → Andrew L    D P  → Devan P
+            J B  → Jack B       J S  → Jordan S     N L  → Nico L
+            R B  → Reilly B     R R  → Riley R
+          Replacements scoped to Crushers White 10U batting half-innings only
+          (tracked via "Crushers White 10U batting" section headers) to avoid
+          corrupting opponent player name data in the same files.
+          Script: Scripts/patch_march_initials.py (run once, then deleted/kept
+          for audit purposes)
+          After patch: re-ran gen_reports.py → single card per player, correct
+          cumulative PA totals.
+
+Prevention:
+          When manually reviewing or creating game files, always use the full
+          first-name + last-initial format ("Andrew L") for all players.
+          The 2-char initials format ("A L") was a GC rendering artifact from
+          early-season games and should not be used.
+
+
 ================================================================================
 END OF BUG LOG
 ================================================================================
