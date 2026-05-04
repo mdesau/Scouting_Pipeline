@@ -1,345 +1,230 @@
-================================================================================
-WCWAA SCOUTING REPORT PIPELINE — BUG TRACKER
-================================================================================
-Format: Title | Date | Problem | Fix | Workaround (if no fix)
-================================================================================
+# WCWAA Scouting Report Pipeline — Bug Tracker
 
+> **Format:** Each entry includes Date, Problem, Fix, and Workaround (if no code fix).
 
---------------------------------------------------------------------------------
-BUG 1: Infield spray chart dots overlapping pitcher's mound
---------------------------------------------------------------------------------
-Date:     Apr 10, 2026
-Problem:  Dots plotted for infield hits (2B, SS, 3B, 1B, P zones) were placed
-          too close to home plate, landing visually inside or on top of the
-          pitcher's mound circle on the spray chart. A ball hit to "2B" looked
-          like it was hit to the pitcher, even when the P% showed 0%.
-Fix:      Pushed the inner radius for infield dot scatter from r_mnd*1.5
-          (≈ hb*0.45) to r_if*0.58 (≈ hb*1.06), which clears the top of the
-          mound circle in all infield sectors.
-          File: gen_reports.py → draw_field_spray_chart()
-          Change: px, py = _rand_in_sector(a1, a2, r_if*0.58, r_if)
-Workaround: N/A — fully fixed.
+---
 
+## BUG 1: Infield spray chart dots overlapping pitcher’s mound
 
---------------------------------------------------------------------------------
-BUG 2: GC noise text absorbed into inning headers — half-innings silently dropped
---------------------------------------------------------------------------------
-Date:     Apr 10, 2026
-Problem:  GameChanger raw text sometimes contains status text ("Runner Out",
-          "3 Outs", "J B at bat") with no separator between the team name and
-          the first play. parse_gc_raw() absorbed this noise into the inning
-          team name string, producing malformed headers like:
-            ===Bottom 2nd - Crushers White 10URunner Out3 Outs...===
-          INNING_RE uses exact team name matching, so these headers never
-          matched → entire half-innings were silently skipped.
-          Affected: Crushers White 10U g06 Bottom 2nd (8 PAs lost, incl. R R
-          home run) and g06 Bottom 4th (2 PAs lost); similar patterns in g02.
-          Total impact: 115 → 129 PAs recovered after fix.
-Fix:      Added TEAM_NOISE_RE as a secondary split-point detector alongside
-          the existing OUTCOME_RE in parse_gc_raw(). The parser now splits on
-          whichever comes first — an outcome keyword OR a noise pattern.
-          File: parse_gc_text.py → parse_gc_raw()
-          Added pattern: Runner Out | Batter Out | N Outs | X X at bat | score lines
-Workaround: N/A — fully fixed.
+**Date:** Apr 10, 2026
 
+**Problem:** Dots plotted for infield hits (2B, SS, 3B, 1B, P zones) were placed too close to home plate, landing visually inside or on top of the pitcher’s mound circle on the spray chart. A ball hit to "2B" looked like it was hit to the pitcher, even when the P% showed 0%.
 
---------------------------------------------------------------------------------
-BUG 3: Sacrifice Fly returned UNKNOWN outcome — counted as AB incorrectly
-------------------------------------------------------------------------
-Date:     Apr 10, 2026
-Problem:  "Sacrifice Fly" was added to OUTCOME_KWS (so the parser recognized
-          it as an outcome keyword) but parse_outcome() had no branch to handle
-          it, returning UNKNOWN ("?"). The "?" outcome then fell through to the
-          AB aggregation else-branch, counting every sacrifice fly as an AB.
-          This inflated AB counts and deflated AVG/OBP/SLG for affected batters.
-          Sacrifice Bunt had the same issue.
-Fix:      Added SF and SB constants. Wired through:
-            - parse_outcome(): explicit SF/SB return branches
-            - parse_ball_type(): SF → "FB", SB → "GB"
-            - BIP_OUTCOMES set: added SF and SB
-            - AB aggregation: added explicit elif oc in (SF, SB): pass
-          Files: gen_reports.py (all sections above)
-Workaround: N/A — fully fixed.
+**Fix:** Pushed the inner radius for infield dot scatter from `r_mnd*1.5` to `r_if*0.58`, which clears the top of the mound circle in all infield sectors.
+- File: `gen_reports.py` → `draw_field_spray_chart()`
+- Change: `px, py = _rand_in_sector(a1, a2, r_if*0.58, r_if)`
 
+**Workaround:** N/A — fully fixed.
 
---------------------------------------------------------------------------------
-BUG 4: Home Run not counting as FB+LD% (symptom of Bug 2)
---------------------------------------------------------------------------------
-Date:     Apr 10, 2026
-Problem:  R R's home run in g06 showed 0 FB+LD% in the Crushers White 10U
-          scouting report. Initial investigation suggested a logic error in
-          how HRs were classified as fly balls.
-          Root cause: the HR was in g06 Bottom 2nd, which was one of the
-          half-innings silently dropped by Bug 2. The HR was never parsed at
-          all — it wasn't a classification error, it was a missing inning.
-Fix:      Fixing Bug 2 recovered the entire Bottom 2nd inning, including the
-          HR. HR was already correctly classified as FO/FB in parse_ball_type().
-          No separate fix needed.
-Workaround: N/A — resolved as part of Bug 2 fix.
+---
 
+## BUG 2: GC noise text absorbed into inning headers — half-innings silently dropped
 
---------------------------------------------------------------------------------
-BUG 5: Team folder name case mismatch — team produces 0 PAs
---------------------------------------------------------------------------------
-Date:     Apr 10, 2026
-Problem:  Team folder was created as "Crushers White 10u" (lowercase 'u') but
-          GameChanger inning headers use "Crushers White 10U" (uppercase 'U').
-          INNING_RE performs case-sensitive exact string matching on team names,
-          so no inning headers matched → the team produced 0 PAs across all
-          games, and the scouting report generated with empty stat tables.
-Fix:      Two-step rename via temp name (required on macOS due to
-          case-insensitive filesystem):
-            mv "Crushers White 10u" "Crushers White 10u_tmp"
-            mv "Crushers White 10u_tmp" "Crushers White 10U"
-          Going forward: always verify team folder name matches GC inning header
-          text exactly before running gen_reports.py.
-Workaround: N/A — fully fixed, but requires care on initial folder creation.
+**Date:** Apr 10, 2026
 
+**Problem:** GameChanger raw text sometimes contains status text (`"Runner Out"`, `"3 Outs"`, `"J B at bat"`) with no separator between the team name and the first play. `parse_gc_raw()` absorbed this noise into the inning team name string, producing malformed headers like `===Bottom 2nd - Crushers White 10URunner Out3 Outs...===`. `INNING_RE` uses exact team name matching, so these headers never matched — entire half-innings were silently skipped. Affected: Crushers White 10U g06 Bottom 2nd (8 PAs lost, incl. R R home run) and g06 Bottom 4th (2 PAs lost). Total impact: 115 → 129 PAs recovered.
 
---------------------------------------------------------------------------------
-BUG 6: Shortstop (SS) spray chart zone always showed 0% — mapped to 3B
---------------------------------------------------------------------------------
-Date:     Apr 23, 2026
-Problem:  In FIELDER_ZONES (gen_reports.py line 317), "shortstop" was mapped
-          to zone key "3B" instead of "SS":
-            ("shortstop","3B"),("third baseman","3B")   ← bug
-          The spray chart renderer (draw_field_spray_chart) had SS fully built
-          as its own arc sector (90°–112.5°), but extract_zone() was tagging
-          every shortstop play as "3B". Result: SS zone always displayed 0%,
-          and the 3B zone was inflated with misattributed shortstop plays.
-          This affected every BIP play description containing "shortstop" across
-          all four divisions — all PDFs were generating incorrect spray charts.
-Fix:      Changed mapping from ("shortstop","3B") to ("shortstop","SS").
-          File: gen_reports.py → FIELDER_ZONES (~line 317)
-          Full pipeline regenerated Apr 23 — all PDFs now show correct SS/3B split.
-Workaround: N/A — fully fixed.
+**Fix:** Added `TEAM_NOISE_RE` as a secondary split-point detector alongside the existing `OUTCOME_RE` in `parse_gc_raw()`. The parser now splits on whichever comes first — an outcome keyword OR a noise pattern.
+- File: `parse_gc_text.py` → `parse_gc_raw()`
+- Added pattern: `Runner Out | Batter Out | N Outs | X X at bat | score lines`
 
+**Workaround:** N/A — fully fixed.
 
---------------------------------------------------------------------------------
-BUG 7: SCHEDULE_JS 'final' detection broken for Wild/Storm team pages
---------------------------------------------------------------------------------
-Date:     Apr 24, 2026
-Problem:  GC team schedule pages (Wild/Storm) display completed games with a
-          score (e.g. "W 7-5", "L 9-11") instead of the word "FINAL".
-          Org pages (Majors/Minors) still show "FINAL" as explicit text.
-          SCHEDULE_JS only checked lines.includes('FINAL'), so every Wild/Storm
-          game was evaluated as non-final and skipped entirely.
-          Result: scrape_gc_playbyplay.py and scrape_gc_boxscores.py reported "0 FINAL games
-          found" for ALL Wild/Storm teams — no new games were ever scraped.
-          Discovered via diagnostic run Apr 24; root cause confirmed by screenshot
-          showing score-only display on team pages.
-Fix:      Added score-pattern check alongside FINAL:
-            final: lines.includes('FINAL') ||
-                   lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
-          Files: scrape_gc_playbyplay.py and scrape_gc_boxscores.py → SCHEDULE_JS
-          Commit: ea04909
-Workaround: N/A — fully fixed.
+---
 
+## BUG 3: Sacrifice Fly returned UNKNOWN outcome — counted as AB incorrectly
 
---------------------------------------------------------------------------------
-BUG 8: SCHEDULE_JS team-page filenames had wrong date, wrong team name
---------------------------------------------------------------------------------
-Date:     Apr 24, 2026
-Problem:  After Bug 7 was fixed and Wild/Storm games were detected, the generated
-          filenames were malformed: leading dash (no date), and team name replaced
-          by location string (e.g. "-vs._Weddington_Vipers_12U_vs_No_location.txt"
-          instead of "Mar01-Weddington_Wild_11U_vs_Weddington_Vipers_12U.txt").
-          Two root causes:
-          1. DATE: On team pages, the day-abbr (SUN, SAT) and day-number (1, 7)
-             are separate leaf nodes OUTSIDE the <a> card element. The existing
-             JS only detected day-abbr inside the card (org page layout), so
-             currentDateTag remained empty for all team-page games → no date prefix.
-          2. TEAM NAMES: On team pages, lines[0] = "vs. Opponent" or "@ Opponent",
-             lines[1] = location string, lines[2] = score. The JS extracted
-             lines[0] as 'away' (correct after stripping vs./@) and lines[1] as
-             'home' (location string — wrong). The correct home name is the team
-             we're scouting (known from the loop variable team_name).
-          Bad files written during one aborted run; all deleted before re-scrape.
-Fix:      Three changes to scrape_gc_playbyplay.py:
-          1. SCHEDULE_JS: Added leaf-node detection for uppercase day-abbr (MON/
-             TUE/.../SUN) and following digit as a separate code path that sets
-             currentDateTag before the <a> card is processed.
-          2. SCHEDULE_JS: Added is_home field (true if card starts with 'vs.').
-          3. scrape_team_division(): Uses is_home + team_name to build filename:
-             is_home=True  → "{opponent}_vs_{our_team}.txt"  (we are home)
-             is_home=False → "{our_team}_vs_{opponent}.txt"  (we are away)
-          File: scrape_gc_playbyplay.py → SCHEDULE_JS + scrape_team_division()
-          Commit: 00d8d40
-Workaround: N/A — fully fixed.
+**Date:** Apr 10, 2026
 
+**Problem:** `"Sacrifice Fly"` was added to `OUTCOME_KWS` but `parse_outcome()` had no branch to handle it, returning `UNKNOWN ("?")`. The `"?"` outcome fell through to the AB aggregation `else`-branch, counting every sacrifice fly as an AB. This inflated AB counts and deflated AVG/OBP/SLG. Sacrifice Bunt had the same issue.
 
---------------------------------------------------------------------------------
-BUG 9: scrape_gc_boxscores.py crashed with NameError: 'date' not defined
---------------------------------------------------------------------------------
-Date:     Apr 24, 2026
-Problem:  scrape_team_division() in scrape_gc_boxscores.py writes a roster.txt
-          header comment using date.today().isoformat(). The 'date' class from
-          the datetime module was not imported — only 'datetime' was imported.
-          This was a pre-existing lint error (flagged in Known Issues since
-          session 3) that only triggered in production when scrape_team_division()
-          was first exercised after Bug 7 was fixed (Wild/Storm games now found).
-Fix:      Changed import line:
-            from datetime import datetime
-          to:
-            from datetime import datetime, date
-          File: scrape_gc_boxscores.py → top-level imports (line 37)
-          Commit: 00d8d40
-Workaround: N/A — fully fixed.
+**Fix:** Added `SF` and `SB` constants. Wired through `parse_outcome()`, `parse_ball_type()`, `BIP_OUTCOMES`, and AB aggregation.
+- File: `gen_reports.py` (all sections above)
 
+**Workaround:** N/A — fully fixed.
 
---------------------------------------------------------------------------------
-BUG 10: Step 2 (scrape_gc_boxscores.py) ignored --team filter; always scraped all division teams
---------------------------------------------------------------------------------
-Date:     Apr 2026
-Problem:  When running the pipeline for a single Wild/Storm team (e.g. "QC Flight"),
-          Step 2 (roster scrape) would loop through ALL teams in that division even
-          though only one team was requested. No --team arg existed in argparse;
-          run() and scrape_team_division() had no team_filter param; run_menu.py
-          passed div_args but not team_args to Step 2.
-Fix:      Added team_filter=None param to scrape_team_division() and run().
-          Inside scrape_team_division() team loop, added:
-            if team_filter and team_filter.lower() not in team_name.lower(): continue
-          Added --team arg to argparse; wired to run().
-          Updated run_menu.py Step 2 call to pass team_args alongside div_args.
-          Files: scrape_gc_boxscores.py, run_menu.py
-          Commit: (next commit)
-Workaround: N/A — fully fixed.
+---
 
+## BUG 4: Home Run not counting as FB+LD% *(symptom of Bug 2)*
 
---------------------------------------------------------------------------------
-BUG 11: Wild/Storm PDF cards show no jersey numbers (display falls back to "Ryder B" not "Ryder B. #1")
---------------------------------------------------------------------------------
-Date:     Apr 2026
-Problem:  parse_game_for_team() extracts pa["initials"] as "FirstName LastInitial"
-          (e.g. "Ryder B") because DESC_RE captures the full first name from the
-          game .txt file. But roster.txt keys written by scrape_gc_boxscores.py use
-          "FirstInitial LastInitial" format (e.g. "R B"). When gen_reports.py
-          builds roster_wild = {init: init} and then roster_wild.update(roster),
-          "Ryder B" never matches "R B", so the display always stays "Ryder B"
-          (no jersey number) rather than "Ryder B. #1".
-Fix:      Extended load_wild_roster() in gen_reports.py to index each entry under
-          BOTH key formats:
-            "R B"     → "Ryder B. #1"   (original key from roster.txt)
-            "Ryder B" → "Ryder B. #1"   (alt key derived from display first-token + last-initial)
-          Now roster_wild.update(roster) correctly resolves game-file initials to
-          full display names with jersey numbers.
-          File: gen_reports.py → load_wild_roster()
-          Commit: (next commit)
-Workaround: N/A — fully fixed.
+**Date:** Apr 10, 2026
 
+**Problem:** R R’s home run in g06 showed 0 FB+LD% in the Crushers White 10U report. Root cause: the HR was in g06 Bottom 2nd, one of the half-innings silently dropped by Bug 2. It was never parsed at all — not a classification error, a missing inning.
 
---------------------------------------------------------------------------------
-BUG 12: INNING GAP and BOX-VERIFY warnings producing terminal noise
---------------------------------------------------------------------------------
-Date:     Apr 29, 2026
-Problem:  Every run of gen_reports.py printed WARNING-level messages for
-          INNING GAP (check_inning_continuity / verify_game) and BOX-VERIFY
-          (verify_box_score) to the terminal. The per-game INFO line showed
-          "[⚠ N warning(s)]" for nearly every game, making it difficult to
-          spot genuine issues (e.g. WARNING UNKNOWN outcomes).
-          These checks produce a large volume of low-signal hits because
-          GC play-by-play doesn't always align perfectly with box score counts,
-          and one-batter inning gaps are common in short-inning games.
-Fix:      Demoted all INNING GAP and BOX-VERIFY log calls from logger.warning()
-          to logger.debug(). They are still written to the log file for review
-          but no longer appear on stdout.
-          File: gen_reports.py → check_inning_continuity(), verify_game(),
-                verify_box_score()
-          Commit: v2.3.0
-Workaround: N/A — fully fixed.
+**Fix:** Fixing Bug 2 recovered the entire Bottom 2nd including the HR. No separate fix needed.
 
+**Workaround:** N/A — resolved as part of Bug 2 fix.
 
---------------------------------------------------------------------------------
-BUG 13: Majors LG RANK showed x/10 instead of x/11 (A's-Blanco excluded)
---------------------------------------------------------------------------------
-Date:     Apr 29, 2026
-Problem:  build_league_context() matched each team's PDFs by checking whether
-          team_key appeared in the filename. For A's-Blanco the team_key
-          contains an apostrophe ("A's-Blanco"), but all stored PDF/scorebook
-          filenames use the apostrophe-stripped form ("As-Blanco").
-          The filename match always failed → A's-Blanco was skipped → only
-          10 entries in league_team_totals instead of 11 → all Majors LG RANK
-          rows showed x/10.
-Fix:      Added file_team_key = team_key.replace("'", "") as a fallback.
-          Filename check now accepts a match against either team_key or
-          file_team_key. A's-Blanco now resolves correctly.
-          File: gen_reports.py → build_league_context()
-          Commit: v2.3.0
-Workaround: N/A — fully fixed. Run confirmed: "11 team totals built".
+---
 
+## BUG 5: Team folder name case mismatch — team produces 0 PAs
 
---------------------------------------------------------------------------------
-BUG 14: Dilworth 9U - Navy produced 0 PAs — folder name missing dash
---------------------------------------------------------------------------------
-Date:     May 2, 2026
-Problem:  The Storm opponent folder was named "Dilworth 9U Navy" but GC inning
-          headers write "Dilworth 9U - Navy" (with " - " before Navy).
-          INNING_RE does exact string matching on team names, so 0 PAs were
-          parsed across all 7 game files. gen_reports.py emitted only
-          "WARNING: No PAs found for Dilworth 9U Navy" with no diagnostic detail,
-          making the root cause non-obvious.
-Fix:      Two-part fix:
-          1. Renamed folder: "Dilworth 9U Navy" → "Dilworth 9U - Navy"
-          2. Updated team name in both scrape_gc_playbyplay.py and
-             scrape_gc_boxscores.py DIVISIONS["Storm"]["teams"] from
-             "Dilworth 9U Navy" → "Dilworth 9U - Navy"
-          Additionally: enhanced the "No PAs found" warning in run_wild() to
-          scan all game file inning headers and list every unique team name seen,
-          so future folder/name mismatches are self-diagnosing in the log.
-          Files: gen_reports.py → run_wild(); scrape_gc_playbyplay.py;
-                 scrape_gc_boxscores.py
-          Commit: v2.4.0
-Workaround: N/A — fully fixed.
+**Date:** Apr 10, 2026
 
+**Problem:** Team folder created as `"Crushers White 10u"` (lowercase `u`) but GC inning headers use `"Crushers White 10U"` (uppercase `U`). `INNING_RE` performs case-sensitive exact string matching — 0 PAs parsed across all games.
 
---------------------------------------------------------------------------------
-BUG 15: Split player cards — same player appears twice in PDF (data format issue)
---------------------------------------------------------------------------------
-Date:     May 4, 2026
-Status:   CLOSED — NOT A CODE BUG. Data format inconsistency in game files.
-          Workaround applied (see below).
+**Fix:** Two-step rename via temp name (required on macOS case-insensitive filesystem):
 
-Problem:  Crushers White 10U (Storm division) showed duplicate player cards in
-          the scouting PDF — e.g., "Andrew L. #1" appeared twice, once with
-          ~27 PAs (April games) and once with ~10 PAs (March games).
-          Affected players: Andrew L., Nico L., Devan P., Riley R., Jordan S.,
-          Asher C., Reilly B., Jack B. (all roster members with 2-char initials).
+    mv "Crushers White 10u" "Crushers White 10u_tmp"
+    mv "Crushers White 10u_tmp" "Crushers White 10U"
 
-Root Cause:
-          GameChanger (or the manual review process) used two different name
-          formats across the season for the same players:
-            March games  (7 files, Mar07–Mar22): 2-char initials — "A L", "N L"
-            April+ games (12 files, Apr11+):     full first name — "Andrew L",
-                                                  "Nico L"
-          gen_reports.py accumulates PA stats keyed by the raw name string from
-          each game file. Because "A L" ≠ "Andrew L", the engine creates two
-          separate stat buckets per player → two separate player cards in the PDF.
+Always verify the team folder name matches the GC inning header exactly before running `gen_reports.py`.
 
-          This is NOT a code bug. The parser and stat engine behave correctly
-          given their inputs. The inconsistency lives entirely in the source
-          game files.
+**Workaround:** N/A — fully fixed, but requires care on initial folder creation.
 
-Workaround:
-          Patched the 7 affected March game files to replace 2-char initials
-          with full first-name format, matching the April files:
-            A C  → Asher C      A L  → Andrew L    D P  → Devan P
-            J B  → Jack B       J S  → Jordan S     N L  → Nico L
-            R B  → Reilly B     R R  → Riley R
-          Replacements scoped to Crushers White 10U batting half-innings only
-          (tracked via "Crushers White 10U batting" section headers) to avoid
-          corrupting opponent player name data in the same files.
-          Script: Scripts/patch_march_initials.py (run once, then deleted/kept
-          for audit purposes)
-          After patch: re-ran gen_reports.py → single card per player, correct
-          cumulative PA totals.
+---
 
-Prevention:
-          When manually reviewing or creating game files, always use the full
-          first-name + last-initial format ("Andrew L") for all players.
-          The 2-char initials format ("A L") was a GC rendering artifact from
-          early-season games and should not be used.
+## BUG 6: Shortstop (SS) spray chart zone always showed 0% — mapped to 3B
 
+**Date:** Apr 23, 2026
 
-================================================================================
-END OF BUG LOG
-================================================================================
+**Problem:** In `FIELDER_ZONES` (`gen_reports.py` line 317), `"shortstop"` was mapped to zone key `"3B"` instead of `"SS"`. The spray chart had SS as its own arc sector (90–112.5°) but `extract_zone()` was tagging every shortstop play as `"3B"`. SS always showed 0%; 3B zone was inflated. Affected all four divisions.
+
+**Fix:** Changed mapping from `("shortstop","3B")` to `("shortstop","SS")`.
+- File: `gen_reports.py` → `FIELDER_ZONES` (~line 317)
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 7: SCHEDULE_JS ‘final’ detection broken for Wild/Storm team pages
+
+**Date:** Apr 24, 2026
+
+**Problem:** GC team pages (Wild/Storm) show completed games with a score (e.g. `"W 7-5"`) rather than `"FINAL"`. Org pages (Majors/Minors) still use `"FINAL"`. `SCHEDULE_JS` only checked `lines.includes('FINAL')` — every Wild/Storm game was evaluated as non-final and skipped. Both scrapers reported `"0 FINAL games found"` for all Wild/Storm teams.
+
+**Fix:** Added score-pattern detection alongside the `FINAL` check in `SCHEDULE_JS`.
+- Files: `scrape_gc_playbyplay.py` and `scrape_gc_boxscores.py` → `SCHEDULE_JS`
+- Commit: `ea04909`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 8: SCHEDULE_JS team-page filenames had wrong date and wrong team name
+
+**Date:** Apr 24, 2026
+
+**Problem:** After Bug 7 was fixed, generated filenames were malformed — leading dash (no date) and team name replaced by a location string. Two root causes:
+1. **DATE:** Day-abbr (SUN/SAT) and day-number are separate leaf nodes outside the `<a>` card element on team pages, so `currentDateTag` remained empty.
+2. **TEAM NAME:** `lines[1]` on team pages is a location string, not the home team name. The correct home name is the team being scouted (from loop variable `team_name`).
+
+**Fix:** Added leaf-node day-abbr detection to set `currentDateTag`; added `is_home` field; used `is_home + team_name` to build correct filename.
+- File: `scrape_gc_playbyplay.py` → `SCHEDULE_JS` + `scrape_team_division()`
+- Commit: `00d8d40`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 9: scrape_gc_boxscores.py crashed with NameError: ‘date’ not defined
+
+**Date:** Apr 24, 2026
+
+**Problem:** `scrape_team_division()` called `date.today().isoformat()` but only `datetime` was imported, not `date`. Pre-existing lint error that only triggered after Bug 7 was fixed.
+
+**Fix:** Changed `from datetime import datetime` to `from datetime import datetime, date`.
+- File: `scrape_gc_boxscores.py` → top-level imports — Commit: `00d8d40`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 10: Step 2 ignored --team filter; always scraped all division teams
+
+**Date:** Apr 2026
+
+**Problem:** When running the pipeline for a single Wild/Storm team, Step 2 (roster scrape) looped through ALL teams in the division. No `--team` arg existed; `run()` and `scrape_team_division()` had no `team_filter` param; `run_menu.py` never forwarded the team filter to Step 2.
+
+**Fix:** Added `team_filter=None` param throughout; wired `--team` arg in `argparse`; updated `run_menu.py` to pass `team_args` to Step 2.
+- Files: `scrape_gc_boxscores.py`, `run_menu.py`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 11: Wild/Storm PDF cards show no jersey numbers
+
+**Date:** Apr 2026
+
+**Problem:** Game files use `"FirstName LastInitial"` format (e.g. `"Ryder B"`) for batters, but `roster.txt` keys use `"FirstInitial LastInitial"` (e.g. `"R B"`). The lookup never matched, so every Wild/Storm player displayed without a jersey number.
+
+**Fix:** Extended `load_wild_roster()` to index each entry under both key formats simultaneously — `"R B"` and `"Ryder B"` both resolve to `"Ryder B. #1"`.
+- File: `gen_reports.py` → `load_wild_roster()`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 12: INNING GAP and BOX-VERIFY warnings producing terminal noise
+
+**Date:** Apr 29, 2026
+
+**Problem:** Every run printed WARNING-level `INNING GAP` and `BOX-VERIFY` messages to the terminal. Nearly every game showed `[⚠ N warning(s)]`, making it hard to spot genuine issues. These checks produce large volumes of low-signal hits because GC play-by-play doesn’t always align perfectly with box score counts.
+
+**Fix:** Demoted both from `logger.warning()` to `logger.debug()`. Still written to the log file but no longer appear on stdout.
+- File: `gen_reports.py` → `check_inning_continuity()`, `verify_game()`, `verify_box_score()` — Commit: `v2.3.0`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 13: Majors LG RANK showed x/10 instead of x/11 (A’s-Blanco excluded)
+
+**Date:** Apr 29, 2026
+
+**Problem:** `build_league_context()` matched PDFs by `team_key` appearance in the filename. A’s-Blanco has an apostrophe in `team_key` (`"A's-Blanco"`) but filenames use the stripped form (`"As-Blanco"`). Match always failed → only 10 entries in `league_team_totals` → all Majors LG RANK rows showed x/10.
+
+**Fix:** Added `file_team_key = team_key.replace("'", "")` as a fallback. Filename check now accepts either form.
+- File: `gen_reports.py` → `build_league_context()` — Commit: `v2.3.0`
+
+**Workaround:** N/A — fully fixed. Run confirmed: `"11 team totals built"`.
+
+---
+
+## BUG 14: Dilworth 9U - Navy produced 0 PAs — folder name missing dash
+
+**Date:** May 2, 2026
+
+**Problem:** Storm opponent folder named `"Dilworth 9U Navy"` but GC inning headers write `"Dilworth 9U - Navy"`. Exact string match failure → 0 PAs parsed across all 7 game files. The `"No PAs found"` warning gave no diagnostic detail.
+
+**Fix:**
+1. Renamed folder: `"Dilworth 9U Navy"` → `"Dilworth 9U - Navy"`
+2. Updated team name in both scrapers’ `DIVISIONS["Storm"]["teams"]`.
+3. Enhanced `"No PAs found"` warning to list every unique team name seen in inning headers, making future mismatches self-diagnosing.
+- Files: `gen_reports.py`; `scrape_gc_playbyplay.py`; `scrape_gc_boxscores.py` — Commit: `v2.4.0`
+
+**Workaround:** N/A — fully fixed.
+
+---
+
+## BUG 15: Split player cards — same player appears twice in PDF *(data format issue)*
+
+**Date:** May 4, 2026
+**Status:** ⚠️ CLOSED — NOT A CODE BUG. Data format inconsistency in game files.
+
+**Problem:** Crushers White 10U (Storm) showed duplicate player cards in the PDF — e.g. `"Andrew L. #1"` appeared twice: once with ~27 PAs (April games) and once with ~10 PAs (March games). All 8 roster players were affected.
+
+**Root Cause:** GC used two different name formats across the season for the same players:
+- March games (7 files, Mar07–Mar22): 2-char initials — `"A L"`, `"N L"`
+- April+ games (12 files, Apr11+): full first name — `"Andrew L"`, `"Nico L"`
+
+`gen_reports.py` accumulates PA stats keyed by the raw name string. Because `"A L" ≠ "Andrew L"`, two separate stat buckets are created per player → two cards in the PDF. **This is not a code bug** — the parser behaves correctly; the inconsistency lives entirely in the source game files.
+
+**Workaround:** Patched 7 March game files to replace 2-char initials with full first-name format, scoped to Crushers White 10U batting half-innings only:
+
+| From | To       | From | To       |
+|------|----------|------|----------|
+| A C  | Asher C  | A L  | Andrew L |
+| D P  | Devan P  | J B  | Jack B   |
+| J S  | Jordan S | N L  | Nico L   |
+| R B  | Reilly B | R R  | Riley R  |
+
+- Script: `Scripts/patch_march_initials.py` (run once, retained for audit)
+- After patch: single card per player with correct cumulative PA totals.
+
+**Prevention:** Always use full first-name + last-initial format (`"Andrew L"`) when reviewing or creating game files. The 2-char format (`"A L"`) was an early-season GC artifact and should not be used.
+
+---
+
+*End of bug log.*
