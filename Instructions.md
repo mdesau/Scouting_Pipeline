@@ -41,13 +41,13 @@ c2828e4  feat: rename run_weekly.sh → run_scout.sh; add SBA Alabama + TN Natio
 ### Scripts Overview (line counts as of Apr 23, 2026)
 | Script | Lines | Role | Has --verbose | Has DEBUG_CONFIG | Has try/except |
 |---|---|---|---|---|---|
-| `scrape_gc_playbyplay.py` | 532 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
-| `scrape_gc_boxscores.py` | 820 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
-| `gen_reports.py` | 2060 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
+| `scrape_gc_playbyplay.py` | 594 | Playwright: GC schedule → .txt game files | ✅ | ✅ | ✅ |
+| `scrape_gc_boxscores.py` | 839 | Playwright: GC box scores → rosters.json | ✅ | ✅ | — |
+| `gen_reports.py` | 2055 | Stat engine + PDF generator | ✅ | ✅ | ✅ (run_wild) |
 | `parse_gc_text.py` | 270 | Raw GC text → WCWAA format (utility) | — | — | — |
 | `run_scout.sh` | 55 | Shell launcher — activates venv, calls run_menu.py | — | — | — |
-| `run_scout_nightly.sh` | ~55 | Headless launcher — no menu; calls run_menu.py --all; used by launchd | — | — | — |
-| `run_menu.py` | ~300 | Interactive pipeline menu — numbered team/division picker, add-new-team flow | — | — | — |
+| `run_scout_nightly.sh` | 93 | Headless launcher — no menu; calls run_menu.py --all; used by launchd | — | — | — |
+| `run_menu.py` | 656 | Interactive pipeline menu — numbered team/division picker, add-new-team flow | — | — | — |
 
 ---
 
@@ -61,8 +61,8 @@ and generates multi-page PDF scouting reports for four divisions:
 |---|---|---|---|
 | Majors | 11U in-house | 11 teams | Full league — reports on all opponents |
 | Minors | 9U in-house | 14 teams | Full league |
-| Wild | 11U travel | 5 opponent teams | Reports on travel opponents only |
-| Storm | 9U travel | 3 opponent teams | Reports on travel opponents only |
+| Wild | 11U travel | 8 opponent teams | Reports on travel opponents only |
+| Storm | 9U travel | 9 opponent teams | Reports on travel opponents only |
 
 ---
 
@@ -214,10 +214,15 @@ python3 scrape_gc_playbyplay.py --login
 **Key functions & locations:**
 | Function | ~Line | Purpose |
 |---|---|---|
-| `main()` | ~470 | CLI entry point — parses `--division`, `--team`, `--login`, `--check`, `--force`, `--verbose` |
-| `run_all_divisions()` | ~490 | Loops over `DIVISIONS` dict; calls `scrape_team_division()` per team |
-| `scrape_team_division()` | ~200 | Core per-team logic: loads schedule, finds FINAL games, scrapes each |
-| `scrape_plays_page()` | ~280 | Navigates to `/plays` URL, extracts raw page text via Playwright |
+| `run()` | ~511 | CLI entry point — parses `--division`, `--team`, `--login`, `--check`, `--force`, `--verbose`; loops divisions |
+| `scrape_org_division()` | ~361 | Org-level scraper (Majors/Minors): loads org schedule, finds FINAL games, scrapes each |
+| `scrape_team_division()` | ~431 | Team-level scraper (Wild/Storm): loads per-team schedule page, finds FINAL games |
+| `extract_plays_raw()` | ~336 | Navigates to `/plays` URL, extracts raw page text via Playwright |
+| `is_covered()` | ~355 | Checks whether a game file already exists on disk (skip logic) |
+| `get_schedule()` | ~321 | Runs `SCHEDULE_JS` in browser, returns parsed schedule array |
+| `setup_logging()` | ~87 | Configures file + console logging with `--verbose` support |
+| `fmt_date()` | ~307 | Normalizes GC date strings to `MonDD` format for filenames |
+| `safe()` | ~316 | Sanitizes team name for use in filenames |
 | `SCHEDULE_JS` | ~130 | JS string injected into browser to extract game cards from GC's React DOM |
 | `DIVISIONS` dict | ~85 | All team IDs, slugs, folder paths — **edit here to add/remove teams** |
 | `DEBUG_SCHEDULE_RAW`, `DEBUG_PAGE_TEXT` | ~70 | Debug flags for raw JS dumps |
@@ -232,12 +237,18 @@ python3 scrape_gc_playbyplay.py --login
 **Key functions & locations:**
 | Function | ~Line | Purpose |
 |---|---|---|
-| `main()` | ~760 | CLI entry point — parses `--division`, `--force`, `--verbose` |
-| `run_division()` | ~580 | Loads schedule, iterates FINAL games, calls `scrape_box_score_page()` |
-| `scrape_box_score_page()` | ~380 | Extracts batter rows from GC box score via injected JS |
-| `merge_player()` | ~260 | Merges new box score data into existing roster entry; handles `setdefault` migration guard |
-| `detect_collision()` | ~300 | Detects shared initials (e.g. B A); promotes both to 5-char keys + writes `_collision_map` |
-| `normalize_team_name()` | ~80 | Applies `TEAM_NAME_ALIASES` to fix GC rendering differences (e.g. `As-Blanco` vs `A's-Blanco`) |
+| `run()` | ~798 | CLI entry point — parses `--division`, `--team`, `--force`, `--verbose`; loops divisions |
+| `scrape_division()` | ~515 | Org-level scraper (Majors/Minors): loads schedule, iterates FINAL games, accumulates rosters |
+| `scrape_team_division()` | ~649 | Team-level scraper (Wild/Storm): per-team schedule page, box score extraction |
+| `_accum_player()` | ~385 | Core per-player accumulator: detects collisions, promotes to 5-char keys, writes `_collision_map` |
+| `_prepare_for_save()` | ~491 | Strips transient fields before writing rosters.json/roster.txt to disk |
+| `merge_player()` | ~324 | Merges new box score data into existing roster entry; handles `setdefault` migration guard |
+| `_first_name_from()` | ~355 | Extracts first name from GC display string or existing roster entry |
+| `_disambig_key()` | ~376 | Builds 5-char disambiguation key from initials + first name (e.g. `B A` → `Bri A`) |
+| `display_name()` | ~305 | Formats `"FirstName L. #jersey"` display string from GC name + jersey |
+| `normalize_team_name()` | ~288 | Applies `TEAM_NAME_ALIASES` to fix GC rendering differences (e.g. `As-Blanco` vs `A's-Blanco`) |
+| `setup_logging()` | ~125 | Configures file + console logging with `--verbose` support |
+| `fmt_date()` | ~257 | Normalizes GC date strings to `MonDD` format |
 | `DIVISIONS` dict | ~100 | All team IDs, slugs, output paths — **must match scrape_gc_playbyplay.py exactly** |
 | `TEAM_NAME_ALIASES` | ~60 | Maps GC box score team name variants → canonical roster keys |
 | `DEBUG_BOX_SCORE_RAW`, `DEBUG_TEAM_NAMES` | ~55 | Debug flags |
@@ -254,25 +265,45 @@ python3 scrape_gc_playbyplay.py --login
 **Key functions & locations:**
 | Function | ~Line | Purpose |
 |---|---|---|
-| `main()` | ~1890 | CLI entry point — parses `--division`, `--team`, `--verbose` |
-| `run_league()` | ~1647 | Division runner for Majors/Minors: pre-scan for percentiles, generate each PDF |
-| `run_wild()` | ~1776 | Travel division runner (Wild/Storm): per-opponent loop with try/except isolation |
-| `parse_game_for_team()` | ~430 | Core parser: reads `.txt` file, applies `INNING_RE` + `DESC_RE`, extracts PAs per batter |
-| `INNING_RE` | ~420 | Regex matching `===Top/Bottom N - TeamName===` headers — **critical: exact team name match** |
-| `parse_outcome()` | ~340 | Maps play description string → outcome code (1B, 2B, K, BB, FO, GO, etc.) |
-| `BIP_OUTCOMES` | ~312 | Set of all ball-in-play outcome codes — **add new play types to `parse_outcome()` too** |
-| `compute_stats()` | ~614 | Aggregates PA list → per-batter stat dict (AVG, OBP, SLG, SM%, etc.) + raw pitch counts |
-| `compute_team_totals()` | ~728 | Aggregates all batters → single team-level stat dict; powers team card + totals row |
-| `fmt_pct()` | ~803 | Formats a ratio as `".NNN"` string or `"—"` |
-| `_rank_stat()` | ~807 | Dense rank helper — rank 1 = highest; returns `"rank/n"` or `"—"`; used in LG RANK row |
-| `get_archetype()` | ~843 | Applies Approach × Result label using league percentiles or fixed thresholds |
-| `_disambiguate_pas()` | ~213 | Splits shared-initials PAs using `_collision_map` + batting order alternation |
+| `main()` | ~2031 | CLI entry point — parses `--division`, `--team`, `--verbose` |
+| `run_league()` | ~1729 | Division runner for Majors/Minors: pre-scan for percentiles, generate each PDF |
+| `run_wild()` | ~1863 | Travel division runner (Wild/Storm): two-pass — Pass 1 parses all opponents + builds `div_team_totals`; Pass 2 generates PDFs with LG RANK context |
+| `build_league_context()` | ~1675 | Pre-scans all Majors/Minors scorebooks; returns `(league_batters, league_team_totals)` tuple for percentiles + LG RANK |
+| `get_wild_opponents()` | ~1625 | Discovers Wild/Storm opponent folders on disk |
+| `load_wild_roster()` | ~1639 | Reads `roster.txt` for a travel opponent |
 | `generate_pdf()` | ~1408 | ReportLab PDF assembly: team card + player cards + summary/notes page |
 | `draw_card()` | ~1299 | Renders one player or team card: spray chart, stat bars, archetype label, pitching approach |
-| `draw_field_spray_chart()` | ~1149 | Heat-map spray chart with BIP dots |
-| `generate_notes_short()` | ~1020 | 1-2 sentence compact note for summary page |
-| `build_league_context()` | ~1675 | Pre-scans all Majors/Minors scorebooks; returns `(league_batters, league_team_totals)` tuple for percentiles + LG RANK |
-| `run_wild()` two-pass | ~1864 | Pass 1 parses all opponents + builds `div_team_totals`; Pass 2 generates PDFs with LG RANK context (Wild/Storm) |
+| `draw_field_spray_chart()` | ~1171 | Heat-map spray chart with BIP dots |
+| `draw_stat_box()` | ~1272 | Renders a single stat label + value box |
+| `draw_bar()` | ~1279 | Renders a horizontal percentage bar |
+| `draw_header()` | ~1100 | Draws PDF page header with title + subtitle |
+| `mark_reviewed()` | ~1071 | Renames processed game file to `-Reviewed.txt` |
+| `generate_notes()` | ~997 | Full narrative scouting note for a batter |
+| `generate_notes_short()` | ~1042 | 1-2 sentence compact note for summary page |
+| `get_pitching_approach()` | ~989 | Archetype → pitching recommendation lookup |
+| `get_archetype()` | ~865 | Applies Approach × Result label using league percentiles or fixed thresholds |
+| `_roster_percentiles()` | ~848 | Computes league-wide percentile thresholds for archetype classification |
+| `_rank_stat()` | ~807 | Dense rank helper — rank 1 = highest; returns `"rank/n"` or `"—"`; used in LG RANK row |
+| `fmt_pct()` | ~803 | Formats a ratio as `".NNN"` string or `"—"` |
+| `fmt_avg()` | ~798 | Formats batting average as `".NNN"` |
+| `compute_team_totals()` | ~728 | Aggregates all batters → single team-level stat dict; powers team card + totals row |
+| `compute_stats()` | ~614 | Aggregates PA list → per-batter stat dict (AVG, OBP, SLG, SM%, etc.) + raw pitch counts |
+| `verify_game()` | ~582 | Runs all verification layers on a parsed game |
+| `check_batting_order()` | ~523 | Verification layer 3: checks PA counts consistent with lineup |
+| `check_inning_continuity()` | ~493 | Verification layer 1: detects skipped innings |
+| `parse_game_for_team()` | ~430 | Core parser: reads `.txt` file, applies `INNING_RE` + `DESC_RE`, extracts PAs per batter |
+| `parse_pitch_seq()` | ~389 | Parses pitch sequence string into swing/take/foul counts |
+| `parse_outcome()` | ~340 | Maps play description string → outcome code (1B, 2B, K, BB, FO, GO, etc.) |
+| `parse_ball_type()` | ~327 | Classifies BIP as ground ball, fly ball, or line drive |
+| `extract_zone()` | ~322 | Extracts fielding zone from play description for spray chart |
+| `verify_box_score()` | ~262 | Verification layer 4: cross-checks parsed AB/BB vs. box_verify.json |
+| `_disambiguate_pas()` | ~213 | Splits shared-initials PAs using `_collision_map` + batting order alternation |
+| `load_box_verify()` | ~202 | Loads box_verify.json cross-check data |
+| `load_box_rosters()` | ~159 | Loads rosters.json for Majors/Minors |
+| `build_rosters()` | ~133 | Builds roster dict from CSV (legacy path) |
+| `setup_logging()` | ~43 | Configures file + console logging with `--verbose` support |
+| `INNING_RE` | ~420 | Regex matching `===Top/Bottom N - TeamName===` headers — **critical: exact team name match** |
+| `BIP_OUTCOMES` | ~312 | Set of all ball-in-play outcome codes — **add new play types to `parse_outcome()` too** |
 | `DIVISIONS` dict | ~80 | Folder paths + roster file locations per division |
 | `PITCHING_APPROACH` | ~952 | Archetype → pitching recommendation lookup dict |
 | `DEBUG_PA_PARSING`, `DEBUG_ARCHETYPES`, `DEBUG_PITCH_SEQ` | ~38 | Debug flags |
@@ -292,6 +323,30 @@ python3 scrape_gc_playbyplay.py --login
 | `OUTCOME_TYPES` | ~35 | Outcome string → code mapping (must stay in sync with `gen_reports.py`) |
 
 **Dependencies:** None (pure utility, no imports beyond stdlib).
+
+---
+
+### Orchestrator — run_menu.py
+**What it does:** Python-based pipeline orchestrator. Provides an interactive numbered menu for choosing division/team/full-pipeline runs, handles CLI passthrough (`--all`, `--division`, `--team`), and calls steps 1→2→3 as subprocesses. Also contains the "Add New Team" wizard for Wild/Storm opponents.
+
+**Key functions & locations:**
+| Function | ~Line | Purpose |
+|---|---|---|
+| `main()` | ~597 | CLI entry point — parses `--all`, `--division`, `--team`; routes to `run_pipeline()` or `interactive_menu()` |
+| `interactive_menu()` | ~525 | Numbered menu: [0] Full pipeline, [1] Single division, [2] Single team, [3] Add new team |
+| `run_pipeline()` | ~207 | Runs steps 1→2→3 as subprocesses for a given division/team scope |
+| `_run()` | ~276 | Subprocess wrapper with exit-code handling; `fatal` param controls abort-on-error |
+| `add_new_team()` | ~429 | Interactive wizard: paste GC URL → creates folder + inserts team into both scrapers |
+| `_parse_gc_url()` | ~303 | Extracts `team_id` and `slug` from a GC schedule URL |
+| `_slug_to_folder_name()` | ~327 | Converts GC slug to folder name (e.g. `2026-spring-t24-garnet-11u` → `T24 Garnet 11U`) |
+| `_insert_team_into_file()` | ~366 | Programmatically inserts a new team tuple into a scraper's `DIVISIONS` dict |
+| `get_team_list()` | ~174 | Reads `DIVISIONS` from `scrape_gc_playbyplay.py` to build team picker list |
+| `check_session()` | ~103 | Validates `gc_session.json` exists and is not expired |
+| `print_header()` | ~93 | Prints the pipeline banner |
+| `ask()` | ~122 | Prompt helper with default value support |
+| `pick_from_list()` | ~142 | Numbered list picker UI |
+
+**Dependencies:** Imports `DIVISIONS` from `scrape_gc_playbyplay.py`. Called by `run_scout.sh` (interactive) and `run_scout_nightly.sh` (headless via `--all`).
 
 ---
 
@@ -468,25 +523,30 @@ Passive Overmatched/Walker   → Attack the Zone
 | Rays-Pearson | |
 | Mets-Hornung | Manual roster_additions entry: "B A" → "B. Amerine" (Beau Amerine, post-draft add) |
 
-### Wild Opponents (11U travel)
+### Wild Opponents (8 teams, 11U travel)
 | Team | GC Team ID | Status |
 |---|---|---|
 | Arena National Browning 11U | `1yv2qtI89QSD` | Active |
 | South Charlotte Panthers 11U | `Kih0oavXNZB3` | Active |
 | Weddington Wild 11U | `Ye94sB963tUX` | Active |
+| QC Flight Baseball 11U | `1gqDRuls0oER` | Active |
 | T24 Garnet 11U | `I2XcyUwmye3p` | 0 FINAL games on GC — not a priority |
-| QC Flight Baseball 11U | `1gqDRuls0oER` | Active — slug: `2026-spring-qc-flight-baseball-11u` |
-| SBA Alabama National 12U | `Wn2Abf32IXOz` | Added Apr 23 — slug: `2026-summer-sba-alabama-national-12u` |
-| TN Nationals Heichelbech 12U | `QebtI4WHVMPn` | Added Apr 23 — slug: `2026-summer-tn-nationals-heichelbech-12u` |
+| SBA Alabama National 12U | `Wn2Abf32IXOz` | Added Apr 23 |
+| TN Nationals Heichelbech 12U | `QebtI4WHVMPn` | Added Apr 23 |
+| Tega CAY Titans 11U | `PVUBGhDYocE0` | Active |
 
-### Storm Opponents (ITAA 9U travel)
+### Storm Opponents (9 teams, 9U travel)
 | Team | GC Team ID | Status |
 |---|---|---|
 | ITAA 9U Spartans | `lTxYlYLH52KU` | Active |
 | MARA 9U Stingers | `VdoWDJdlCgAH` | Active |
 | South Charlotte Challenge 9U Doggett | `lc7rtdls8Ht6` | Active |
+| Pineville Blue Sox 9U | `igECV1q4jzFV` | Active |
 | LKN Lightning 10U | `xduuY8fEkGLx` | Active — team_id corrected Apr 28 |
-| MILITIA 9U | `XIMp3aUceUsY` | 0 game files on disk yet |
+| Park Sharon Nationals 10U | `HZ3pkdRb5s6P` | Active |
+| Weddington Stormtroopers | `L3KLX1oI2VGl` | Active |
+| Lake Norman Lightning 9U | `H130ItYghVag` | Active |
+| Dilworth 9U - Navy | `eR45wjQRgKYW` | Active — folder name fixed v2.4.0 |
 
 ---
 

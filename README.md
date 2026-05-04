@@ -15,8 +15,8 @@ Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes ba
 |---|---|---|---|
 | **Majors** | 11U in-house | 11 teams | Full league |
 | **Minors** | 9U in-house | 14 teams | Full league |
-| **Wild** | 11U travel | 5 opponents | Opponent reports only |
-| **Storm** | 9U travel | 4 opponents | Opponent reports only |
+| **Wild** | 11U travel | 8 opponents | Opponent reports only |
+| **Storm** | 9U travel | 9 opponents | Opponent reports only |
 
 ---
 
@@ -137,6 +137,8 @@ rm ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
 ```
 
 > **Note:** If your laptop is asleep at 10pm, launchd will skip that night's run — it does not wake the machine. The pipeline is safe to skip; it only picks up genuinely new FINAL games on the next run.
+
+> **Prerequisite:** Grant Full Disk Access to `/bin/bash` in System Settings → Privacy & Security → Full Disk Access. Required because launchd runs `/bin/bash` outside of Terminal, which has its own FDA grant. Without this, the plist will fail with exit code 126 ("Operation not permitted").
 
 ---
 
