@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Schedule scraper now loads full season before extracting games** (`scrape_gc_playbyplay.py → get_schedule()`) — added scroll-to-bottom loop before running `SCHEDULE_JS`. GC lazy-loads schedule cards; without scrolling, the scraper only saw games through late April. Recovered 9 Majors and 14 Minors games (May 4–9). Fixed BUG-13.
+- **False "Skipped" entries in PDF subtitle eliminated** (`gen_reports.py → run_league()`) — `game_files` is built once at startup; as teams are processed their files are renamed to `-Reviewed.txt`. When the second team in a game was processed later, the original `.txt` path was stale (already renamed), causing a false SKIP. Fix: fall back to `-Reviewed.txt` path transparently. Recovered 9 Majors and 14 Minors games from false skips. Fixed BUG-14.
 
 ---
 

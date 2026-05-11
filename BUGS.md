@@ -262,4 +262,37 @@ None needed — fully fixed.
 
 ---
 
+## BUG-14 · [STATUS: RV]
+
+**Title:** False "Skipped" entries in PDF subtitle — stale `game_files` list causes FileNotFoundError on already-renamed scorebooks
+
+**Severity:** Medium  
+**Date Reported:** 2026-05-10  
+**Release Found:** v2.4.0  
+**Release Fixed:** v2.4.1 (commit `d5caecc`)
+
+### Observable Problem
+The scouting report PDF subtitle shows `Skipped: May05-As-Blanco_vs_Royals-Hall.txt` (and similar entries for other teams). The log shows `ERROR SKIP <filename>: [Errno 2] No such file or directory`. The data from the affected game IS actually present in the PDF (game count and PAs are correct) — but the false SKIP label appears and total counts were undercounted for some teams.
+
+### Steps to Reproduce
+1. Run `scrape_gc_playbyplay.py` to pull new game files.
+2. Immediately run `gen_reports.py --division Majors` in the same session.
+3. Observe `SKIP` errors in log and "Skipped:" note in the PDF subtitle for teams that appear in newly-scraped games.
+
+### Fix Explanation *(Exec Level — No Code)*
+`gen_reports.py` builds a list of all game files once at startup. As it processes each team, it renames completed files from `.txt` to `-Reviewed.txt`. Later in the same run, when it processes the *other* team in a two-team game, the original filename is still in the startup list — but the file has already been renamed. The code tried to open the old name, failed, and logged a false SKIP error. Because the `-Reviewed.txt` version was *also* in the startup list, the data was ultimately included, but the false error remained.
+
+The fix: before opening a `.txt` file path, check whether the file still exists. If not, silently fall back to the `-Reviewed.txt` version before raising any error.
+
+### Fix Details *(Technical)*
+- File: `gen_reports.py` → `run_league()` inner file-processing loop
+- Added a two-line fallback before the `try` block: if `fpath` doesn't exist, construct the `-Reviewed.txt` path and use it if present.
+- This also handles edge cases where Google Drive sync delay causes the plain `.txt` to be visible in `os.listdir()` but not yet readable.
+- Majors impact: 107 → 116 games, 3,209 → 3,478 PAs recovered. Minors: 140 → 154 games, 3,676 → 4,031 PAs.
+
+### Workaround
+None needed — fully fixed.
+
+---
+
 *End of bug log.*
