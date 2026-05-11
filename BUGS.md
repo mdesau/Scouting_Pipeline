@@ -227,4 +227,39 @@ Always verify the team folder name matches the GC inning header exactly before r
 
 ---
 
+---
+
+## BUG-13 · [STATUS: RV]
+
+**Title:** Schedule scraper misses all games after late April — GC lazy-loads schedule cards
+
+**Severity:** High  
+**Date Reported:** 2026-05-10  
+**Release Found:** v2.4.0  
+**Release Fixed:** v2.4.1 (commit `9dda244`)
+
+### Observable Problem
+Running `scrape_gc_playbyplay.py` for Majors or Minors would pick up 0 new games even when GameChanger showed many FINAL games in May. The scraper reported a game count that matched only games through late April (~39 Majors, ~63 Minors) and silently skipped all newer games.
+
+### Steps to Reproduce
+1. Run `python3 scrape_gc_playbyplay.py --check --division Majors` after May 3rd games have been finalized.
+2. Expected: 9+ missing Majors games listed. Actual: 0 missing games reported, all shown as covered.
+
+### Fix Explanation *(Exec Level — No Code)*
+GameChanger's schedule pages use lazy/virtual rendering — game cards are only added to the page as the user scrolls down. The scraper was extracting game data immediately after the page loaded, before the user would have scrolled, so it only saw games visible in the initial viewport. Games from May onward were simply never in the page when the extraction ran.
+
+The fix adds an automatic scroll-to-bottom loop before extracting game data. The scraper now scrolls down in increments, waits for new content to load after each scroll, and repeats until no new games appear — ensuring the full season schedule is loaded before extraction.
+
+### Fix Details *(Technical)*
+- File: `scrape_gc_playbyplay.py` → `get_schedule()`
+- Added a `for` loop (max 30 passes) that calls `window.scrollBy(0, 600)`, waits 0.8 s, then counts `<a>` tags with `/schedule/` in their `href`. Loop exits early when the count stops growing.
+- `SCHEDULE_JS` evaluation is unchanged — the fix purely ensures the DOM is fully populated before the JS runs.
+- Majors result: 49 games previously seen → 58 FINAL games (9 recovered, May 4–9).
+- Minors result: 63 games previously seen → 77 FINAL games (14 recovered, May 4–9).
+
+### Workaround
+None needed — fully fixed.
+
+---
+
 *End of bug log.*

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+### Fixed
+- **Schedule scraper now loads full season before extracting games** (`scrape_gc_playbyplay.py → get_schedule()`) — added scroll-to-bottom loop before running `SCHEDULE_JS`. GC lazy-loads schedule cards; without scrolling, the scraper only saw games through late April. Recovered 9 Majors and 14 Minors games (May 4–9). Fixed BUG-13.
+
 ---
 
 ## [2.4.0] - 2026-05-02
