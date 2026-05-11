@@ -1798,6 +1798,18 @@ def run_league(division, teams_filter=None):
             if team_key not in fname and file_team_key not in fname:
                 continue
             fpath = os.path.join(scorebooks_dir, fname)
+            # WHY THE FALLBACK:
+            # game_files is built once from os.listdir() before any processing begins.
+            # As each team is processed its game files are renamed to -Reviewed.txt
+            # by mark_reviewed(). When the SECOND team in a two-team game is processed
+            # later in the same run, the static game_files list still contains the
+            # original plain .txt name — but the file has already been renamed.
+            # Solution: if the plain .txt path is missing, transparently use the
+            # -Reviewed.txt version (which definitely contains the same content).
+            if not os.path.exists(fpath):
+                reviewed_fpath = fpath[:-4] + "-Reviewed.txt"
+                if os.path.exists(reviewed_fpath):
+                    fpath = reviewed_fpath
             try:
                 pas = parse_game_for_team(fpath, team_key, collision_map=cmap)
                 # Annotate PAs with game_id and game_seq for batting order tracking
