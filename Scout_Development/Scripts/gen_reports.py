@@ -1846,7 +1846,7 @@ def run_league(division, teams_filter=None):
         display_team = "A's" if team_name == "As" else team_name
         label = f"{display_team} ({coach_last})"
         safe = team_name.replace(" ", "_")
-        pdf_path = os.path.join(output_dir, f"{safe}_{coach_last}-Scout_2026.pdf")
+        pdf_path = os.path.join(output_dir, f"{safe}_{coach_last}-Scout-Hitting_2026.pdf")
         generate_pdf(team_key, label, batters, n_games, skipped, pdf_path,
                      league_batters=league_batters, division_label=label_suffix,
                      league_team_totals=league_team_totals)
@@ -2010,7 +2010,7 @@ def run_wild(teams_filter=None, division="Wild"):
 
             label    = opponent_name
             safe     = opponent_name.replace(" ", "_")
-            pdf_path = os.path.join(output_dir, f"{safe}_Scout_2026.pdf")
+            pdf_path = os.path.join(output_dir, f"{safe}-Scout-Hitting_2026.pdf")
 
             generate_pdf(opponent_name, label, batters, n_games, skipped, pdf_path,
                          league_batters=None, division_label=label_suffix,

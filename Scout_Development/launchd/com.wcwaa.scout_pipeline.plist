@@ -69,10 +69,10 @@
         <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts/run_scout_nightly.sh</string>
     </array>
 
-    <!-- Working directory — set to Scripts/ so relative paths inside the
-         shell script resolve correctly (same as running manually from Scripts/) -->
+    <!-- Working directory — set to home dir so launchd can start without
+         needing FDA just to set cwd. run_scout_nightly.sh cds to Scripts/. -->
     <key>WorkingDirectory</key>
-    <string>/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Scripts</string>
+    <string>/Users/mesau</string>
 
     <!-- Schedule: 02:00 UTC daily = 10:00 PM EDT -->
     <key>StartCalendarInterval</key>

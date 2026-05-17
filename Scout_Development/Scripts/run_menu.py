@@ -204,14 +204,15 @@ def get_team_list(division):
 # PIPELINE EXECUTION
 # ════════════════════════════════════════════════════════════════════════════
 
-def run_pipeline(division=None, team=None):
+def run_pipeline(division=None, team=None, headless=False):
     """
-    Execute the full 3-step pipeline for the given scope.
+    Execute the full 4-step pipeline for the given scope.
 
     Steps:
       1. scrape_gc_playbyplay.py — scrape new game files from GameChanger
       2. scrape_gc_boxscores.py  — update rosters.json / roster.txt
-      3. gen_reports.py       — regenerate PDFs
+      3. gen_reports.py          — regenerate hitting PDFs
+      4. gen_pitching.py         — regenerate pitching PDFs (Pitching Savant)
 
     Step 1 skips games that already have a .txt or -Reviewed.txt on disk,
     so re-running is always safe — only genuinely new games are scraped.
@@ -219,6 +220,10 @@ def run_pipeline(division=None, team=None):
     Args:
         division: Division name string, or None for all divisions.
         team:     Team name string, or None for all teams in division.
+        headless: If True (nightly/scheduled runs), scraper steps (1+2) use
+                  fatal=False so a single GC page timeout does not abort the
+                  pipeline before gen_reports.py runs. gen_reports always uses
+                  fatal=True. Interactive runs keep fatal=True for all steps.
     """
     # Build the --division and --team flags for each script call
     # WHY list(filter(None, [...])):  Python's clean way to build an arg list
@@ -231,9 +236,9 @@ def run_pipeline(division=None, team=None):
     print()
     print("─" * 58)
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
-    print(f"▶ Step 1/3  Scrape new games  [{scope}]")
+    print(f"▶ Step 1/4  Scrape new games  [{scope}]")
     print("─" * 58)
-    _run(["python3", "scrape_gc_playbyplay.py"] + div_args + team_args)
+    _run(["python3", "scrape_gc_playbyplay.py"] + div_args + team_args, fatal=not headless)
 
     # Step 2: Update rosters
     # --team is now supported by scrape_gc_boxscores.py for Wild/Storm team-based divisions.
@@ -241,16 +246,16 @@ def run_pipeline(division=None, team=None):
     # is always updated together since all teams share one file.
     print()
     print("─" * 58)
-    print(f"▶ Step 2/3  Update rosters    [{scope}]")
+    print(f"▶ Step 2/4  Update rosters    [{scope}]")
     print("─" * 58)
-    _run(["python3", "scrape_gc_boxscores.py"] + div_args + team_args)
+    _run(["python3", "scrape_gc_boxscores.py"] + div_args + team_args, fatal=not headless)
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).
     # For all-team runs, iterate each division explicitly.
     print()
     print("─" * 58)
-    print(f"▶ Step 3/3  Generate PDFs     [{scope}]")
+    print(f"▶ Step 3/4  Hitting PDFs      [{scope}]")
     print("─" * 58)
 
     if division:
@@ -261,6 +266,22 @@ def run_pipeline(division=None, team=None):
             print(f"  → {div}")
             _run(["python3", "gen_reports.py", "--division", div])
 
+    # Step 4: Generate Pitching Savant PDFs
+    # gen_pitching.py lives in the Pitching_Savant project but shares the same venv.
+    PITCHING_SCRIPT = SPRING_DIR / "Pitching_Savant" / "Scripts" / "gen_pitching.py"
+    if PITCHING_SCRIPT.exists():
+        print()
+        print("─" * 58)
+        print(f"▶ Step 4/4  Pitching PDFs    [{scope}]")
+        print("─" * 58)
+
+        if division:
+            _run(["python3", str(PITCHING_SCRIPT), "--division", division] + team_args)
+        else:
+            for div in ["Majors", "Minors", "Wild", "Storm"]:
+                print(f"  → {div}")
+                _run(["python3", str(PITCHING_SCRIPT), "--division", div])
+
     print()
     print("=" * 58)
     print("  ✅ Pipeline complete.")
@@ -269,27 +290,27 @@ def run_pipeline(division=None, team=None):
     print()
 
 
-def _run(cmd):
+def _run(cmd, fatal=True):
     """
     Run a subprocess command from the Scripts/ directory.
 
-    Uses subprocess.run() rather than os.system() because:
-      - We get a return code we can check
-      - stdout/stderr stream live (user sees progress in real time)
-      - Shell injection is not possible (args are a list, not a string)
-
     Args:
-        cmd: List of command + arguments, e.g. ["python3", "scrape_gc_playbyplay.py", "--division", "Wild"]
+        cmd:   List of command + arguments, e.g. ["python3", "scrape_gc_playbyplay.py"]
+        fatal: If True (default), call sys.exit() on non-zero return code.
+               If False, log a warning and continue (used for scraper steps in
+               headless/nightly runs so a single GC timeout doesn't abort the
+               pipeline before gen_reports.py runs).
 
     Raises:
-        SystemExit if the command returns a non-zero exit code.
+        SystemExit if the command returns a non-zero exit code and fatal=True.
     """
     result = subprocess.run(cmd, cwd=str(SCRIPTS_DIR))
     if result.returncode != 0:
-        print(f"\n⚠️  Command failed with exit code {result.returncode}: {' '.join(cmd)}")
+        print(f"\n⚠️  Command finished with exit code {result.returncode}: {' '.join(cmd)}")
         print("   Check the output above for error details.")
-        print("   The pipeline has stopped. Fix the issue and re-run.")
-        sys.exit(result.returncode)
+        if fatal:
+            print("   The pipeline has stopped. Fix the issue and re-run.")
+            sys.exit(result.returncode)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -624,7 +645,7 @@ def main():
         if "--all" in user_args:
             print_header()
             print("▶ Headless mode — running full pipeline for ALL divisions")
-            run_pipeline(division=None, team=None)
+            run_pipeline(division=None, team=None, headless=True)
             return
 
         i = 0

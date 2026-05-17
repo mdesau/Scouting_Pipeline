@@ -125,7 +125,7 @@ Spring/
 
 ---
 
-## Weekly Workflow
+## Workflow Options
 
 **Option A — manual on-demand run (interactive menu):**
 ```bash
@@ -146,8 +146,8 @@ See `launchd/com.wcwaa.scout_pipeline.plist` for install instructions.
 **Step by step:**
 ```bash
 python3 scrape_gc_playbyplay.py                     # Step 1: pull all new FINAL game files from GC
-python3 scrape_gc_boxscores.py              # Step 2: update rosters.json + jersey numbers
-python3 gen_reports.py --division Majors  # Step 3: regenerate PDFs per division
+python3 scrape_gc_boxscores.py                      # Step 2: update rosters.json + jersey numbers
+python3 gen_reports.py --division Majors            # Step 3: regenerate PDFs per division
 python3 gen_reports.py --division Minors
 python3 gen_reports.py --division Wild
 python3 gen_reports.py --division Storm

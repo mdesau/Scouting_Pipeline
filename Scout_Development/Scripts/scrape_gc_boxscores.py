@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scrape_box_scores.py — GameChanger Box Score Scraper for WCWAA 2026 Spring
+scrape_gc_boxscores.py — GameChanger Box Score Scraper for WCWAA 2026 Spring
 ===========================================================================
 Scrapes /box-score pages for all FINAL Majors and Minors games.
 
@@ -12,9 +12,9 @@ Outputs (one file per division):
 
 Usage
 -----
-  python3 scrape_box_scores.py                    # both divisions
-  python3 scrape_box_scores.py --division Majors
-  python3 scrape_box_scores.py --force            # re-scrape even if JSON exists
+  python3 scrape_gc_boxscores.py                    # both divisions
+  python3 scrape_gc_boxscores.py --division Majors
+  python3 scrape_gc_boxscores.py --force            # re-scrape even if JSON exists
 
 Roster format (rosters.json):
   {
@@ -82,7 +82,7 @@ DIVISIONS = {
     },
     # ── Wild opponents ────────────────────────────────────────────────────────
     # Builds roster.txt per team folder from box score pages.
-    # To add a new opponent, follow the same pattern as gc_scraper.py:
+    # To add a new opponent, follow the same pattern as scrape_gc_playbyplay.py:
     #   ("team_id", "slug", "Exact Folder Name")
     # ─────────────────────────────────────────────────────────────────────────
     "Wild": {
@@ -96,6 +96,7 @@ DIVISIONS = {
             ("I2XcyUwmye3p", "2026-spring-t24-garnet-11u",                   "T24 Garnet 11U"),
             ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
             ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
+            ("PVUBGhDYocE0", "2026-spring-tega-cay-titans-11u", "Tega CAY Titans 11U"),
         ],
     },
     # ── Storm opponents ───────────────────────────────────────────────────────
@@ -109,6 +110,12 @@ DIVISIONS = {
             ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),            
             ("xduuY8fEkGLx", "2026-spring-lkn-lightning-10u", "LKN Lightning 10U"),
             ("HZ3pkdRb5s6P", "2026-spring-park-sharon-nationals-10u", "Park Sharon Nationals 10U"),
+            ("L3KLX1oI2VGl", "2026-spring-weddington-stormtroopers", "Weddington Stormtroopers"),
+
+            ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
+            ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
+            ("XVsrx4NMoxtd", "2026-spring-crushers-white-10u", "Crushers White 10U"),
+            ("TRxdck3guZR2", "2026-spring-weddington-10u-gophers", "Weddington 10U Gophers"),
         ],
     },
 }
@@ -126,7 +133,7 @@ def setup_logging(verbose=False):
     """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = LOGS_DIR / f"scrape_box_scores_{stamp}.log"
+    log_path = LOGS_DIR / f"scrape_gc_boxscores_{stamp}.log"
 
     fmt = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s",
                             datefmt="%H:%M:%S")
@@ -173,7 +180,7 @@ SCHEDULE_JS = """
                     date: currentDate,
                     id: m[1],
                     text: lines.join(' | '),
-                    // WHY TWO CONDITIONS: see gc_scraper.py SCHEDULE_JS comment.
+                    // WHY TWO CONDITIONS: see scrape_gc_playbyplay.py SCHEDULE_JS comment.
                     // Org pages show 'FINAL'; team pages (Wild/Storm) show 'W 7-5' / 'L 9-11'.
                     final: lines.includes('FINAL') ||
                            lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
@@ -795,7 +802,7 @@ def run(divisions_filter=None, team_filter=None, force=False, verbose=False):
 
     if not SESSION_FILE.exists():
         log.error(f"No session file found at {SESSION_FILE}")
-        log.error("Run gc_scraper.py --login first to save a session.")
+        log.error("Run scrape_gc_playbyplay.py --login first to save a session.")
         return
 
     with sync_playwright() as pw:

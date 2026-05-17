@@ -37,7 +37,10 @@
 
 # Exit immediately if any command fails (so a scraper crash doesn't silently
 # continue into gen_reports.py with stale data).
-set -e
+# NOTE: set -e is intentionally NOT used here. The scrapers (Steps 1+2) handle
+# their own per-game errors internally and log them. A single GC page timeout
+# should not abort the entire pipeline and skip PDF generation (Step 3).
+# Instead we capture exit codes and log warnings, then always proceed to Step 3.
 
 # ── Resolve paths ────────────────────────────────────────────────────────────
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -78,6 +81,11 @@ fi
 # (all divisions, all teams). No stdin interaction required.
 cd "$SCRIPTS_DIR"
 python3 run_menu.py --all
+PIPELINE_EXIT=$?
+if [[ $PIPELINE_EXIT -ne 0 ]]; then
+    echo ""
+    echo "⚠️  WARNING: pipeline exited with code $PIPELINE_EXIT — check log for details"
+fi
 
 echo ""
 echo "========================================================"
