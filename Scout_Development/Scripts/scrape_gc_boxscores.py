@@ -632,17 +632,9 @@ def scrape_division(page, div_name, cfg, log, force=False):
     log.info(f"[{div_name}] Roster  → {roster_out}")
     log.info(f"[{div_name}] Verify  → {verify_out}")
 
-    # ── Ambiguity check — flag duplicate initials on same team ──
-    for team, roster in rosters.items():
-        # Group by first-letter of display to catch different-name collisions
-        seen_display = {}
-        for init, entry in roster.items():
-            key = init  # initials are already the dedup key; warn if two names map here
-            # This can't self-collide by design; but warn if name changed across games
-            pass
-        # Detect initials collision: two GC names on same team that share F+L initials
-        # (e.g., "Tyler A" and "Thomas A" both → "T A")
-        # We surface this if games_seen is high but display name is ambiguous
+    # NOTE: duplicate-initials detection is handled live during accumulation
+    # by _accum_player() — collisions are caught and logged there as they occur.
+    # No post-hoc scan is needed here.
     log.info(f"[{div_name}] Teams in roster: {sorted(rosters.keys())}")
 
     return rosters, verify

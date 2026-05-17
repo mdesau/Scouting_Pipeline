@@ -19,6 +19,17 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+# ReportLab — PDF generation library.
+# WHY IMPORTED AT TOP: PEP 8 requires all imports at the module top level.
+# Placing them here (not buried in section 9) makes dependencies immediately
+# visible to anyone reading the file and avoids silent NameError if a helper
+# function is ever called before the inline import executes.
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas as rl_canvas
+from reportlab.platypus import Table, TableStyle
+
 TODAY = date.today().strftime("%B %d, %Y")
 
 # ---------------------------------------------------------------------------
@@ -676,20 +687,21 @@ def compute_stats(pas, roster):
         display = roster.get(init, f"?{init}?")
         ab=b["ab"]; h=b["h"]; bb=b["bb"]; hbp=b["hbp"]; tb=b["tb"]
         bip=b["bip"]; gb=b["gb"]; fb_ld=b["fb_ld"]; k_sw=b["k_sw"]
-        avg = (h/ab)            if ab>0 else None
-        obp = ((h+bb+hbp)/(ab+bb+hbp)) if (ab+bb+hbp)>0 else None
-        slg = (tb/ab)           if ab>0 else None
-        # C% = contact rate: (AB - K) / AB  (all strikeouts penalize, BB/HBP excluded from AB)
-        k_total = k_sw + b["k_lk"]
-        c_pct  = ((ab - k_total) / ab)  if ab > 0 else None
-        gb_pct = (gb/bip)           if bip>0 else None
-        fb_pct = (fb_ld/bip)        if bip>0 else None
-        swings  = b["p_swing_miss"] + b["p_fouls"] + b["p_in_play"]
-        total_p = b["p_balls"] + b["p_called_str"] + swings
-        sm_pct   = (b["p_swing_miss"] / swings)  if swings > 0 else None
-        cstr_pct = (b["p_called_str"] / total_p) if total_p > 0 else None
-        fpt_total = b["fpt_takes"] + b["fpt_swings"]
-        fpt_pct   = (b["fpt_takes"] / fpt_total)  if fpt_total > 0 else None
+        # Derive all 9 rate stats from counting stats via the shared helper.
+        # WHY: compute_team_totals() uses the same formulas — one function,
+        # one place to fix if a formula ever changes.
+        _ds = _compute_derived_stats({
+            "ab": ab, "h": h, "bb": bb, "hbp": hbp, "tb": tb, "bip": bip,
+            "gb": gb, "fb_ld": fb_ld, "k_sw": k_sw, "k_lk": b["k_lk"],
+            "p_swing_miss": b["p_swing_miss"], "p_fouls": b["p_fouls"],
+            "p_in_play": b["p_in_play"], "p_balls": b["p_balls"],
+            "p_called_str": b["p_called_str"], "fpt_takes": b["fpt_takes"],
+            "fpt_swings": b["fpt_swings"],
+        })
+        avg      = _ds["avg"];     obp     = _ds["obp"];   slg     = _ds["slg"]
+        c_pct    = _ds["c_pct"];   gb_pct  = _ds["gb_pct"]; fb_pct = _ds["fb_pct"]
+        sm_pct   = _ds["sm_pct"];  cstr_pct = _ds["cstr_pct"]; fpt_pct = _ds["fpt_pct"]
+        k_total  = k_sw + b["k_lk"]  # retained for batting_positions block below
 
         # Batting order: compute average first-appearance position across games
         batting_positions = b["batting_positions"]
@@ -766,28 +778,15 @@ def compute_team_totals(batters):
             for bt in ("gb", "fb_ld", "other"):
                 zone_detail[z][bt] += det.get(bt, 0)
 
-    # Compute derived stats from aggregated counting stats (same formulas as compute_stats)
-    ab      = sums["ab"];  h   = sums["h"];  bb  = sums["bb"];  hbp = sums["hbp"]
-    tb      = sums["tb"];  bip = sums["bip"]
-    gb      = sums["gb"];  fb_ld = sums["fb_ld"]
-    k_total = sums["k_sw"] + sums["k_lk"]
-    swings  = sums["p_swing_miss"] + sums["p_fouls"] + sums["p_in_play"]
-    total_p = sums["p_balls"] + sums["p_called_str"] + swings
-    fpt_total = sums["fpt_takes"] + sums["fpt_swings"]
+    # Derive all 9 rate stats via the shared helper — same formulas as compute_stats().
+    # This is the reason _compute_derived_stats() exists: one place for all stat math.
+    _ds = _compute_derived_stats(sums)
 
     result = dict(sums)
     result.update({
         "initials":        "TEAM",
         "display":         f"Team Totals  ({len(active)} players)",
-        "avg":             h / ab                        if ab > 0          else None,
-        "obp":             (h + bb + hbp) / (ab+bb+hbp) if (ab+bb+hbp) > 0 else None,
-        "slg":             tb / ab                       if ab > 0          else None,
-        "c_pct":           (ab - k_total) / ab           if ab > 0          else None,
-        "gb_pct":          gb / bip                      if bip > 0         else None,
-        "fb_pct":          fb_ld / bip                   if bip > 0         else None,
-        "sm_pct":          sums["p_swing_miss"] / swings   if swings > 0    else None,
-        "cstr_pct":        sums["p_called_str"] / total_p  if total_p > 0   else None,
-        "fpt_pct":         sums["fpt_takes"] / fpt_total   if fpt_total > 0 else None,
+        **_ds,
         "avg_batting_pos": 999,
         "zones_sorted":    sorted(zones.items(), key=lambda x: -x[1]),
         "zone_detail":     {z: dict(v) for z, v in zone_detail.items()},
@@ -796,13 +795,84 @@ def compute_team_totals(batters):
 
 
 def fmt_avg(v):
+    """Format a batting average (0.0–1.0+) as a display string.
+    Returns '---' for None; handles averages >= 1.000 (e.g. slugging).
+    Examples: 0.325 → '.325', 1.200 → '1.200', None → '---'
+    """
     if v is None: return "---"
     if v >= 1.0:  return f"{v:.3f}"
     return f".{int(round(v*1000)):03d}"
 
 def fmt_pct(v):
+    """Format a ratio (0.0–1.0) as a percentage string, e.g. 0.42 → '42%'. Returns '--' for None."""
     if v is None: return "--"
     return f"{int(round(v*100))}%"
+
+
+def _safe_div(num, den):
+    """
+    Safe division helper: returns num/den, or None if den is zero (or falsy).
+
+    WHY THIS EXISTS:
+        The pattern `x / y if y > 0 else None` appears ~15 times across this
+        file for derived stats (AVG, OBP, SLG, etc.). A missing denominator
+        means the stat cannot be computed — callers render None as '---' or '--'.
+        Extracting this guard into one place means any future change (e.g.
+        switching to float('nan')) happens in one spot, not scattered everywhere.
+
+    Args:
+        num: Numerator (any numeric type).
+        den: Denominator — division is skipped if falsy (0, 0.0, None).
+    Returns:
+        float result, or None if den is falsy.
+    """
+    return num / den if den else None
+
+
+def _compute_derived_stats(sums):
+    """
+    Compute all 9 derived batting statistics from a flat dict of counting stats.
+
+    WHY THIS EXISTS:
+        Both compute_stats() (per-batter) and compute_team_totals() (aggregate)
+        need the same 9 derived stats from the same counting keys. Before this
+        helper existed, the formulas were copy-pasted — any bug fix or formula
+        change had to be made in two places. This function is the single source
+        of truth for how batting stats are derived from raw counts.
+
+    Args:
+        sums (dict): Must contain keys:
+            ab, h, bb, hbp, tb, bip, gb, fb_ld,
+            k_sw, k_lk,
+            p_swing_miss, p_fouls, p_in_play, p_balls, p_called_str,
+            fpt_takes, fpt_swings
+
+    Returns:
+        dict with keys: avg, obp, slg, c_pct, gb_pct, fb_pct,
+                        sm_pct, cstr_pct, fpt_pct
+    """
+    ab      = sums["ab"];  h  = sums["h"];  bb = sums["bb"];  hbp = sums["hbp"]
+    tb      = sums["tb"];  bip = sums["bip"]
+    gb      = sums["gb"];  fb_ld = sums["fb_ld"]
+    k_total = sums["k_sw"] + sums["k_lk"]
+    swings  = sums["p_swing_miss"] + sums["p_fouls"] + sums["p_in_play"]
+    total_p = sums["p_balls"] + sums["p_called_str"] + swings
+    fpt_tot = sums["fpt_takes"] + sums["fpt_swings"]
+
+    return {
+        "avg":      _safe_div(h, ab),
+        "obp":      _safe_div(h + bb + hbp, ab + bb + hbp),
+        "slg":      _safe_div(tb, ab),
+        # C% = contact rate: (AB - K) / AB
+        # All strikeouts penalise; BB/HBP are excluded from AB so they don't help C%.
+        "c_pct":    _safe_div(ab - k_total, ab),
+        "gb_pct":   _safe_div(gb, bip),
+        "fb_pct":   _safe_div(fb_ld, bip),
+        "sm_pct":   _safe_div(sums["p_swing_miss"], swings),
+        "cstr_pct": _safe_div(sums["p_called_str"], total_p),
+        "fpt_pct":  _safe_div(sums["fpt_takes"], fpt_tot),
+    }
+
 
 def _rank_stat(value, league_team_totals, stat_key):
     """
@@ -1069,6 +1139,18 @@ def generate_notes_short(b, all_batters=None):
 # 8. -Reviewed.txt marking
 # ---------------------------------------------------------------------------
 def mark_reviewed(filepath):
+    """
+    Rename a game file from '<name>.txt' to '<name>-Reviewed.txt' after
+    successful parsing, so it is still included on re-runs but visually
+    flagged as processed.
+
+    Idempotent: already-reviewed files are returned unchanged.
+
+    Args:
+        filepath (str): Absolute path to the .txt game file.
+    Returns:
+        str: Path to the (possibly renamed) file.
+    """
     if filepath.endswith('-Reviewed.txt'):
         return filepath
     new_path = filepath[:-4] + '-Reviewed.txt'
@@ -1078,11 +1160,6 @@ def mark_reviewed(filepath):
 # ---------------------------------------------------------------------------
 # 9. PDF — drawing helpers
 # ---------------------------------------------------------------------------
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas as rl_canvas
-from reportlab.platypus import Table, TableStyle
 
 PAGE_W, PAGE_H = letter
 MARGIN = 0.45 * inch
@@ -1098,6 +1175,13 @@ C_RED   = colors.HexColor("#e74c3c")
 C_LTBLUE = colors.HexColor("#7fa8cc")
 
 def draw_header(c, title, subtitle):
+    """Draw the full-width navy page header with title and subtitle text.
+
+    Args:
+        c:        ReportLab Canvas object.
+        title:    Large bold text (team name + report type).
+        subtitle: Smaller text below title (game count, generation date).
+    """
     c.setFillColor(C_NAVY)
     c.rect(0, PAGE_H-48, PAGE_W, 48, fill=1, stroke=0)
     c.setFillColor(C_WHITE)
@@ -1270,6 +1354,18 @@ def draw_field_spray_chart(c, cx, cy, zone_counts, zone_detail, hb=18):
                 c.circle(px, py, dot_r, fill=1, stroke=1)
 
 def draw_stat_box(c, x, y, w, h, lbl, val, val_color=None):
+    """Draw a single labelled stat box (light grey rounded rect).
+
+    Used for the AVG / OBP / SLG / C% row at the top of each batter card.
+
+    Args:
+        c:         ReportLab Canvas.
+        x, y:      Bottom-left corner of the box.
+        w, h:      Width and height.
+        lbl:       Small label text (e.g. 'AVG').
+        val:       Value text (e.g. '.325').
+        val_color: Optional ReportLab color for the value; defaults to black.
+    """
     c.setFillColor(C_LGRAY); c.roundRect(x, y, w, h, 2, fill=1, stroke=0)
     c.setFont("Helvetica-Bold", 7); c.setFillColor(colors.black)
     c.drawCentredString(x+w/2, y+h-8, lbl)
