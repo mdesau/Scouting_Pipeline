@@ -1,6 +1,6 @@
 WCWAA 2026 Spring — Hitter Archetype & Pitching Approach Reference
 ==================================================================
-Generated from gen_reports.py  |  All thresholds are code-exact.
+Generated from gen_hitting.py  |  All thresholds are code-exact.
 
 ────────────────────────────────────────────────────────────────────
 PART 1 — STAT DEFINITIONS

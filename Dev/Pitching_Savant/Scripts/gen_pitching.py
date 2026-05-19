@@ -1,13 +1,13 @@
 """
 gen_pitching.py — Pitching Savant: Stat Engine + PDF Generator
 ================================================================
-Reads WCWAA play-by-play game files (same .txt format written by Scout_Development's
+Reads WCWAA play-by-play game files (same .txt format written by Hitting_Scout's
 scrape_gc_playbyplay.py), parses pitching statistics from the perspective of any
 requested team, computes league percentile rankings within the division, and generates
 Baseball-Savant-style PDF pitcher cards.
 
 Workflow Summary:
-  1. Import DIVISIONS from Scout_Development's scraper (single source of truth for teams)
+  1. Import DIVISIONS from Hitting_Scout's scraper (single source of truth for teams)
   2. Locate game files for the requested division/team
   3. Parse each game file: identify pitcher changes, attribute every PA and its
      pitch sequence to the correct pitcher
@@ -63,16 +63,17 @@ DEBUG_PERCENTILES       = False  # Log percentile rank computation
 LOGS_DIR = Path(__file__).parent.parent / "Logs"
 
 # ===========================================================================
-# PATH SETUP — locate Scout_Development scripts + data directories
+# PATH SETUP — locate Hitting_Scout scripts + data directories
 # ===========================================================================
-# This script lives in Pitching_Savant/Scripts/
-# Scout_Development lives at the same level: ../Scout_Development/Scripts/
+# This script lives in Dev/Pitching_Savant/Scripts/
+# Hitting_Scout lives at the same level: ../Hitting_Scout/Scripts/
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)                      # Pitching_Savant/
-SPRING_DIR = os.path.dirname(PROJECT_DIR)                      # Spring/
-SCOUT_SCRIPTS = os.path.join(SPRING_DIR, "Scout_Development", "Scripts")
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)                      # Dev/Pitching_Savant/
+DEV_DIR = os.path.dirname(PROJECT_DIR)                          # Dev/
+SPRING_DIR = os.path.dirname(DEV_DIR)                          # Spring/
+SCOUT_SCRIPTS = os.path.join(DEV_DIR, "Hitting_Scout", "Scripts")
 
-# Import DIVISIONS from Scout_Development's scraper — single source of truth
+# Import DIVISIONS from Hitting_Scout's scraper — single source of truth
 # We use importlib to avoid modifying sys.path permanently
 import importlib.util
 
@@ -88,9 +89,9 @@ _scout_mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_scout_mod)
 DIVISIONS_RAW = _scout_mod.DIVISIONS
 
-# Also grab gen_reports.py's DIVISIONS for folder paths
-_gen_path = os.path.join(SCOUT_SCRIPTS, "gen_reports.py")
-_spec2 = importlib.util.spec_from_file_location("_gen_reports", _gen_path)
+# Also grab gen_hitting.py's DIVISIONS for folder paths
+_gen_path = os.path.join(SCOUT_SCRIPTS, "gen_hitting.py")
+_spec2 = importlib.util.spec_from_file_location("_gen_hitting", _gen_path)
 _gen_mod = importlib.util.module_from_spec(_spec2)
 _spec2.loader.exec_module(_gen_mod)
 DIVISIONS_PATHS = _gen_mod.DIVISIONS
@@ -130,7 +131,7 @@ logger.addHandler(logging.NullHandler())
 # CONSTANTS — Parsing
 # ===========================================================================
 
-# Regex for inning headers (same as gen_reports.py)
+# Regex for inning headers (same as gen_hitting.py)
 INNING_RE = re.compile(
     r'^=== ?(?:Top|Bottom) (\d+)(?:st|nd|rd|th) - (.+?) ?(?:Majors|Minors)? ?(?:===)?$'
 )
@@ -141,12 +142,12 @@ HALF_INNING_RE = re.compile(
 )
 
 # Regex to detect pitcher named at end of a description line: "..., X Y pitching."
-PITCHER_NAMED_RE = re.compile(r',\s+([A-Z][A-Za-z]*)\s+([A-Z][a-z]*)\s+pitching\b')
+PITCHER_NAMED_RE = re.compile(r',\s+([A-Z][A-Za-z]*)\s+([A-Z][a-z\u00C0-\u024F]*)\s+pitching\b')
 
 # Regex to detect lineup change introducing a new pitcher:
 # "Lineup changed: X Y in at pitcher"
 LINEUP_CHANGE_RE = re.compile(
-    r'Lineup changed:\s+([A-Z][A-Za-z]*)\s+([A-Z][a-z]*)\s+in at pitcher'
+    r'Lineup changed:\s+([A-Z][A-Za-z]*)\s+([A-Z][a-z\u00C0-\u024F]*)\s+in at pitcher'
 )
 
 # Description line regex (matches the action line like "B A singles to left fielder.")
@@ -163,7 +164,7 @@ SKIP_KWS = ("Inning Ended", "Half-inning ended", "Inning Changed",
             "Current inning", "Count changed", "Score changed",
             "Runner Out", "Scorer Message")
 
-# Pitch token regex (same as gen_reports.py)
+# Pitch token regex (same as gen_hitting.py)
 PITCH_TOK = re.compile(
     r'\b(Ball\s+\d+|Strike\s+\d+\s+looking|Strike\s+\d+\s+swinging|Foul(?:\s+tip)?|In\s+play)\b',
     re.IGNORECASE
@@ -183,7 +184,7 @@ NON_AB = {WALK, HBP, SF, SB}
 
 
 # ===========================================================================
-# OUTCOME PARSER (reused from gen_reports.py logic)
+# OUTCOME PARSER (reused from gen_hitting.py logic)
 # ===========================================================================
 
 def parse_outcome(desc, outcome_label):
@@ -1143,7 +1144,7 @@ def run_travel_division(division_name, team_filter=None, verbose=False):
     Run pitching analysis for a travel division (Wild or Storm).
 
     Each opponent team has its own folder with Games/ subfolder.
-    Teams are discovered dynamically from the filesystem (same as gen_reports).
+    Teams are discovered dynamically from the filesystem (same as gen_hitting).
     """
     div_cfg = DIVISIONS_PATHS.get(division_name)
     if not div_cfg:

@@ -59,7 +59,7 @@ The scripts expect a specific Google Drive folder structure at:
 ~/Library/CloudStorage/GoogleDrive-.../My Drive/Baseball/WCWAA/2026/Spring/
 ```
 
-If your Google Drive path differs, update the `SPRING_DIR` constant near the top of `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`, and `gen_reports.py`.
+If your Google Drive path differs, update the `SPRING_DIR` constant near the top of `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`, and `gen_hitting.py`.
 
 ### 6. Log in to GameChanger (one time)
 
@@ -159,7 +159,7 @@ The table below lists every script in the order it is run, what it does, and wha
 |---|---|---|---|---|
 | 1 | `scrape_gc_playbyplay.py` | Navigates GC schedule pages for all 4 divisions; finds new FINAL games; downloads play-by-play text; saves `.txt` game files to the correct folder | `parse_gc_text.py` (called internally), `gc_session.json` (auth) | `--login` `--division` `--team` `--check` `--force` `--verbose` |
 | 2 | `scrape_gc_boxscores.py` | Navigates GC box score pages; extracts player names + jersey numbers; builds `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm); writes `box_verify.json` for cross-checking | `gc_session.json` (auth) | `--division` `--force` `--verbose` |
-| 3 | `gen_reports.py` | Reads all `.txt` game files; parses every plate appearance; computes batting stats + archetypes; generates multi-page PDF scouting reports via ReportLab | `rosters.json` / `roster.txt` (from step 2), game `.txt` files (from step 1) | `--division` `--team` `--verbose` |
+| 3 | `gen_hitting.py` | Reads all `.txt` game files; parses every plate appearance; computes batting stats + archetypes; generates multi-page PDF scouting reports via ReportLab | `rosters.json` / `roster.txt` (from step 2), game `.txt` files (from step 1) | `--division` `--team` `--verbose` |
 | — | `run_scout.sh` | Interactive shell wrapper: shows numbered menu (or CLI passthrough); activates venv; calls steps 1 → 2 → 3 | All three scripts above | `--division` `--team` (passed through) |
 | — | `run_scout_nightly.sh` | Headless shell wrapper for scheduled runs: no menu, no stdin; calls `run_menu.py --all`; logs to `Logs/nightly_*.log` | `run_menu.py`, venv | *(none)* |
 | — | `run_menu.py` | Python pipeline orchestrator: builds the interactive menu, handles CLI passthrough, and calls the 3 steps as subprocesses | `scrape_gc_playbyplay.py` (imports DIVISIONS) | `--all` `--division` `--team` |
@@ -174,8 +174,8 @@ You don't have to run the full pipeline every time. Common single-step commands:
 
 ```bash
 # Regenerate PDFs for one team (fastest — no scraping)
-python3 gen_reports.py --division Majors --team Cubs
-python3 gen_reports.py --division Wild --team "QC Flight Baseball 11U"
+python3 gen_hitting.py --division Majors --team Cubs
+python3 gen_hitting.py --division Wild --team "QC Flight Baseball 11U"
 
 # Scrape one division only
 python3 scrape_gc_playbyplay.py --division Storm
@@ -184,7 +184,7 @@ python3 scrape_gc_playbyplay.py --division Storm
 python3 scrape_gc_playbyplay.py --check
 
 # See detailed output while running
-python3 gen_reports.py --division Minors --verbose
+python3 gen_hitting.py --division Minors --verbose
 
 # Force re-scrape games already on disk
 python3 scrape_gc_playbyplay.py --force --division Majors
@@ -229,7 +229,7 @@ Each PDF scouting report includes:
 | `Session expired` / login error | `gc_session.json` stale | Run `python3 scrape_gc_playbyplay.py --login` |
 | `0 PAs` for a team | Team name mismatch between folder name and GC inning header | Check spelling in game file header vs. folder name |
 | `?X X?` in report output | Player initials not in `rosters.json` | Run `scrape_gc_boxscores.py` |
-| `WARNING UNKNOWN` in logs | Play description not recognised by parser | Check the game file; if valid play, add to `OUTCOME_TYPES` in `gen_reports.py` |
+| `WARNING UNKNOWN` in logs | Play description not recognised by parser | Check the game file; if valid play, add to `OUTCOME_TYPES` in `gen_hitting.py` |
 | `WARNING BOX-VERIFY` in logs | Parsed AB count differs from GC box score | Review game file for missed or duplicate plays |
 | PDFs not appearing | Google Drive not synced | Toggle the folder's offline availability to force a re-sync |
 
@@ -248,7 +248,7 @@ Scouting_Pipeline/
     scrape_gc_playbyplay.py
     scrape_gc_boxscores.py
     parse_gc_text.py
-    gen_reports.py
+    gen_hitting.py
     run_scout.sh
     diag_schedule.py
     archetype_reference.txt

@@ -97,6 +97,7 @@ DIVISIONS = {
             ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
             ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
             ("PVUBGhDYocE0", "2026-spring-tega-cay-titans-11u", "Tega CAY Titans 11U"),
+            ("3rRRtn4fZToI", "2026-spring-weddington-vipers-12u", "Weddington Vipers 12U"),
         ],
     },
     # ── Storm opponents ───────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ DIVISIONS = {
             ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
             ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
             ("XVsrx4NMoxtd", "2026-spring-crushers-white-10u", "Crushers White 10U"),
+            ("TRxdck3guZR2", "2026-spring-weddington-10u-gophers", "Weddington 10U Gophers"),
         ],
     },
 }
@@ -271,7 +273,7 @@ def fmt_date(date_str):
 #   appear in the play-by-play inning headers. For example, the box score may
 #   show 'As-Blanco' (apostrophe stripped) or 'Dbacks-Vandiford' (abbreviated)
 #   while the game file uses 'A\'s-Blanco' or 'Diamondbacks-Vandiford'.
-#   The stat engine in gen_reports.py matches rosters.json keys against inning
+#   The stat engine in gen_hitting.py matches rosters.json keys against inning
 #   headers — so the keys MUST match the game file names exactly.
 #
 #   When to update this map:
@@ -293,7 +295,7 @@ def normalize_team_name(name):
     GC occasionally shows abbreviated or punctuation-stripped team names on
     box score pages. This function maps those variants to the exact names that
     appear in inning headers (e.g. '===Top 3rd - A\'s-Blanco===') so that
-    rosters.json keys always match what gen_reports.py expects.
+    rosters.json keys always match what gen_hitting.py expects.
 
     Args:
         name (str): Team name as returned by the box score page JS extractor.
@@ -394,7 +396,7 @@ def _accum_player(rosters, team_name, p, game_id, batting_pos=None, log=None):
 
         "_collision_map": {"B A": ["Bri A", "Ben A"]}   # ordered by batting pos
 
-    gen_reports.py reads this map to split plate appearances between the two
+    gen_hitting.py reads this map to split plate appearances between the two
     players using within-game batting-order occurrence counting.
 
     batting_pos: 1-indexed batting-order position from the box score (players
@@ -631,17 +633,9 @@ def scrape_division(page, div_name, cfg, log, force=False):
     log.info(f"[{div_name}] Roster  → {roster_out}")
     log.info(f"[{div_name}] Verify  → {verify_out}")
 
-    # ── Ambiguity check — flag duplicate initials on same team ──
-    for team, roster in rosters.items():
-        # Group by first-letter of display to catch different-name collisions
-        seen_display = {}
-        for init, entry in roster.items():
-            key = init  # initials are already the dedup key; warn if two names map here
-            # This can't self-collide by design; but warn if name changed across games
-            pass
-        # Detect initials collision: two GC names on same team that share F+L initials
-        # (e.g., "Tyler A" and "Thomas A" both → "T A")
-        # We surface this if games_seen is high but display name is ambiguous
+    # NOTE: duplicate-initials detection is handled live during accumulation
+    # by _accum_player() — collisions are caught and logged there as they occur.
+    # No post-hoc scan is needed here.
     log.info(f"[{div_name}] Teams in roster: {sorted(rosters.keys())}")
 
     return rosters, verify
@@ -659,7 +653,7 @@ def scrape_team_division(page, div_name, cfg, log, force=False, team_filter=None
         T A, Tyler A. #1
         S G, Srijan G. #4
 
-    This format is compatible with load_wild_roster() in gen_reports.py.
+    This format is compatible with load_wild_roster() in gen_hitting.py.
     The draw_card() function splits on "#" to render jersey in amber.
     """
     base_dir = cfg["base_dir"]

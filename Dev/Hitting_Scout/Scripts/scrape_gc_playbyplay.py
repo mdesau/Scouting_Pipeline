@@ -148,6 +148,7 @@ DIVISIONS = {
             ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
             ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
             ("PVUBGhDYocE0", "2026-spring-tega-cay-titans-11u", "Tega CAY Titans 11U"),
+            ("3rRRtn4fZToI", "2026-spring-weddington-vipers-12u", "Weddington Vipers 12U"),
         ],
         "output_base": SPRING_DIR / "Wild",
         "label":       "Wild",
@@ -168,6 +169,7 @@ DIVISIONS = {
             ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
             ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
             ("XVsrx4NMoxtd", "2026-spring-crushers-white-10u", "Crushers White 10U"),
+            ("TRxdck3guZR2", "2026-spring-weddington-10u-gophers", "Weddington 10U Gophers"),
         ],
         "output_base": SPRING_DIR / "Storm",
         "label":       "Storm",
@@ -320,10 +322,46 @@ def safe(name):
 
 
 def get_schedule(page, url):
-    """Load a schedule page and return list of game dicts."""
+    """Load a schedule page and return list of game dicts.
+
+    WHY THE SCROLL LOOP:
+        GC's schedule pages use lazy/virtual rendering — game cards are only
+        injected into the DOM as the user scrolls down. If we evaluate
+        SCHEDULE_JS immediately after page load we only capture whatever cards
+        are already visible in the initial viewport (roughly games through late
+        April). Games from May onward are silently missing.
+
+        Fix: scroll to the bottom in increments, waiting briefly after each
+        step for new cards to render, and repeat until the card count stops
+        growing. This forces the full schedule into the DOM before we extract.
+    """
     logger.info(f"  Loading: {url}")
     page.goto(url, wait_until="networkidle", timeout=30_000)
     time.sleep(2)
+
+    # ── Scroll-to-bottom loop ──────────────────────────────────────────────
+    # GC lazy-loads game cards as you scroll. We keep scrolling until the
+    # number of <a> tags with a schedule UUID stops increasing, which means
+    # all games are now in the DOM.
+    #
+    # MAX_SCROLL_PASSES is a safety cap — 30 passes × ~600px = ~18 000px of
+    # scroll height, which is more than enough for a full spring season.
+    MAX_SCROLL_PASSES = 30
+    SCROLL_PAUSE_S    = 0.8   # seconds to wait after each scroll for new content
+
+    prev_count = 0
+    for _ in range(MAX_SCROLL_PASSES):
+        page.evaluate("window.scrollBy(0, 600)")
+        time.sleep(SCROLL_PAUSE_S)
+        cur_count = page.evaluate(
+            "() => document.querySelectorAll('a[href*=\"/schedule/\"]').length"
+        )
+        logger.debug(f"  scroll pass: {cur_count} schedule links visible")
+        if cur_count == prev_count:
+            break   # no new cards loaded — we've reached the bottom
+        prev_count = cur_count
+    # ── End scroll loop ────────────────────────────────────────────────────
+
     games = page.evaluate(SCHEDULE_JS) or []
     logger.debug(f"  Schedule returned {len(games)} game cards")
     if DEBUG_SCHEDULE_RAW:

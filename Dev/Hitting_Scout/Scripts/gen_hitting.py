@@ -60,7 +60,7 @@ def setup_logging(verbose=False):
     """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp    = date.today().strftime("%Y%m%d") + "_" + time.strftime("%H%M%S")
-    log_path = LOGS_DIR / f"gen_reports_{stamp}.log"
+    log_path = LOGS_DIR / f"gen_hitting_{stamp}.log"
 
     fmt = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s",
                             datefmt="%H:%M:%S")
@@ -71,7 +71,7 @@ def setup_logging(verbose=False):
     sh = logging.StreamHandler()
     sh.setFormatter(fmt); sh.setLevel(logging.DEBUG if verbose else logging.INFO)
 
-    log = logging.getLogger("gen_reports")
+    log = logging.getLogger("gen_hitting")
     log.setLevel(logging.DEBUG)
     log.addHandler(fh)
     log.addHandler(sh)
@@ -80,13 +80,13 @@ def setup_logging(verbose=False):
 
 # Module-level logger (handlers added by setup_logging() at runtime).
 # Falls back to NullHandler so the module is safe to import without calling main().
-logger = logging.getLogger("gen_reports")
+logger = logging.getLogger("gen_hitting")
 logger.addHandler(logging.NullHandler())
 
 # Resolve Spring folder relative to this script's own location.
-# When the script lives in Spring/Scripts/, ".." points to Spring/.
-# This works both locally (Scripts folder) and in Cowork sessions.
-BASE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
+# Script lives in Spring/Dev/Hitting_Scout/Scripts/; "../../.." points to Spring/.
+
+BASE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.."))
 
 DIVISIONS = {
     "Majors": {
@@ -429,7 +429,7 @@ def parse_pitch_seq(seq_text):
 #   Majors: === Bottom 6th - Twins-Ewart Majors ===
 #   Tolerates missing closing ===  (some -Reviewed.txt files lost it during manual editing)
 INNING_RE  = re.compile(r'^=== ?(?:Top|Bottom) (\d+)(?:st|nd|rd|th) - (.+?) ?(?:Majors|Minors)? ?(?:===)?$')
-DESC_RE    = re.compile(r'^([A-Z][A-Za-z]*) ([A-Z][a-z]*) (.+)\.$')  # first group handles initials ("H"), double-initials ("TJ"), or full names ("Dylan"); last group handles single initial or full last name
+DESC_RE    = re.compile(r'^([A-Z][A-Za-z]*) ([A-Z][a-z\u00C0-\u024F]*) (.+)\.$')  # first group handles initials ("H"), double-initials ("TJ"), or full names ("Dylan"); last group handles single initial or full last name
 OUTCOME_KWS = {"Walk","Single","Double","Triple","Home Run","Strikeout",
                "Ground Out","Fly Out","Pop Out","Line Out","Hit By Pitch",
                "Error","Fielder's Choice","Double Play",
@@ -2145,7 +2145,7 @@ def main():
                         help="One or more team names to run (omit for all teams in division)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Show DEBUG-level messages on screen (normally only in log file)")
-    # Legacy positional args: python3 gen_reports.py Guardians (old Majors usage)
+    # Legacy positional args: python3 gen_hitting.py Guardians (old Majors usage)
     parser.add_argument("legacy_teams", nargs="*", help=argparse.SUPPRESS)
     args = parser.parse_args()
 

@@ -17,8 +17,8 @@
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPTS_DIR"
 
-# ── Activate shared venv (lives in Scout_Development) ─────────────────────
-VENV_DIR="$(cd "$SCRIPTS_DIR/../../Scout_Development/venv" 2>/dev/null && pwd)"
+# ── Activate shared venv (lives in Hitting_Scout) ─────────────────────
+VENV_DIR="$(cd "$SCRIPTS_DIR/../../venv" 2>/dev/null && pwd)"
 if [[ -f "$VENV_DIR/bin/activate" ]]; then
     # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"

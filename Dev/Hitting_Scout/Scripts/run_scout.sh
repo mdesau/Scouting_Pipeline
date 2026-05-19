@@ -16,7 +16,7 @@
 #
 # WHAT THIS SCRIPT DOES
 # ─────────────────────
-# 1. Activates the project virtual environment (Scout_Development/venv/)
+# 1. Activates the project virtual environment (Hitting_Scout/venv/)
 #    — required for Playwright (scraping) and ReportLab (PDF generation).
 # 2. Hands control to run_menu.py, which:
 #    — Shows an interactive numbered menu when called with no arguments
@@ -35,16 +35,16 @@ SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPTS_DIR"
 
 # ── Activate the project virtual environment ──────────────────────────────
-# The venv lives one level up from Scripts/ (Scout_Development/venv/).
+# The venv lives one level up from Scripts/ (Hitting_Scout/venv/).
 # Playwright and ReportLab are installed there — NOT in system Python.
-VENV_DIR="$SCRIPTS_DIR/../venv"
+VENV_DIR="$SCRIPTS_DIR/../../venv"
 if [[ -f "$VENV_DIR/bin/activate" ]]; then
     # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
 else
     echo "⚠️  WARNING: venv not found at $VENV_DIR"
     echo "   Recreate it with:"
-    echo "   cd Scout_Development && python3 -m venv venv && venv/bin/pip install -r requirements.txt"
+    echo "   cd Hitting_Scout && python3 -m venv venv && venv/bin/pip install -r requirements.txt"
     echo "   Continuing with system Python — scripts may fail if Playwright/ReportLab missing."
 fi
 

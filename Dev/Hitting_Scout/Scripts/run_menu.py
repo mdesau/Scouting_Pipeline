@@ -16,7 +16,7 @@ It behaves in one of two modes:
   MODE 2 — Interactive menu (when no args are supplied):
     run_scout.sh
     → Displays a numbered menu. User picks a scope, then the script
-      calls scrape_gc_playbyplay.py, scrape_gc_boxscores.py, and gen_reports.py
+      calls scrape_gc_playbyplay.py, scrape_gc_boxscores.py, and gen_hitting.py
       via subprocess with the correct --division / --team flags.
 
 MENU OPTIONS
@@ -29,7 +29,7 @@ MENU OPTIONS
 
 WHY SUBPROCESS INSTEAD OF IMPORT + CALL?
 ─────────────────────────────────────────
-Each script (scrape_gc_playbyplay.py, scrape_gc_boxscores.py, gen_reports.py) configures
+Each script (scrape_gc_playbyplay.py, scrape_gc_boxscores.py, gen_hitting.py) configures
 its own argparse and logging. Calling them as subprocesses:
   - Keeps their stdout/stderr streaming live to the terminal (user sees progress)
   - Avoids logging config conflicts between scripts
@@ -211,7 +211,7 @@ def run_pipeline(division=None, team=None, headless=False):
     Steps:
       1. scrape_gc_playbyplay.py — scrape new game files from GameChanger
       2. scrape_gc_boxscores.py  — update rosters.json / roster.txt
-      3. gen_reports.py          — regenerate hitting PDFs
+      3. gen_hitting.py          — regenerate hitting PDFs
       4. gen_pitching.py         — regenerate pitching PDFs (Pitching Savant)
 
     Step 1 skips games that already have a .txt or -Reviewed.txt on disk,
@@ -222,7 +222,7 @@ def run_pipeline(division=None, team=None, headless=False):
         team:     Team name string, or None for all teams in division.
         headless: If True (nightly/scheduled runs), scraper steps (1+2) use
                   fatal=False so a single GC page timeout does not abort the
-                  pipeline before gen_reports.py runs. gen_reports always uses
+                  pipeline before gen_hitting.py runs. gen_hitting always uses
                   fatal=True. Interactive runs keep fatal=True for all steps.
     """
     # Build the --division and --team flags for each script call
@@ -232,7 +232,7 @@ def run_pipeline(division=None, team=None, headless=False):
     team_args = ["--team",     team]     if team     else []
 
     # Step 1: Scrape new game files
-    # gen_reports.py accepts --team natively; scrape_gc_playbyplay uses it as a name filter
+    # gen_hitting.py accepts --team natively; scrape_gc_playbyplay uses it as a name filter
     print()
     print("─" * 58)
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
@@ -259,16 +259,16 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
 
     if division:
-        _run(["python3", "gen_reports.py", "--division", division] + team_args)
+        _run(["python3", "gen_hitting.py", "--division", division] + team_args)
     else:
         # No division filter → run all four divisions
         for div in ["Majors", "Minors", "Wild", "Storm"]:
             print(f"  → {div}")
-            _run(["python3", "gen_reports.py", "--division", div])
+            _run(["python3", "gen_hitting.py", "--division", div])
 
     # Step 4: Generate Pitching Savant PDFs
     # gen_pitching.py lives in the Pitching_Savant project but shares the same venv.
-    PITCHING_SCRIPT = SPRING_DIR / "Pitching_Savant" / "Scripts" / "gen_pitching.py"
+    PITCHING_SCRIPT = SPRING_DIR / "Dev" / "Pitching_Savant" / "Scripts" / "gen_pitching.py"
     if PITCHING_SCRIPT.exists():
         print()
         print("─" * 58)
@@ -299,7 +299,7 @@ def _run(cmd, fatal=True):
         fatal: If True (default), call sys.exit() on non-zero return code.
                If False, log a warning and continue (used for scraper steps in
                headless/nightly runs so a single GC timeout doesn't abort the
-               pipeline before gen_reports.py runs).
+               pipeline before gen_hitting.py runs).
 
     Raises:
         SystemExit if the command returns a non-zero exit code and fatal=True.

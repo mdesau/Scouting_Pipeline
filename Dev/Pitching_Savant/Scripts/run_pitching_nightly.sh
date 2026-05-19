@@ -15,7 +15,7 @@
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
 LOGS_DIR="$REPO_ROOT/Logs"
-VENV_DIR="$(cd "$SCRIPTS_DIR/../../Scout_Development/venv" 2>/dev/null && pwd)"
+VENV_DIR="$(cd "$SCRIPTS_DIR/../../venv" 2>/dev/null && pwd)"
 
 # ── Log file ─────────────────────────────────────────────────────────────────
 mkdir -p "$LOGS_DIR"

@@ -24,19 +24,19 @@
 # LOGS
 # ────
 # stdout + stderr from this wrapper go to:
-#   Scout_Development/Logs/nightly_YYYYMMDD_HHMMSS.log
-# Each pipeline script (scrape_gc_playbyplay, scrape_gc_boxscores, gen_reports) also
+#   Hitting_Scout/Logs/nightly_YYYYMMDD_HHMMSS.log
+# Each pipeline script (scrape_gc_playbyplay, scrape_gc_boxscores, gen_hitting) also
 # writes its own dated log to Logs/ as usual.
 #
 # MANUAL TEST RUN
 # ───────────────
 # To test this script runs cleanly without waiting for the scheduler:
-#   cd .../Scout_Development/Scripts
+#   cd .../Hitting_Scout/Scripts
 #   bash run_scout_nightly.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Exit immediately if any command fails (so a scraper crash doesn't silently
-# continue into gen_reports.py with stale data).
+# continue into gen_hitting.py with stale data).
 # NOTE: set -e is intentionally NOT used here. The scrapers (Steps 1+2) handle
 # their own per-game errors internally and log them. A single GC page timeout
 # should not abort the entire pipeline and skip PDF generation (Step 3).
@@ -46,7 +46,7 @@
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
 LOGS_DIR="$REPO_ROOT/Logs"
-VENV_DIR="$REPO_ROOT/venv"
+VENV_DIR="$REPO_ROOT/../venv"
 
 # ── Set up log file for this wrapper ─────────────────────────────────────────
 mkdir -p "$LOGS_DIR"
