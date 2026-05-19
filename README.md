@@ -1,11 +1,10 @@
-# WCWAA Scouting Pipeline
-![Version](https://img.shields.io/badge/version-2.4.0-blue)
+# WCWAA Scout Pipeline
+![Version](https://img.shields.io/badge/version-2.6.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
 Automated scouting report pipeline for Weddington youth baseball leagues (Spring 2026).
-
-Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes batting stats and player archetypes, and generates multi-page PDF scouting reports — all from a single terminal command run after each game week.
+Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes batting stats, player archetypes, and pitching percentiles, then generates multi-page PDF scouting reports — all from a single terminal command run after each game week.
 
 ---
 
@@ -16,13 +15,11 @@ Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes ba
 | **Majors** | 11U in-house | 11 teams | Full league |
 | **Minors** | 9U in-house | 14 teams | Full league |
 | **Wild** | 11U travel | 8 opponents | Opponent reports only |
-| **Storm** | 9U travel | 9 opponents | Opponent reports only |
+| **Storm** | 9U travel | 12 opponents | Opponent reports only |
 
 ---
 
 ## First-Time Setup (Do This Once)
-
-These steps only need to be done once on a new machine.
 
 ### 1. Prerequisites
 
@@ -39,155 +36,97 @@ cd Scouting_Pipeline
 
 ### 3. Create the virtual environment
 ```bash
+cd Dev
 python3 -m venv venv
-source venv/bin/activate        # macOS / Linux
-# venv\Scripts\activate         # Windows
+source venv/bin/activate
 ```
 
-> **Why a virtual environment?** It isolates this project's dependencies (Playwright, ReportLab) from your system Python. This prevents version conflicts and means nothing you install here affects anything else on your computer.
+> **Why a virtual environment?** It isolates this project's dependencies (Playwright, ReportLab) from your system Python.
 
 ### 4. Install dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 playwright install chromium
 ```
 
-### 5. Configure folder paths
-
-The scripts expect a specific Google Drive folder structure at:
-```
-~/Library/CloudStorage/GoogleDrive-.../My Drive/Baseball/WCWAA/2026/Spring/
-```
-
-If your Google Drive path differs, update the `SPRING_DIR` constant near the top of `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`, and `gen_hitting.py`.
-
-### 6. Log in to GameChanger (one time)
+### 5. Log in to GameChanger (one time)
 
 This opens a real browser window. Log in manually — the session is saved to `gc_session.json` and reused automatically for all future runs.
 
 ```bash
-cd Scripts
+cd Hitting_Scout/Scripts
 python3 scrape_gc_playbyplay.py --login
 ```
 
-> **When to repeat:** Only when you see a "session expired" or "not logged in" error — typically every few weeks. Re-run `--login` to refresh.
+> **When to repeat:** Only when you see a "session expired" error — typically every few weeks.
 
 ---
 
 ## Weekly Usage (After Each Game Week)
 
-There are two ways to run the pipeline depending on whether you want to trigger it manually or let it run automatically overnight.
-
----
-
-### Option A — On-Demand (Manual Run)
-
-Run this any time you want to trigger the pipeline yourself — after a game weekend, mid-week spot check, or single-team update:
+### Option A — Interactive Menu (Manual)
 
 ```bash
-cd Scripts
+cd Dev/Hitting_Scout/Scripts
 bash run_scout.sh
 ```
 
-This opens an **interactive menu** where you can choose:
-- `[0]` Full pipeline — all divisions, all teams
+Choose from:
+- `[0]` Full pipeline — all divisions, all teams (hitting + pitching)
 - `[1]` Single division
 - `[2]` Single team
 - `[3]` Add a new Wild / Storm opponent
 
-You can also skip the menu entirely by passing flags directly:
-
+Or skip the menu with flags:
 ```bash
 bash run_scout.sh --division Majors
 bash run_scout.sh --division Wild --team "QC Flight Baseball 11U"
 ```
 
----
-
 ### Option B — Nightly Scheduled Run (Automatic)
 
-The pipeline can run automatically every night at **10:00 PM EDT** via macOS `launchd`. This uses a separate headless wrapper that skips the interactive menu entirely — no terminal interaction needed.
-
-**The scheduler is configured via:**
+Runs every night at **10:00 PM EDT** via macOS `launchd`. Configured in:
 ```
-launchd/com.wcwaa.scout_pipeline.plist
+Dev/Hitting_Scout/launchd/com.wcwaa.scout_pipeline.plist
 ```
 
-**Install (one-time):**
 ```bash
-ln -sf "$(pwd)/../launchd/com.wcwaa.scout_pipeline.plist" \
-       ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
-launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
-```
-
-**Verify it's scheduled:**
-```bash
+# Verify scheduled
 launchctl list | grep wcwaa
-```
 
-**Trigger a manual test run immediately (without waiting for 10pm):**
-```bash
+# Trigger immediately
 launchctl start com.wcwaa.scout_pipeline
 ```
 
-**Uninstall:**
-```bash
-launchctl unload ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
-rm ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist
-```
-
-> **Note:** If your laptop is asleep at 10pm, launchd will skip that night's run — it does not wake the machine. The pipeline is safe to skip; it only picks up genuinely new FINAL games on the next run.
-
-> **Prerequisite:** Grant Full Disk Access to `/bin/bash` in System Settings → Privacy & Security → Full Disk Access. Required because launchd runs `/bin/bash` outside of Terminal, which has its own FDA grant. Without this, the plist will fail with exit code 126 ("Operation not permitted").
-
 ---
 
-| | `run_scout.sh` | `run_scout_nightly.sh` |
+## Pipeline Steps
+
+| Step | Script | What it does |
 |---|---|---|
-| **Triggered by** | You, manually | macOS launchd at 10pm EDT |
-| **Menu shown** | ✅ Yes (or CLI passthrough) | ❌ No — headless, no stdin |
-| **Scope** | Your choice | All divisions, all teams |
-| **Logs** | Per-script logs in `Logs/` | `Logs/nightly_YYYYMMDD_HHMMSS.log` + per-script logs |
-
----
-
-## Scripts Reference
-
-The table below lists every script in the order it is run, what it does, and what it depends on.
-
-| # | Script | What it does | Depends on | Key flags |
-|---|---|---|---|---|
-| 1 | `scrape_gc_playbyplay.py` | Navigates GC schedule pages for all 4 divisions; finds new FINAL games; downloads play-by-play text; saves `.txt` game files to the correct folder | `parse_gc_text.py` (called internally), `gc_session.json` (auth) | `--login` `--division` `--team` `--check` `--force` `--verbose` |
-| 2 | `scrape_gc_boxscores.py` | Navigates GC box score pages; extracts player names + jersey numbers; builds `rosters.json` (Majors/Minors) and `roster.txt` (Wild/Storm); writes `box_verify.json` for cross-checking | `gc_session.json` (auth) | `--division` `--force` `--verbose` |
-| 3 | `gen_hitting.py` | Reads all `.txt` game files; parses every plate appearance; computes batting stats + archetypes; generates multi-page PDF scouting reports via ReportLab | `rosters.json` / `roster.txt` (from step 2), game `.txt` files (from step 1) | `--division` `--team` `--verbose` |
-| — | `run_scout.sh` | Interactive shell wrapper: shows numbered menu (or CLI passthrough); activates venv; calls steps 1 → 2 → 3 | All three scripts above | `--division` `--team` (passed through) |
-| — | `run_scout_nightly.sh` | Headless shell wrapper for scheduled runs: no menu, no stdin; calls `run_menu.py --all`; logs to `Logs/nightly_*.log` | `run_menu.py`, venv | *(none)* |
-| — | `run_menu.py` | Python pipeline orchestrator: builds the interactive menu, handles CLI passthrough, and calls the 3 steps as subprocesses | `scrape_gc_playbyplay.py` (imports DIVISIONS) | `--all` `--division` `--team` |
-| — | `parse_gc_text.py` | Utility: converts raw GC page text into the WCWAA-structured `.txt` game file format; applies name-fix corrections (e.g. `$awyer` → `Sawyer`) | *(none — pure utility, no external deps)* | *(imported by `scrape_gc_playbyplay.py`, not run directly)* |
-| — | `diag_schedule.py` | Diagnostic only: dumps the raw GC schedule page DOM to help debug layout changes; not part of the normal pipeline | `gc_session.json` (auth) | `--division` |
+| 1 | `scrape_gc_playbyplay.py` | Scrapes GC schedule pages → saves .txt game files |
+| 2 | `scrape_gc_boxscores.py` | Scrapes GC box scores → builds rosters |
+| 3 | `gen_hitting.py` | Parses game files → computes batting stats → generates hitting PDFs |
+| 4 | `gen_pitching.py` | Parses game files → computes pitching stats → generates Savant-style pitching PDFs |
 
 ---
 
 ## Running Individual Parts
 
-You don't have to run the full pipeline every time. Common single-step commands:
-
 ```bash
-# Regenerate PDFs for one team (fastest — no scraping)
+# Regenerate hitting PDFs for one team (no scraping)
+cd Dev/Hitting_Scout/Scripts
 python3 gen_hitting.py --division Majors --team Cubs
-python3 gen_hitting.py --division Wild --team "QC Flight Baseball 11U"
+
+# Regenerate pitching PDFs for one division
+cd Dev/Pitching_Savant/Scripts
+python3 gen_pitching.py --division Majors
 
 # Scrape one division only
 python3 scrape_gc_playbyplay.py --division Storm
 
-# Check what new games are available without downloading anything
+# Check what new games are available without downloading
 python3 scrape_gc_playbyplay.py --check
-
-# See detailed output while running
-python3 gen_hitting.py --division Minors --verbose
-
-# Force re-scrape games already on disk
-python3 scrape_gc_playbyplay.py --force --division Majors
 ```
 
 ---
@@ -196,28 +135,34 @@ python3 scrape_gc_playbyplay.py --force --division Majors
 
 | File | Location | Description |
 |---|---|---|
-| `*-Scout_2026.pdf` | `Majors/Reports/Scouting_Reports/` | Scouting report PDFs (one per team) |
-| `rosters.json` | `Majors/Reports/` and `Minors/Reports/` | Player names + jersey numbers, keyed by initials |
-| `box_verify.json` | `Majors/Reports/` and `Minors/Reports/` | Per-game AB/BB/SO totals for cross-check verification |
-| `roster.txt` | `Wild/[TeamName]/` and `Storm/[TeamName]/` | Flat text roster for travel division opponents |
-| `*.txt` game files | `Majors/Reports/Scorebooks/`, `Wild/[TeamName]/Games/` etc. | Play-by-play game files scraped from GC |
-| `Logs/*.log` | `Scout_Development/Logs/` | Timestamped log files from each script run |
+| `*-Scout-Hitting_2026.pdf` | Division report folders | Hitting scouting reports |
+| `*-Scout-Pitching_2026.pdf` | Division report folders | Pitching scouting reports |
+| `rosters.json` | `Majors/Reports/`, `Minors/Reports/` | Player names + jersey numbers |
+| `roster.txt` | `Wild/[Team]/`, `Storm/[Team]/` | Travel opponent rosters |
+| `*.txt` game files | Scorebooks/Games folders | Play-by-play from GC |
 
-> **Note:** PDFs, game `.txt` files, and logs are excluded from this repo (see `.gitignore`). See `examples/` for one sample of each output format.
+> All data files and PDFs are gitignored. See `Dev/Hitting_Scout/examples/` for samples.
 
 ---
 
-## What the Reports Show
+## Project Structure
 
-Each PDF scouting report includes:
-
-- **Player cards** — one card per batter with:
-  - Spray chart (hit zones)
-  - Stat bars: AVG, OBP, SLG, C% (contact rate)
-  - Discipline stats: SM% (swing-and-miss), CStr% (called strike rate), FPT% (first-pitch take rate)
-  - **Archetype label** — a two-word tag combining plate approach and result outcome (e.g. *Disciplined Walker*, *Aggressive Power*)
-  - Recommended pitching approach based on archetype
-- **Summary page** — stat table across all batters + two-sentence scouting notes per player
+```
+Spring/                          <- repo root
+|-- README.md
+|-- Instructions.md              <- detailed AI session context file
+|-- CHANGELOG.md                 <- unified version history
+|-- BUGS.md                      <- unified bug tracker
+|-- requirements.txt
+|-- Dev/
+|   |-- venv/                    <- shared Python venv
+|   |-- Hitting_Scout/Scripts/   <- scraping + hitting report scripts
+|   +-- Pitching_Savant/Scripts/ <- pitching report scripts
+|-- Majors/                      <- game data + PDFs [gitignored]
+|-- Minors/
+|-- Wild/
++-- Storm/
+```
 
 ---
 
@@ -225,80 +170,16 @@ Each PDF scouting report includes:
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| `ImportError: playwright` | venv not activated | Run `source venv/bin/activate` first |
-| `Session expired` / login error | `gc_session.json` stale | Run `python3 scrape_gc_playbyplay.py --login` |
-| `0 PAs` for a team | Team name mismatch between folder name and GC inning header | Check spelling in game file header vs. folder name |
-| `?X X?` in report output | Player initials not in `rosters.json` | Run `scrape_gc_boxscores.py` |
-| `WARNING UNKNOWN` in logs | Play description not recognised by parser | Check the game file; if valid play, add to `OUTCOME_TYPES` in `gen_hitting.py` |
-| `WARNING BOX-VERIFY` in logs | Parsed AB count differs from GC box score | Review game file for missed or duplicate plays |
-| PDFs not appearing | Google Drive not synced | Toggle the folder's offline availability to force a re-sync |
+| `ImportError: playwright` | venv not activated | `source Dev/venv/bin/activate` |
+| `Session expired` | gc_session.json stale | `python3 scrape_gc_playbyplay.py --login` |
+| `0 PAs` for a team | Folder name ≠ GC inning header | Check exact spelling |
+| `?X X?` in output | Player not in roster | Run `scrape_gc_boxscores.py` |
+| `WARNING UNKNOWN` | Unrecognised play description | Add to `OUTCOME_TYPES` |
 
 ---
 
-## Project Structure
+## Documentation
 
-```
-Scouting_Pipeline/
-  README.md
-  CHANGELOG.md
-  Instructions.md          ← detailed context file for AI-assisted sessions
-  requirements.txt
-  .gitignore
-  Scripts/
-    scrape_gc_playbyplay.py
-    scrape_gc_boxscores.py
-    parse_gc_text.py
-    gen_hitting.py
-    run_scout.sh
-    diag_schedule.py
-    archetype_reference.txt
-  examples/
-    example_game_file.txt           ← sample parsed play-by-play file
-    example_scouting_report.pdf     ← sample output PDF
-```
-
----
-
-## Instructions.md — The AI Session Context File
-
-`Instructions.md` is a purpose-built context document that is loaded at the start of every AI-assisted coding session (e.g. GitHub Copilot, Claude, ChatGPT).
-
-### Why it exists
-
-AI coding assistants have a **context window** — a limit on how much text they can "remember" within a single conversation. In a long session involving complex code reviews, bug hunts, and multi-file edits, earlier decisions and discoveries get pushed out of the window and are effectively forgotten. This is called **context rot**.
-
-`Instructions.md` solves this by acting as a **persistent memory file** that is manually updated at the end of each session. When a new session starts, the AI reads this file first and immediately has full awareness of:
-
-- Every design decision made and *why* it was made
-- All known bugs, their root causes, and their current fix status
-- Exact file paths, team IDs, data formats, and naming conventions
-- The results of the most recent pipeline run
-- What to work on next
-
-Without it, every new session would require re-explaining the project from scratch — wasting time and risking the AI making suggestions that contradict prior decisions.
-
-### What to update after each session
-
-At the end of any session where meaningful work was done, update these sections in `Instructions.md`:
-
-| Section | What to update |
-|---|---|
-| **Git log block** | Add the new commit hashes and messages |
-| **Latest Pipeline Run Results** | Update PA counts, game counts, and any new warnings |
-| **Known Issues / Pending Work** | Mark resolved issues as ~~strikethrough~~; add new ones |
-| **Next Session Priorities** | Replace completed items with what's actually next |
-
-The goal is that `Instructions.md` + `CHANGELOG.md` together should give any AI (or human) enough context to pick up exactly where the last session left off — with zero verbal re-briefing required.
-
----
-
-## Versioning
-
-This project follows [Semantic Versioning](https://semver.org/).
-
-| Version | Date | Summary |
-|---|---|---|
-| `v2.0.0` | Apr 24, 2026 | Interactive menu (`run_menu.py`), `run_scout.sh` rename, `--team` filter, Wild/Storm jersey numbers fixed (Bugs 10–11) |
-| `v1.0.0` | Apr 23, 2026 | All 4 divisions fully operational under `run_weekly.sh`; Bugs 6–9 fixed |
-| `v0.2.0` | Apr 22, 2026 | Full pipeline verified across all 4 divisions; INNING_RE fix; QC Flight added; Infield Fly mapping |
-| `v0.1.0` | Apr 21, 2026 | Initial setup — venv, Playwright, ReportLab, full pipeline transfer to local VS Code |
+- **[Instructions.md](Instructions.md)** — Complete technical reference (design decisions, function maps, data formats). Load this at the start of any AI-assisted coding session.
+- **[CHANGELOG.md](CHANGELOG.md)** — All version history with component tags.
+- **[BUGS.md](BUGS.md)** — All known bugs and their resolution status.

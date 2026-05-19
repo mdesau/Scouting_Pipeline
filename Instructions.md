@@ -1,6 +1,6 @@
-# WCWAA 2026 Spring — Scouting Report Pipeline
+# WCWAA 2026 Spring — Scout Pipeline
 
-This file is the authoritative reference for the WCWAA scouting report pipeline.
+This file is the authoritative reference for the WCWAA Scout pipeline.
 Load it at the start of every new AI coding session (GitHub Copilot, Claude, etc.).
 It covers every design decision, known bug, and operational detail accumulated
 across the full build history of this project.
@@ -17,7 +17,7 @@ handling, and code style. Follow those guidelines throughout.
 ## Development Environment
 
 - **Python 3.9.6** (macOS system Python)
-- **Virtual environment:** `Scout_Development/venv/` — shared by both apps; always activate before running scripts
+- **Virtual environment:** `Dev/venv/` — shared across all components; always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in repo root
 - **Git:** Local repo rooted at `Spring/` on `main` branch
@@ -26,6 +26,7 @@ handling, and code style. Follow those guidelines throughout.
 
 ### Version History
 ```
+v2.6.0  refactor: restructure to Dev/, rename gen_reports→gen_hitting, fix González regex, unify docs
 v2.5.0  feat: add Pitching Savant v0.1.0, restructure repo root to Spring/
 v2.4.1  fix: schedule lazy-load cutoff (scroll before extracting game cards)
 v2.4.0  feat: LG RANK for Wild/Storm + No PAs diagnostic warning
@@ -42,14 +43,14 @@ v0.1.0  initial commit
 
 ## Project Summary
 
-Two apps in one repo — automated scouting reports for Weddington youth baseball (Spring 2026).
+Scout is a single automated pipeline for generating scouting reports for Weddington youth baseball (Spring 2026). It has two report components:
 
-| App | Purpose | Output |
+| Component | Purpose | Output |
 |---|---|---|
-| **Scout Development** | Scrapes GameChanger, computes batting stats + archetypes, generates hitting PDFs | `*-Scout-Hitting_2026.pdf` |
-| **Pitching Savant** | Reads same game files, computes pitching stats + league percentiles, generates Baseball Savant-style pitcher cards | `*-Scout-Pitching_2026.pdf` |
+| **Hitting** | Scrapes GameChanger, computes batting stats + archetypes, generates hitting PDFs | `*-Scout-Hitting_2026.pdf` |
+| **Pitching** | Reads same game files, computes pitching stats + league percentiles, generates Baseball Savant-style pitcher cards | `*-Scout-Pitching_2026.pdf` |
 
-Both apps share the same virtual environment and game file data.
+Both components share the same virtual environment, game file data, and scraping infrastructure. Users can run hitting only, pitching only, or both together.
 
 ### Divisions
 
@@ -62,71 +63,71 @@ Both apps share the same virtual environment and game file data.
 
 ---
 
-## Scripts Overview (line counts as of May 17, 2026)
+## Scripts Overview (line counts as of May 19, 2026)
 
-| Script | Lines | App | Role |
+| Script | Lines | Component | Role |
 |---|---|---|---|
-| `Scout_Development/Scripts/gen_hitting.py` | 2067 | Scout | Stat engine + PDF generator (hitting) |
-| `Pitching_Savant/Scripts/gen_pitching.py` | 1315 | Pitching | Stat engine + PDF generator (pitching) |
-| `Scout_Development/Scripts/scrape_gc_boxscores.py` | 841 | Scout | Playwright: GC box scores → rosters |
-| `Scout_Development/Scripts/run_menu.py` | 673 | Scout | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) |
-| `Scout_Development/Scripts/scrape_gc_playbyplay.py` | 632 | Scout | Playwright: GC schedule → .txt game files |
-| `Pitching_Savant/Scripts/pilot_card.py` | 521 | Pitching | Early proof-of-concept (superseded by gen_pitching.py) |
-| `Scout_Development/Scripts/parse_gc_text.py` | 270 | Scout | Raw GC text → WCWAA format (utility) |
-| `Scout_Development/Scripts/diag_schedule.py` | 144 | Scout | Schedule diagnostics (utility) |
-| `Scout_Development/Scripts/patch_march_initials.py` | 117 | Scout | One-time March game file patch (utility) |
-| `Scout_Development/Scripts/scrape_storm.py` | 62 | Scout | Legacy Storm scraper (superseded) |
+| `Dev/Hitting_Scout/Scripts/gen_hitting.py` | ~2164 | Hitting | Stat engine + PDF generator |
+| `Dev/Pitching_Savant/Scripts/gen_pitching.py` | ~1316 | Pitching | Stat engine + PDF generator |
+| `Dev/Hitting_Scout/Scripts/scrape_gc_boxscores.py` | ~841 | Scraping | Playwright: GC box scores → rosters |
+| `Dev/Hitting_Scout/Scripts/run_menu.py` | ~673 | Orchestrator | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) |
+| `Dev/Hitting_Scout/Scripts/scrape_gc_playbyplay.py` | ~632 | Scraping | Playwright: GC schedule → .txt game files |
+| `Dev/Pitching_Savant/Scripts/pilot_card.py` | ~521 | Pitching | Early proof-of-concept (superseded) |
+| `Dev/Hitting_Scout/Scripts/parse_gc_text.py` | ~270 | Parser | Raw GC text → WCWAA format (utility) |
+| `Dev/Hitting_Scout/Scripts/diag_schedule.py` | ~144 | Scraping | Schedule diagnostics (utility) |
+| `Dev/Hitting_Scout/Scripts/patch_march_initials.py` | ~117 | Utility | One-time March game file patch |
+| `Dev/Hitting_Scout/Scripts/scrape_storm.py` | ~62 | Scraping | Legacy Storm scraper (superseded) |
 
 ### Shell Launchers
 
 | Script | Purpose |
 |---|---|
-| `Scout_Development/Scripts/run_scout.sh` | Manual launcher: activates venv, calls run_menu.py (interactive) |
-| `Scout_Development/Scripts/run_scout_nightly.sh` | Headless launcher: no menu; calls `run_menu.py --all` (for launchd) |
-| `Pitching_Savant/Scripts/run_pitching.sh` | Standalone manual launcher for pitching PDFs only |
-| `Pitching_Savant/Scripts/run_pitching_nightly.sh` | Standalone headless launcher for pitching PDFs only |
+| `Dev/Hitting_Scout/Scripts/run_scout.sh` | Manual launcher: activates venv, calls run_menu.py (interactive) |
+| `Dev/Hitting_Scout/Scripts/run_scout_nightly.sh` | Headless launcher: no menu; calls `run_menu.py --all` (for launchd) |
+| `Dev/Pitching_Savant/Scripts/run_pitching.sh` | Standalone manual launcher for pitching PDFs only |
+| `Dev/Pitching_Savant/Scripts/run_pitching_nightly.sh` | Standalone headless launcher for pitching PDFs only |
 
 ---
 
 ## Directory Structure
 
 ```
-Spring/                              <- git repo root (v2.5.0)
+Spring/                              <- git repo root (v2.6.0)
 |-- .git/
 |-- .gitignore
-|-- README.md                        <- project overview (shared)
-|-- Instructions.md                  <- this file (shared)
-|-- requirements.txt                 <- pip freeze (shared)
+|-- README.md                        <- project overview
+|-- Instructions.md                  <- this file
+|-- CHANGELOG.md                     <- unified version history
+|-- BUGS.md                          <- unified bug tracker
+|-- requirements.txt                 <- pip freeze
 |
-|-- Scout_Development/               <- App 1: Scraping + Hitting Reports
-|   |-- CHANGELOG.md                 <- per-app version history
-|   |-- BUGS.md                      <- per-app bug tracker
-|   |-- Scripts/
-|   |   |-- scrape_gc_playbyplay.py  <- Step 1: GC schedule -> .txt game files
-|   |   |-- scrape_gc_boxscores.py   <- Step 2: GC box scores -> rosters
-|   |   |-- gen_hitting.py           <- Step 3: stat engine + hitting PDFs
-|   |   |-- parse_gc_text.py         <- utility: raw GC text -> WCWAA format
-|   |   |-- run_menu.py              <- pipeline orchestrator (Steps 1-4)
-|   |   |-- run_scout.sh             <- manual launcher
-|   |   |-- run_scout_nightly.sh     <- headless launcher (launchd)
-|   |   |-- gc_session.json          <- Playwright session [gitignored]
-|   |   +-- archetype_reference.txt  <- archetype system design notes
-|   |-- examples/
-|   |-- launchd/
-|   |   +-- com.wcwaa.scout_pipeline.plist
-|   |-- Logs/                        <- [gitignored]
-|   +-- venv/                        <- shared Python venv [gitignored]
-|
-|-- Pitching_Savant/                 <- App 2: Pitching Profile Cards
-|   |-- CHANGELOG.md
-|   |-- BUGS.md
-|   |-- Scripts/
-|   |   |-- gen_pitching.py          <- Step 4: stat engine + pitching PDFs
-|   |   |-- pilot_card.py            <- early POC (superseded)
-|   |   |-- pitcher_icon.png         <- Savant-style pitcher silhouette
-|   |   |-- run_pitching.sh          <- standalone manual launcher
-|   |   +-- run_pitching_nightly.sh  <- standalone headless launcher
-|   +-- Logs/                        <- [gitignored]
+|-- Dev/                             <- all source code lives here
+|   |-- venv/                        <- shared Python venv [gitignored]
+|   |
+|   |-- Hitting_Scout/              <- Scraping + Hitting component
+|   |   |-- Scripts/
+|   |   |   |-- scrape_gc_playbyplay.py  <- Step 1: GC schedule -> .txt game files
+|   |   |   |-- scrape_gc_boxscores.py   <- Step 2: GC box scores -> rosters
+|   |   |   |-- gen_hitting.py           <- Step 3: stat engine + hitting PDFs
+|   |   |   |-- parse_gc_text.py         <- utility: raw GC text -> WCWAA format
+|   |   |   |-- run_menu.py              <- pipeline orchestrator (Steps 1-4)
+|   |   |   |-- run_scout.sh             <- manual launcher
+|   |   |   |-- run_scout_nightly.sh     <- headless launcher (launchd)
+|   |   |   |-- gc_session.json          <- Playwright session [gitignored]
+|   |   |   +-- archetype_reference.txt  <- archetype system design notes
+|   |   |-- examples/
+|   |   |-- launchd/
+|   |   |   +-- com.wcwaa.scout_pipeline.plist
+|   |   +-- Logs/                        <- [gitignored]
+|   |
+|   +-- Pitching_Savant/             <- Pitching component
+|       |-- Scripts/
+|       |   |-- gen_pitching.py          <- Step 4: stat engine + pitching PDFs
+|       |   |-- pilot_card.py            <- early POC (superseded)
+|       |   |-- pitcher_icon.png         <- Savant-style pitcher silhouette
+|       |   |-- run_pitching.sh          <- standalone manual launcher
+|       |   +-- run_pitching_nightly.sh  <- standalone headless launcher
+|       +-- Logs/                        <- [gitignored]
 |
 |-- Majors/                          <- [gitignored] game data + PDFs
 |   +-- Reports/
@@ -164,7 +165,7 @@ Step 1 skips games already on disk (safe to re-run). Step 2 is incremental by de
 
 **Option A -- interactive menu:**
 ```bash
-cd .../Scout_Development/Scripts
+cd .../Dev/Hitting_Scout/Scripts
 bash run_scout.sh
 ```
 
@@ -186,21 +187,23 @@ bash run_scout.sh --division Wild
 bash run_scout.sh --division Majors --team "Cubs-Holtzer"
 
 # Pitching only (standalone)
-cd .../Pitching_Savant/Scripts
+cd .../Dev/Pitching_Savant/Scripts
 bash run_pitching.sh --division Majors
 ```
 
 **Step-by-step manual:**
 ```bash
+cd .../Dev/Hitting_Scout/Scripts
 python3 scrape_gc_playbyplay.py                     # Step 1
 python3 scrape_gc_boxscores.py                      # Step 2
 python3 gen_hitting.py --division Majors             # Step 3
+cd .../Dev/Pitching_Savant/Scripts
 python3 gen_pitching.py --division Majors            # Step 4
 ```
 
 ---
 
-## Function Map -- Scout Development
+## Function Map -- Hitting Component
 
 ### scrape_gc_playbyplay.py (Step 1 -- Playwright scraper)
 Navigates GC schedule pages, finds FINAL games, downloads play-by-play text, converts via `parse_gc_text.py`, saves `.txt` game files.
@@ -310,16 +313,16 @@ Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subproces
 | `get_team_list()` | ~174 | Reads DIVISIONS to build team picker list |
 | `check_session()` | ~103 | Validates gc_session.json exists and is not expired |
 
-**Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` from `Pitching_Savant/Scripts/` after gen_hitting.py. Path resolved via `SPRING_DIR / "Pitching_Savant" / "Scripts" / "gen_pitching.py"`.
+**Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` from `Dev/Pitching_Savant/Scripts/` after gen_hitting.py. Path resolved via `SPRING_DIR / "Dev" / "Pitching_Savant" / "Scripts" / "gen_pitching.py"`.
 
 ---
 
-## Function Map -- Pitching Savant
+## Function Map -- Pitching Component
 
 ### gen_pitching.py (Step 4 -- Pitching stat engine + PDF generator)
 Reads game `.txt` files from the opponent's perspective (who was pitching), computes 13 pitching stats, ranks all pitchers in the division by percentile, generates Baseball Savant-style pitcher profile cards with colored slider bars.
 
-**Imports from Scout Development:** `DIVISIONS` dict from `scrape_gc_playbyplay.py` (team IDs, slugs) and `DIVISIONS` dict from `gen_hitting.py` (folder paths). Uses shared venv.
+**Imports from Hitting_Scout:** `DIVISIONS` dict from `scrape_gc_playbyplay.py` (team IDs, slugs) and `DIVISIONS` dict from `gen_hitting.py` (folder paths). Uses shared venv.
 
 | Function | ~Line | Purpose |
 |---|---|---|
@@ -398,7 +401,7 @@ S K walks, J R pitching.
 - `INNING_RE` does exact string matching on team name in `===` headers
 - Wild/Storm folder names MUST exactly match the GC inning header spelling
 - Majors/Minors team key is `TeamName-CoachLast` (e.g. `Cubs-Holtzer`)
-- Pitching Savant uses `, [INITIALS] pitching` lines to track pitcher changes
+- Pitching component uses `, [NAME] pitching` lines to track pitcher changes
 
 ---
 
@@ -508,12 +511,13 @@ Weddington 10U Gophers
 ## Prerequisites (First-Time Setup)
 
 ```bash
-cd .../Scout_Development
+cd .../Dev
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r ../../requirements.txt
 playwright install chromium
-python3 Scripts/scrape_gc_playbyplay.py --login   # save GC session
+cd Hitting_Scout/Scripts
+python3 scrape_gc_playbyplay.py --login   # save GC session
 ```
 
 ---
@@ -546,11 +550,4 @@ python3 Scripts/scrape_gc_playbyplay.py --login   # save GC session
 | Jersey numbers missing (Minors) | Box scores inaccessible | Known permanent limitation |
 | Session expired error | gc_session.json expired | `python3 scrape_gc_playbyplay.py --login` |
 | High pitcher count (Wild/Storm) | Initials-only names not deduped | Check dedup_pitcher_names() logic |
-
----
-
-## Next Session Priorities
-
-1. **Code review + refactor** -- apply coding principles audit to both apps
-2. **Monitor nightly runs** -- verify launchd fires correctly
-3. **Push to GitHub** -- `git push origin main --tags`
+| Player with accented name missing | Regex uses ASCII-only char class | Verify `[a-z\u00C0-\u024F]` in regex (BUG-16 fix) |
