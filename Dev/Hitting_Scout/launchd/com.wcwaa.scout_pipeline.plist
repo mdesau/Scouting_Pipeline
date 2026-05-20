@@ -5,8 +5,8 @@
 <!--
   com.wcwaa.scout_pipeline.plist
   ══════════════════════════════
-  macOS LaunchAgent — runs the WCWAA nightly scouting pipeline at 10:00 PM EDT
-  (02:00 UTC) every day.
+  macOS LaunchAgent — runs the WCWAA scouting pipeline at 10:00 AM EDT
+  (14:00 UTC) every day.
 
   WHY launchd INSTEAD OF cron:
     launchd is the macOS-native scheduler. It is more reliable than cron on
@@ -36,13 +36,13 @@
     (look for "LastExitStatus" — 0 means success)
 
   TIMING NOTE:
-    StartCalendarInterval Hour=2 Minute=0 is 02:00 UTC = 10:00 PM EDT (UTC-4).
-    During EST (winter, UTC-5) this fires at 9:00 PM local — adjust Hour to 3
-    for consistent 10 PM EST if needed after daylight saving ends.
+    StartCalendarInterval Hour=14 Minute=0 is 14:00 UTC = 10:00 AM EDT (UTC-4).
+    During EST (winter, UTC-5) this fires at 9:00 AM local — adjust Hour to 15
+    for consistent 10 AM EST if needed after daylight saving ends.
 
   SLEEPING LAPTOP:
-    If the laptop is asleep at 10pm, launchd will NOT wake it and the job will
-    be skipped for that night. It will run again the next night at 10pm.
+    If the laptop is asleep at 10am, launchd will NOT wake it and the job will
+    be skipped for that day. It will run again the next day at 10am.
     To enable wake-on-schedule: System Settings → Battery → "Wake for network
     access" (if available on your model). This is optional — the pipeline is
     safe to skip nights; it only picks up genuinely new FINAL games.
@@ -74,11 +74,11 @@
     <key>WorkingDirectory</key>
     <string>/Users/mesau</string>
 
-    <!-- Schedule: 02:00 UTC daily = 10:00 PM EDT -->
+    <!-- Schedule: 14:00 UTC daily = 10:00 AM EDT -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
-        <integer>2</integer>
+        <integer>14</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>

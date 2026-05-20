@@ -1,0 +1,10 @@
+========================================================
+  WCWAA Nightly Scout Pipeline (launchd)
+  Started: Wed May 20 02:07:39 EDT 2026
+  Log: /Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/Logs/nightly_20260520_020739.log
+========================================================
+/Users/mesau/Library/LaunchAgents/run_wcwaa_nightly.sh: line 34: /Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/Scout_Development/venv/bin/python3: No such file or directory
+⚠️  WARNING: pipeline exited with code 127
+========================================================
+  ✅ Nightly pipeline complete: Wed May 20 02:07:39 EDT 2026
+========================================================
