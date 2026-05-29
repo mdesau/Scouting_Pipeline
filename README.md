@@ -102,7 +102,11 @@ launchctl start com.wcwaa.scout_pipeline
 
 The `.plist` is the schedule config (when to run); `run_scout_nightly.sh` is the script it triggers (what to run).
 
+> **Execution chain:** plist → `~/Library/LaunchAgents/run_wcwaa_nightly.sh` (local disk) → `run_menu.py --all`
+>
 > **Auto-load resilience:** `~/.zprofile` contains a one-liner that re-registers the job on every login, in case macOS skipped it at boot (e.g., Google Drive not yet mounted). No manual `launchctl load` needed after reboots.
+>
+> **Why a local wrapper?** The plist invokes a script on the local filesystem (not Google Drive) so launchd can always execute it regardless of GDrive mount state. The wrapper then reaches into the GDrive repo to call `run_menu.py`.
 
 | Action | Command |
 |---|---|

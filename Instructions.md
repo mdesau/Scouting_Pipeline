@@ -84,7 +84,8 @@ Both components share the same virtual environment, game file data, and scraping
 | Script | Purpose |
 |---|---|
 | `Dev/Hitting_Scout/Scripts/run_scout.sh` | Manual launcher: activates venv, calls run_menu.py (interactive) |
-| `Dev/Hitting_Scout/Scripts/run_scout_nightly.sh` | Headless launcher: no menu; calls `run_menu.py --all` (for launchd) |
+| `Dev/Hitting_Scout/Scripts/run_scout_nightly.sh` | Headless launcher for manual testing; calls `run_menu.py --all` |
+| `~/Library/LaunchAgents/run_wcwaa_nightly.sh` | **Actual nightly launcher** (local disk): called by launchd plist, calls `run_menu.py --all` directly. Lives outside repo so launchd can execute it even if GDrive is slow to mount. |
 | `Dev/Pitching_Savant/Scripts/run_pitching.sh` | Standalone manual launcher for pitching PDFs only |
 | `Dev/Pitching_Savant/Scripts/run_pitching_nightly.sh` | Standalone headless launcher for pitching PDFs only |
 
@@ -93,7 +94,7 @@ Both components share the same virtual environment, game file data, and scraping
 ## Directory Structure
 
 ```
-Spring/                              <- git repo root (v2.6.0)
+Spring/                              <- git repo root (v2.6.1)
 |-- .git/
 |-- .gitignore
 |-- README.md                        <- project overview
@@ -113,7 +114,7 @@ Spring/                              <- git repo root (v2.6.0)
 |   |   |   |-- parse_gc_text.py         <- utility: raw GC text -> WCWAA format
 |   |   |   |-- run_menu.py              <- pipeline orchestrator (Steps 1-4)
 |   |   |   |-- run_scout.sh             <- manual launcher
-|   |   |   |-- run_scout_nightly.sh     <- headless launcher (launchd)
+|   |   |   |-- run_scout_nightly.sh     <- headless launcher (manual testing)
 |   |   |   |-- gc_session.json          <- Playwright session [gitignored]
 |   |   |   +-- archetype_reference.txt  <- archetype system design notes
 |   |   |-- examples/
@@ -176,6 +177,8 @@ launchctl list | grep wcwaa          # verify scheduler active
 launchctl start com.wcwaa.scout_pipeline  # trigger immediately
 ```
 
+> **Execution chain:** plist → `~/Library/LaunchAgents/run_wcwaa_nightly.sh` (local disk) → `run_menu.py --all`
+>
 > **Auto-load:** `~/.zprofile` re-registers the job on every login so it survives
 > reboots even when Google Drive mounts late. No manual `launchctl load` needed.
 
