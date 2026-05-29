@@ -26,6 +26,7 @@ handling, and code style. Follow those guidelines throughout.
 
 ### Version History
 ```
+v2.6.1  fix: launchd auto-load on login via ~/.zprofile (resilient to GDrive mount timing)
 v2.6.0  refactor: restructure to Dev/, rename gen_reports→gen_hitting, fix González regex, unify docs
 v2.5.0  feat: add Pitching Savant v0.1.0, restructure repo root to Spring/
 v2.4.1  fix: schedule lazy-load cutoff (scroll before extracting game cards)
@@ -169,11 +170,14 @@ cd .../Dev/Hitting_Scout/Scripts
 bash run_scout.sh
 ```
 
-**Option B -- nightly scheduled (launchd at 10pm EDT):**
+**Option B -- nightly scheduled (launchd at 10am EDT):**
 ```bash
 launchctl list | grep wcwaa          # verify scheduler active
 launchctl start com.wcwaa.scout_pipeline  # trigger immediately
 ```
+
+> **Auto-load:** `~/.zprofile` re-registers the job on every login so it survives
+> reboots even when Google Drive mounts late. No manual `launchctl load` needed.
 
 **Option C -- CLI direct:**
 ```bash

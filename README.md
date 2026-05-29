@@ -1,5 +1,5 @@
 # WCWAA Scout Pipeline
-![Version](https://img.shields.io/badge/version-2.6.0-blue)
+![Version](https://img.shields.io/badge/version-2.6.1-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -97,6 +97,22 @@ launchctl list | grep wcwaa
 # Trigger immediately
 launchctl start com.wcwaa.scout_pipeline
 ```
+
+### launchd Reference
+
+The `.plist` is the schedule config (when to run); `run_scout_nightly.sh` is the script it triggers (what to run).
+
+> **Auto-load resilience:** `~/.zprofile` contains a one-liner that re-registers the job on every login, in case macOS skipped it at boot (e.g., Google Drive not yet mounted). No manual `launchctl load` needed after reboots.
+
+| Action | Command |
+|---|---|
+| **Check if scheduled** | `launchctl list \| grep wcwaa` — look for `com.wcwaa.scout_pipeline` in output |
+| **Check last exit code** | `launchctl list com.wcwaa.scout_pipeline` — `"LastExitStatus" = 0` means success |
+| **Disable** | `launchctl unload ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist` |
+| **Re-enable** | `launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist` |
+| **Change time** | Edit `Hour` in the plist, then unload + reload |
+
+Plist location: `Dev/Hitting_Scout/launchd/com.wcwaa.scout_pipeline.plist` (symlinked to `~/Library/LaunchAgents/`).
 
 ---
 

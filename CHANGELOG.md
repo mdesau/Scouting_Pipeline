@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+---
+
+## [2.6.1] - 2026-05-29
+
+### Fixed
+- **launchd nightly job not surviving reboots** (Infrastructure) — symlink to plist on Google Drive filesystem was not reliably loaded by macOS at boot if GDrive had not finished mounting. Added `~/.zprofile` one-liner that checks and re-registers the job on every login. No second copy of the plist needed; canonical file stays in repo.
+
+---
+
+## [2.6.0] - 2026-05-19
+
 ### Fixed
 - **Accented characters in player names break regex parsing** (Hitting + Pitching) — regexes used ASCII-only `[a-z]` for last-name capture groups, which silently dropped players with accented names (e.g., `B González`). Fixed by extending to `[a-z\u00C0-\u024F]`. Affected: `gen_hitting.py` (`DESC_RE`), `gen_pitching.py` (`PITCHER_NAMED_RE`, `LINEUP_CHANGE_RE`). See BUG-16.
 
