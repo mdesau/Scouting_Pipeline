@@ -4,21 +4,23 @@
 #
 # PURPOSE
 # ───────
-# Called by the macOS launchd scheduler (or any automated trigger) to run
-# the full WCWAA scouting pipeline — all divisions, all teams — without
-# showing the interactive menu.
+# Headless pipeline runner for manual testing or direct invocation.
+# The actual nightly launchd schedule uses ~/Library/LaunchAgents/run_wcwaa_nightly.sh
+# (a local wrapper that calls run_menu.py --all directly).
+# This script can be used for manual headless runs without the interactive menu.
 #
 # HOW IT DIFFERS FROM run_scout.sh
 # ─────────────────────────────────
-# run_scout.sh        — for manual use; shows an interactive numbered menu
-# run_nightly_scout.sh — for automated/scheduled use; no menu, no stdin needed
+# run_scout.sh             — for manual use; shows an interactive numbered menu
+# run_scout_nightly.sh     — for manual headless use; no menu, no stdin needed
+# run_wcwaa_nightly.sh     — for launchd (lives on local disk, not in repo)
 #
 # Both share the same underlying pipeline logic (run_menu.py run_pipeline).
 # This script simply passes --all to skip the menu entirely.
 #
 # SCHEDULE
 # ────────
-# Configured to run at 10:00 PM EDT (02:00 UTC) nightly via launchd.
+# Configured to run at 10:00 AM EDT (14:00 UTC) daily via launchd.
 # See: ../launchd/com.wcwaa.scout_pipeline.plist
 #
 # LOGS

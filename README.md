@@ -85,7 +85,7 @@ bash run_scout.sh --division Wild --team "QC Flight Baseball 11U"
 
 ### Option B — Nightly Scheduled Run (Automatic)
 
-Runs every night at **10:00 PM EDT** via macOS `launchd`. Configured in:
+Runs daily at **10:00 AM EDT** via macOS `launchd`. Configured in:
 ```
 Dev/Hitting_Scout/launchd/com.wcwaa.scout_pipeline.plist
 ```
@@ -100,7 +100,7 @@ launchctl start com.wcwaa.scout_pipeline
 
 ### launchd Reference
 
-The `.plist` is the schedule config (when to run); `run_scout_nightly.sh` is the script it triggers (what to run).
+The `.plist` is the schedule config (when to run); `~/Library/LaunchAgents/run_wcwaa_nightly.sh` is the local wrapper it triggers (what to run).
 
 > **Execution chain:** plist → `~/Library/LaunchAgents/run_wcwaa_nightly.sh` (local disk) → `run_menu.py --all`
 >

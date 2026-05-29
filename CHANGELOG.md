@@ -107,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`run_scout_nightly.sh`** (Orchestrator) — headless pipeline wrapper for scheduled/automated runs
-- **`launchd/com.wcwaa.scout_pipeline.plist`** — macOS LaunchAgent that fires nightly at 10:00 PM EDT
+- **`launchd/com.wcwaa.scout_pipeline.plist`** — macOS LaunchAgent that fires daily at 10:00 AM EDT
 - **`--all` flag on `run_menu.py`** (Orchestrator) — explicit headless flag; skips the interactive menu
 
 ### Changed
