@@ -285,8 +285,8 @@ def verify_box_score(team_key, batters, box_verify):
     bs_totals = defaultdict(lambda: {"ab": 0, "bb": 0, "so": 0})
     for game_id, game in box_verify.items():
         for side in ("away", "home"):
-            if game.get(f"{side}_team") == team_key or \
-               game.get(f"{side}_team", "").replace(" ", "_") in team_key:
+            if game.get(f"{side}_team", "").lower() == team_key.lower() or \
+               game.get(f"{side}_team", "").replace(" ", "_").lower() in team_key.lower():
                 for p in game.get(side, []):
                     init = p["initials"]
                     bs_totals[init]["ab"] += p.get("ab", 0)
@@ -457,7 +457,7 @@ def parse_game_for_team(filepath, team_key, collision_map=None):
         m = INNING_RE.match(line)
         if m:
             cur_inning = int(m.group(1))
-            in_target  = (m.group(2) == team_key)
+            in_target  = (m.group(2).lower() == team_key.lower())
             cur_outcome = None; cur_pitch_lines = []
             continue
         if not in_target or not line or line.startswith("GAME:"): continue
@@ -512,7 +512,7 @@ def check_inning_continuity(filepath, team_key):
     for m in re.finditer(
             r'^=== ?(Top|Bottom) (\d+)(?:st|nd|rd|th) - (.+?) ?(?:Majors|Minors)? ?===',
             content, re.MULTILINE):
-        if m.group(3).strip() == team_key:
+        if m.group(3).strip().lower() == team_key.lower():
             innings_found.add(int(m.group(2)))
 
     if not innings_found:

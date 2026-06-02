@@ -329,7 +329,7 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
         if m_pre:
             teams_in_game.add(m_pre.group(3).strip())
 
-    if pitching_team_key not in teams_in_game:
+    if pitching_team_key.lower() not in {t.lower() for t in teams_in_game}:
         return {}  # This game doesn't involve our team at all
 
     # Track current state
@@ -352,7 +352,7 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
             cur_inning = int(m.group(2))
             batting_team = m.group(3).strip()
             # We are pitching when the batting team is NOT us
-            in_opponent_at_bat = (batting_team != pitching_team_key)
+            in_opponent_at_bat = (batting_team.lower() != pitching_team_key.lower())
             cur_outcome = None
             cur_pitch_lines = []
 
