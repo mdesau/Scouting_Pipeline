@@ -50,9 +50,12 @@ HOW "ADD NEW TEAM" WORKS
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────
@@ -228,6 +231,7 @@ def run_pipeline(division=None, team=None, headless=False):
     # Build the --division and --team flags for each script call
     # WHY list(filter(None, [...])):  Python's clean way to build an arg list
     # that omits items when they are None (no flag added if no filter needed).
+    pipeline_start = time.time()
     div_args  = ["--division", division] if division else []
     team_args = ["--team",     team]     if team     else []
 
@@ -238,7 +242,7 @@ def run_pipeline(division=None, team=None, headless=False):
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
     print(f"▶ Step 1/4  Scrape new games  [{scope}]")
     print("─" * 58)
-    _run(["python3", "scrape_gc_playbyplay.py"] + div_args + team_args, fatal=not headless)
+    _run([sys.executable, "scrape_gc_playbyplay.py"] + div_args + team_args, fatal=not headless)
 
     # Step 2: Update rosters
     # --team is now supported by scrape_gc_boxscores.py for Wild/Storm team-based divisions.
@@ -248,7 +252,7 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
     print(f"▶ Step 2/4  Update rosters    [{scope}]")
     print("─" * 58)
-    _run(["python3", "scrape_gc_boxscores.py"] + div_args + team_args, fatal=not headless)
+    _run([sys.executable, "scrape_gc_boxscores.py"] + div_args + team_args, fatal=not headless)
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).
@@ -259,12 +263,12 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
 
     if division:
-        _run(["python3", "gen_hitting.py", "--division", division] + team_args)
+        _run([sys.executable, "gen_hitting.py", "--division", division] + team_args)
     else:
         # No division filter → run all four divisions
         for div in ["Majors", "Minors", "Wild", "Storm"]:
             print(f"  → {div}")
-            _run(["python3", "gen_hitting.py", "--division", div])
+            _run([sys.executable, "gen_hitting.py", "--division", div])
 
     # Step 4: Generate Pitching Savant PDFs
     # gen_pitching.py lives in the Pitching_Savant project but shares the same venv.
@@ -276,11 +280,11 @@ def run_pipeline(division=None, team=None, headless=False):
         print("─" * 58)
 
         if division:
-            _run(["python3", str(PITCHING_SCRIPT), "--division", division] + team_args)
+            _run([sys.executable, str(PITCHING_SCRIPT), "--division", division] + team_args)
         else:
             for div in ["Majors", "Minors", "Wild", "Storm"]:
                 print(f"  → {div}")
-                _run(["python3", str(PITCHING_SCRIPT), "--division", div])
+                _run([sys.executable, str(PITCHING_SCRIPT), "--division", div])
 
     print()
     print("=" * 58)
@@ -288,6 +292,332 @@ def run_pipeline(division=None, team=None, headless=False):
     print(f"  Scope: {scope}")
     print("=" * 58)
     print()
+
+    # Write pipeline summary log (post-run accounting)
+    try:
+        _write_pipeline_summary(pipeline_start, division, team)
+    except Exception as e:
+        print(f"  ⚠️  Could not write pipeline summary: {e}")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PIPELINE SUMMARY LOG
+# ════════════════════════════════════════════════════════════════════════════
+
+SUMMARY_LOG = SPRING_DIR / "Dev" / "Hitting_Scout" / "Logs" / "pipeline_summary.log"
+
+
+def _load_previous_summary():
+    """
+    Parse the most recent entry from pipeline_summary.log to get previous PA/IP
+    counts per team for computing deltas.
+
+    Returns:
+        dict: {division: {team_name: {"pa": int, "ip": float, "games": int}}}
+    """
+    if not SUMMARY_LOG.exists():
+        return {}
+    try:
+        content = SUMMARY_LOG.read_text(encoding="utf-8")
+    except Exception:
+        return {}
+
+    # Find the last full entry (between the last two "===" separator blocks)
+    entries = content.split("=" * 80)
+    # Walk backwards to find the last complete STEP 3 section
+    prev = {}
+    for block in reversed(entries):
+        if "STEP 3" not in block:
+            continue
+        # Parse per-team lines:  "    Guardians-Esau        14 games   385 PA   ✓ PDF"
+        for m in re.finditer(
+            r"^\s{4}(\S.+?)\s{2,}(\d+)\s+games?\s+(\d+)\s+PA",
+            block, re.MULTILINE
+        ):
+            team_name = m.group(1).strip()
+            prev[team_name] = {
+                "games": int(m.group(2)),
+                "pa": int(m.group(3)),
+            }
+        if prev:
+            break
+    return prev
+
+
+def _find_latest_log(prefix, after_time=0):
+    """Find the most recent log file matching a prefix in Hitting_Scout/Logs/, modified after after_time."""
+    logs_dir = SPRING_DIR / "Dev" / "Hitting_Scout" / "Logs"
+    candidates = [f for f in logs_dir.glob(f"{prefix}_*.log") if f.stat().st_mtime >= after_time]
+    candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    return candidates[0] if candidates else None
+
+
+def _parse_step1_log(log_path):
+    """Parse scrape_gc_playbyplay log for per-division FINAL/new/skipped counts."""
+    if not log_path:
+        return {}
+    content = log_path.read_text(encoding="utf-8", errors="replace")
+    results = {}
+    current_div = None
+
+    for line in content.splitlines():
+        # Division header
+        m = re.search(r"Division:\s+(\w+)", line)
+        if m:
+            current_div = m.group(1)
+            if current_div not in results:
+                results[current_div] = {"final": 0, "new": 0, "skipped": 0}
+
+        # Org-level: "78 FINAL games found on schedule"
+        m = re.search(r"(\d+) FINAL games found on schedule", line)
+        if m and current_div:
+            results[current_div]["final"] += int(m.group(1))
+
+        # Team-level: "Arena National Browning 11U: 27 FINAL games found"
+        m = re.search(r": (\d+) FINAL games found", line)
+        if m and current_div:
+            results[current_div]["final"] += int(m.group(1))
+
+        # "OK →" means a new game was scraped
+        if "OK →" in line and current_div:
+            results[current_div]["new"] += 1
+
+    # Skipped = final - new (approximately)
+    for div in results:
+        results[div]["skipped"] = results[div]["final"] - results[div]["new"]
+
+    return results
+
+
+def _parse_step2_log(log_path):
+    """Parse scrape_gc_boxscores log for per-division scraped/skipped/failed."""
+    if not log_path:
+        return {}
+    content = log_path.read_text(encoding="utf-8", errors="replace")
+    results = {}
+    current_div = None
+
+    for line in content.splitlines():
+        m = re.search(r"Division:\s+(\w+)", line)
+        if m:
+            current_div = m.group(1)
+
+        # "[Majors] Done — scraped:0  skipped:77  failed:1"
+        m = re.search(r"Done — scraped:(\d+)\s+skipped:(\d+)\s+failed:(\d+)", line)
+        if m and current_div:
+            results[current_div] = {
+                "scraped": int(m.group(1)),
+                "skipped": int(m.group(2)),
+                "failed": int(m.group(3)),
+            }
+            current_div = None  # reset for next division
+
+    return results
+
+
+def _parse_step3_log(log_path):
+    """
+    Parse gen_hitting log for per-team games/PA.
+    Returns: {team_name: {"games": int, "pa": int}}
+    """
+    if not log_path:
+        return {}
+    content = log_path.read_text(encoding="utf-8", errors="replace")
+    results = {}
+
+    # Lines like: "13:20:18  INFO        Guardians-Esau                14   385    0.06s"
+    for m in re.finditer(
+        r"INFO\s{2,}(\S.+?)\s{2,}(\d+)\s+(\d+)\s+[\d.]+s\s*$",
+        content, re.MULTILINE
+    ):
+        name = m.group(1).strip()
+        if name == "TOTAL":
+            continue
+        results[name] = {"games": int(m.group(2)), "pa": int(m.group(3))}
+
+    return results
+
+
+def _parse_step4_log(log_path):
+    """Parse gen_pitching log for per-division pitcher counts."""
+    if not log_path:
+        return {}
+    content = log_path.read_text(encoding="utf-8", errors="replace")
+    results = {}
+    current_div = None
+
+    for line in content.splitlines():
+        m = re.search(r"Processing division:\s+(\w+)", line)
+        if m:
+            current_div = m.group(1)
+
+        # "Majors: 78 pitchers found across all teams" or "Storm: 122 pitchers found"
+        m = re.search(r"(\w+):\s+(\d+)\s+pitchers found", line)
+        if m:
+            results[m.group(1)] = {"pitchers": int(m.group(2))}
+
+        # "Guardians-Esau: 6 pitchers → PDF"
+        m = re.search(r"(.+?):\s+(\d+)\s+pitchers → PDF", line)
+        if m and current_div:
+            div_data = results.setdefault(current_div, {"pitchers": 0, "teams": {}})
+            if "teams" not in div_data:
+                div_data["teams"] = {}
+            div_data["teams"][m.group(1).strip()] = int(m.group(2))
+
+    return results
+
+
+def _write_pipeline_summary(start_time, division_filter, team_filter):
+    """
+    Generate and append a pipeline summary to pipeline_summary.log.
+
+    Reads the log files written during the current run (identified by timestamp),
+    extracts key metrics, and computes deltas vs. the previous run.
+    """
+    end_time = time.time()
+    elapsed = end_time - start_time
+    elapsed_str = f"{int(elapsed // 60)}m {int(elapsed % 60):02d}s"
+    now = datetime.now()
+    timestamp = now.strftime("%a %b %d, %Y %I:%M %p EDT")
+
+    # Load previous summary for deltas
+    prev_data = _load_previous_summary()
+
+    # Find the latest log files (written during this run)
+    step1_log = _find_latest_log("scrape_gc_playbyplay", start_time)
+    step2_log = _find_latest_log("scrape_gc_boxscores", start_time)
+
+    hitting_logs_dir = SPRING_DIR / "Dev" / "Hitting_Scout" / "Logs"
+    pitching_logs_dir = SPRING_DIR / "Dev" / "Pitching_Savant" / "Logs"
+
+    step3_logs = sorted(
+        [f for f in hitting_logs_dir.glob("gen_hitting_*.log") if f.stat().st_mtime >= start_time],
+        reverse=True
+    )
+    step4_logs = sorted(
+        [f for f in pitching_logs_dir.glob("gen_pitching_*.log") if f.stat().st_mtime >= start_time],
+        reverse=True
+    )
+
+    # Parse each step
+    step1 = _parse_step1_log(step1_log)
+    step2 = _parse_step2_log(step2_log)
+
+    # Step 3: merge all hitting logs
+    step3_teams = {}
+    for log_path in step3_logs:
+        step3_teams.update(_parse_step3_log(log_path))
+
+    # Step 4: merge all pitching logs
+    step4 = {}
+    for log_path in step4_logs:
+        step4.update(_parse_step4_log(log_path))
+
+    # Build output
+    lines = []
+    lines.append("=" * 80)
+    lines.append(f"PIPELINE SUMMARY — {timestamp}")
+    lines.append(f"Scope: {division_filter or 'ALL'}" + (f" → {team_filter}" if team_filter else " (all teams)"))
+    lines.append("=" * 80)
+    lines.append("")
+
+    # Step 1
+    lines.append("STEP 1 — Scrape Play-by-Play")
+    for div in ["Majors", "Minors", "Wild", "Storm"]:
+        d = step1.get(div, {})
+        if d:
+            lines.append(f"  {div:8s}: {d.get('final',0):3d} FINAL on schedule | "
+                        f"{d.get('new',0):2d} new scraped | "
+                        f"{d.get('skipped',0):3d} skipped (on disk)")
+    lines.append("")
+
+    # Step 2
+    lines.append("STEP 2 — Update Rosters")
+    for div in ["Majors", "Minors", "Wild", "Storm"]:
+        d = step2.get(div, {})
+        if d:
+            lines.append(f"  {div:8s}: scraped: {d.get('scraped',0):3d}  "
+                        f"skipped: {d.get('skipped',0):3d}  "
+                        f"failed: {d.get('failed',0)}")
+    lines.append("")
+
+    # Step 3 — per-team detail with deltas
+    lines.append("STEP 3 — Hitting PDFs")
+
+    # Group teams by division (use DIVISIONS to figure out which is which)
+    div_teams = {"Majors": [], "Minors": [], "Wild": [], "Storm": []}
+    for team_name, stats in sorted(step3_teams.items()):
+        placed = False
+        for div_name in ["Wild", "Storm"]:
+            div_team_names = [n for (_, _, n) in DIVISIONS.get(div_name, {}).get("teams", [])]
+            if team_name in div_team_names:
+                div_teams[div_name].append((team_name, stats))
+                placed = True
+                break
+        if not placed:
+            # Check Majors/Minors by looking at team key format (has hyphen)
+            if "-" in team_name:
+                # Try to figure out from roster files
+                if MAJORS_ROSTER.exists():
+                    with open(MAJORS_ROSTER, encoding="utf-8") as f:
+                        majors_data = json.load(f)
+                    if team_name in majors_data:
+                        div_teams["Majors"].append((team_name, stats))
+                        placed = True
+                if not placed and MINORS_ROSTER.exists():
+                    with open(MINORS_ROSTER, encoding="utf-8") as f:
+                        minors_data = json.load(f)
+                    if team_name in minors_data:
+                        div_teams["Minors"].append((team_name, stats))
+                        placed = True
+            if not placed:
+                div_teams["Storm"].append((team_name, stats))
+
+    for div in ["Majors", "Minors", "Wild", "Storm"]:
+        teams_in_div = div_teams[div]
+        if not teams_in_div:
+            continue
+        lines.append(f"  {div} ({len(teams_in_div)} teams):")
+        total_games = 0
+        total_pa = 0
+        for team_name, stats in teams_in_div:
+            games = stats["games"]
+            pa = stats["pa"]
+            total_games += games
+            total_pa += pa
+            # Delta
+            prev = prev_data.get(team_name, {})
+            delta_pa = pa - prev.get("pa", 0) if prev else pa
+            delta_str = f" (+{delta_pa})" if delta_pa > 0 and prev else ""
+            lines.append(f"    {team_name:<40s} {games:3d} games  {pa:5d} PA{delta_str:<8s} ✓ PDF")
+        # Total line
+        total_delta = total_pa - sum(prev_data.get(t, {}).get("pa", 0) for t, _ in teams_in_div)
+        total_delta_str = f" (+{total_delta})" if total_delta > 0 and prev_data else ""
+        lines.append(f"    {'TOTAL':<40s} {total_games:3d} games  {total_pa:5d} PA{total_delta_str}")
+        lines.append(f"    {len(teams_in_div)}/{len(teams_in_div)} updated")
+        lines.append("")
+
+    # Step 4
+    lines.append("STEP 4 — Pitching PDFs")
+    for div in ["Majors", "Minors", "Wild", "Storm"]:
+        d = step4.get(div, {})
+        if d:
+            n_pitchers = d.get("pitchers", 0)
+            n_teams = len(d.get("teams", {}))
+            lines.append(f"  {div:8s}: {n_pitchers:3d} pitchers | {n_teams} teams → PDF")
+    lines.append("")
+
+    lines.append(f"PIPELINE COMPLETE — {elapsed_str} total")
+    lines.append("=" * 80)
+    lines.append("")
+    lines.append("")
+
+    # Write (append)
+    SUMMARY_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with open(SUMMARY_LOG, "a", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print(f"  📋 Pipeline summary → {SUMMARY_LOG.name}")
 
 
 def _run(cmd, fatal=True):

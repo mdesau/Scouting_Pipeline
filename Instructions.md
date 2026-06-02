@@ -26,6 +26,7 @@ handling, and code style. Follow those guidelines throughout.
 
 ### Version History
 ```
+v2.7.0  feat: pipeline summary log with per-team accounting + deltas + case-insensitive team matching
 v2.6.1  fix: launchd auto-load on login via ~/.zprofile (resilient to GDrive mount timing)
 v2.6.0  refactor: restructure to Dev/, rename gen_reports→gen_hitting, fix González regex, unify docs
 v2.5.0  feat: add Pitching Savant v0.1.0, restructure repo root to Spring/
@@ -94,7 +95,7 @@ Both components share the same virtual environment, game file data, and scraping
 ## Directory Structure
 
 ```
-Spring/                              <- git repo root (v2.6.1)
+Spring/                              <- git repo root (v2.7.0)
 |-- .git/
 |-- .gitignore
 |-- README.md                        <- project overview
@@ -121,6 +122,7 @@ Spring/                              <- git repo root (v2.6.1)
 |   |   |-- launchd/
 |   |   |   +-- com.wcwaa.scout_pipeline.plist
 |   |   +-- Logs/                        <- [gitignored]
+|   |       +-- pipeline_summary.log     <- appended each run (accounting)
 |   |
 |   +-- Pitching_Savant/             <- Pitching component
 |       |-- Scripts/
@@ -162,6 +164,8 @@ The pipeline runs 4 steps, orchestrated by `run_menu.py`:
 | 4 | `gen_pitching.py` | Parses same game files, computes pitching stats + percentiles, generates pitching PDFs |
 
 Step 1 skips games already on disk (safe to re-run). Step 2 is incremental by default.
+
+After all 4 steps, `run_menu.py` appends a **pipeline summary** to `Dev/Hitting_Scout/Logs/pipeline_summary.log` — per-division and per-team accounting with game counts, PAs, and deltas vs. the previous run.
 
 ### Running the Pipeline
 

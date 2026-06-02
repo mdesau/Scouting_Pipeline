@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.0] - 2026-06-02
+
+### Added
+- **Pipeline summary log** (Orchestrator) — `pipeline_summary.log` is appended after each run with per-division and per-team accounting: games processed, PAs, pitchers found, and PDF status. Includes delta column (`+N PA`) showing new data since the previous run. Located at `Dev/Hitting_Scout/Logs/pipeline_summary.log`.
+
+### Fixed
+- **Case-insensitive team name matching** (Hitting + Pitching) — folder name `Mara Outlaws 9U` vs inning header `MARA Outlaws 9U` no longer causes 0 PA. All team_key comparisons now use `.lower()` on both sides.
+
+---
+
 ## [2.6.1] - 2026-05-29
 
 ### Fixed
