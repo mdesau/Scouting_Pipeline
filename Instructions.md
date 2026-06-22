@@ -268,7 +268,7 @@ Reads game `.txt` files, parses every plate appearance, computes batting stats +
 | `get_wild_opponents()` | ~1625 | Discovers Wild/Storm opponent folders on disk |
 | `load_wild_roster()` | ~1639 | Reads `roster.txt` for a travel opponent |
 | `generate_pdf()` | ~1408 | ReportLab PDF assembly: team card + player cards + summary/notes |
-| `draw_card()` | ~1299 | Renders one player or team card: spray chart, stat bars, archetype |
+| `draw_card()` | ~1299 | Renders one player or team card: spray chart, stat bars, archetype, 4-stat footer (Sw%, SM%, CStr%, FPT%) |
 | `draw_field_spray_chart()` | ~1171 | Heat-map spray chart with BIP dots |
 | `draw_stat_box()` | ~1272 | Renders a single stat label + value box |
 | `draw_bar()` | ~1279 | Renders a horizontal percentage bar |
@@ -545,6 +545,7 @@ python3 scrape_gc_playbyplay.py --login   # save GC session
 | C% | (AB - K_total) / AB |
 | GB% | Ground ball BIP / total BIP |
 | FB+LD% | (Fly ball + line drive BIP) / total BIP |
+| Swing% | Total swings (miss + foul + in-play) / total pitches seen |
 | SM% | Swing-and-miss / total swings |
 | CStr% | Called strikes / total pitches seen |
 | FPT% | First-pitch takes / (takes + swings on first pitch) |

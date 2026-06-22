@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+### Added
+- **Swing% stat** (Hitting) — new plate-discipline metric: total swings / total pitches seen. Displayed on individual player cards (footer row, leftmost position) and in the summary table. Card footer now shows 4 stats L→R: Sw% · SM% · CStr% · FPT%. No color thresholds yet (plain navy); archetype integration deferred to next revision.
+
 ---
 
 ## [2.7.0] - 2026-06-02

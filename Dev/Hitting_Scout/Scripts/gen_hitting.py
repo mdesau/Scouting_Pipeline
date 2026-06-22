@@ -700,6 +700,7 @@ def compute_stats(pas, roster):
         })
         avg      = _ds["avg"];     obp     = _ds["obp"];   slg     = _ds["slg"]
         c_pct    = _ds["c_pct"];   gb_pct  = _ds["gb_pct"]; fb_pct = _ds["fb_pct"]
+        swing_pct = _ds["swing_pct"]
         sm_pct   = _ds["sm_pct"];  cstr_pct = _ds["cstr_pct"]; fpt_pct = _ds["fpt_pct"]
         k_total  = k_sw + b["k_lk"]  # retained for batting_positions block below
 
@@ -716,7 +717,7 @@ def compute_stats(pas, roster):
             "k_sw":k_sw,"k_lk":b["k_lk"],"gb":gb,"fb_ld":fb_ld,
             "avg":avg,"obp":obp,"slg":slg,"c_pct":c_pct,
             "gb_pct":gb_pct,"fb_pct":fb_pct,
-            "sm_pct":sm_pct,"cstr_pct":cstr_pct,"fpt_pct":fpt_pct,
+            "swing_pct":swing_pct,"sm_pct":sm_pct,"cstr_pct":cstr_pct,"fpt_pct":fpt_pct,
             "avg_batting_pos":avg_batting_pos,
             "zones_sorted":sorted(b["zones"].items(), key=lambda x:-x[1]),
             "zone_detail":dict(b["zone_detail"]),
@@ -849,7 +850,7 @@ def _compute_derived_stats(sums):
 
     Returns:
         dict with keys: avg, obp, slg, c_pct, gb_pct, fb_pct,
-                        sm_pct, cstr_pct, fpt_pct
+                        swing_pct, sm_pct, cstr_pct, fpt_pct
     """
     ab      = sums["ab"];  h  = sums["h"];  bb = sums["bb"];  hbp = sums["hbp"]
     tb      = sums["tb"];  bip = sums["bip"]
@@ -868,6 +869,9 @@ def _compute_derived_stats(sums):
         "c_pct":    _safe_div(ab - k_total, ab),
         "gb_pct":   _safe_div(gb, bip),
         "fb_pct":   _safe_div(fb_ld, bip),
+        # Swing% = swings (miss + foul + in-play) / total pitches seen.
+        # Measures how often the batter offers at a pitch — higher = more aggressive.
+        "swing_pct": _safe_div(swings, total_p),
         "sm_pct":   _safe_div(sums["p_swing_miss"], swings),
         "cstr_pct": _safe_div(sums["p_called_str"], total_p),
         "fpt_pct":  _safe_div(sums["fpt_takes"], fpt_tot),
@@ -1488,15 +1492,24 @@ def draw_card(c, b, x, y, cw, ch, all_batters=None, header_color=None):
     draw_bar(c, ix, cy-bh2, iw, bh2, b["fb_pct"],  C_BLUE,  "FB+LD%", fill_text_white=True)
     cy -= bh2 + 3
 
-    # ── Footer: SM% | CStr% | FPT% — bold 7pt ──
+    # ── Footer: Swing% | SM% | CStr% | FPT% — bold 7pt, 4 evenly-spaced stats ──
+    footer_y = cy - 10
+    # 4 stats evenly distributed across the card interior width
+    col_w = iw / 4
     sm_color = (C_RED   if (b["sm_pct"] or 0) >= 0.35 else
                 C_GREEN if (b["sm_pct"] is not None and b["sm_pct"] <= 0.20) else C_NAVY)
     c.setFont("Helvetica-Bold", 7)
-    c.setFillColor(sm_color)
-    c.drawString(ix, cy-10, f"SM%: {fmt_pct(b['sm_pct'])}")
+    # Swing%: left-aligned in col 0
     c.setFillColor(C_NAVY)
-    c.drawCentredString(x+cw/2, cy-10, f"CStr%: {fmt_pct(b['cstr_pct'])}")
-    c.drawRightString(ix+iw, cy-10, f"FPT%: {fmt_pct(b.get('fpt_pct'))}")
+    c.drawString(ix, footer_y, f"Sw%: {fmt_pct(b.get('swing_pct'))}")
+    # SM%: centred in col 1
+    c.setFillColor(sm_color)
+    c.drawCentredString(ix + col_w * 1.5, footer_y, f"SM%: {fmt_pct(b['sm_pct'])}")
+    # CStr%: centred in col 2  (rendered after SM color reset)
+    c.setFillColor(C_NAVY)
+    c.drawCentredString(ix + col_w * 2.5, footer_y, f"CStr%: {fmt_pct(b['cstr_pct'])}")
+    # FPT%: right-aligned in col 3
+    c.drawRightString(ix + iw, footer_y, f"FPT%: {fmt_pct(b.get('fpt_pct'))}")
 
 # ---------------------------------------------------------------------------
 # 10. PDF generation
@@ -1558,7 +1571,7 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
     # Table
     hdr = ["Hitter","AVG","OBP","SLG","C%",
            "#1 Zone","#2 Zone","#3 Zone","#4 Zone",
-           "GB%","FB+%","SM%","CStr%","FPT%"]
+           "GB%","FB+%","Sw%","SM%","CStr%","FPT%"]
     data = [hdr]
     for b in active:
         zs = b["zones_sorted"]; bip = b["bip"]
@@ -1573,7 +1586,7 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             fmt_avg(b["avg"]),fmt_avg(b["obp"]),fmt_avg(b["slg"]),fmt_pct(b["c_pct"]),
         ] + zcells + [
             fmt_pct(b["gb_pct"]),fmt_pct(b["fb_pct"]),
-            fmt_pct(b["sm_pct"]),fmt_pct(b["cstr_pct"]),fmt_pct(b.get("fpt_pct")),
+            fmt_pct(b.get("swing_pct")),fmt_pct(b["sm_pct"]),fmt_pct(b["cstr_pct"]),fmt_pct(b.get("fpt_pct")),
         ])
 
     # ── Team Totals row (amber) ───────────────────────────────────────────────
@@ -1598,7 +1611,7 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             fmt_avg(tt["avg"]), fmt_avg(tt["obp"]), fmt_avg(tt["slg"]), fmt_pct(tt["c_pct"]),
         ] + tt_zcells + [
             fmt_pct(tt["gb_pct"]), fmt_pct(tt["fb_pct"]),
-            fmt_pct(tt["sm_pct"]), fmt_pct(tt["cstr_pct"]), fmt_pct(tt.get("fpt_pct")),
+            fmt_pct(tt.get("swing_pct")), fmt_pct(tt["sm_pct"]), fmt_pct(tt["cstr_pct"]), fmt_pct(tt.get("fpt_pct")),
         ])
         totals_row_idx = len(data) - 1
 
@@ -1625,16 +1638,17 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             "—", "—", "—", "—",   # zone columns — no cross-team ranking
             _rank_stat(tt["gb_pct"],      league_team_totals, "gb_pct"),
             _rank_stat(tt["fb_pct"],      league_team_totals, "fb_pct"),
+            _rank_stat(tt.get("swing_pct"), league_team_totals, "swing_pct"),
             _rank_stat(tt["sm_pct"],      league_team_totals, "sm_pct"),
             _rank_stat(tt["cstr_pct"],    league_team_totals, "cstr_pct"),
             _rank_stat(tt.get("fpt_pct"), league_team_totals, "fpt_pct"),
         ])
         rank_row_idx = len(data) - 1
 
-    col_ws = [1.00*inch,
-              0.38*inch,0.38*inch,0.38*inch,0.38*inch,
-              0.56*inch,0.56*inch,0.56*inch,0.56*inch,
-              0.36*inch,0.36*inch,0.36*inch,0.38*inch,0.36*inch]
+    col_ws = [0.96*inch,
+              0.36*inch,0.36*inch,0.36*inch,0.36*inch,
+              0.54*inch,0.54*inch,0.54*inch,0.54*inch,
+              0.34*inch,0.34*inch,0.32*inch,0.34*inch,0.36*inch,0.34*inch]
     tbl = Table(data, colWidths=col_ws)
 
     # Base styles: header band + player rows zebra stripe.
