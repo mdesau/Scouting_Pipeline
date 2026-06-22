@@ -26,6 +26,7 @@ handling, and code style. Follow those guidelines throughout.
 
 ### Version History
 ```
+v2.8.0  feat: add Swing% stat to hitting reports (card footer + summary table)
 v2.7.0  feat: pipeline summary log with per-team accounting + deltas + case-insensitive team matching
 v2.6.1  fix: launchd auto-load on login via ~/.zprofile (resilient to GDrive mount timing)
 v2.6.0  refactor: restructure to Dev/, rename gen_reports→gen_hitting, fix González regex, unify docs
@@ -95,7 +96,7 @@ Both components share the same virtual environment, game file data, and scraping
 ## Directory Structure
 
 ```
-Spring/                              <- git repo root (v2.7.0)
+Spring/                              <- git repo root (v2.8.0)
 |-- .git/
 |-- .gitignore
 |-- README.md                        <- project overview
