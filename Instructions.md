@@ -44,6 +44,17 @@ v0.1.0  initial commit
 
 ---
 
+## To Do
+
+| # | Item | Status | Target Version | Notes |
+|---|------|--------|----------------|-------|
+| 1 | Optimize directory structure for growth and future seasons | 🔲 Not Started | v3.0.0 | Restructure so the codebase scales across seasons without path duplication |
+| 2 | Build a user-friendly HTML front end ("HTML-based app") | 🔲 Not Started | v3.0.0 | Leverage stat_analysis.py HTML report pattern; create an interactive dashboard |
+| 3 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.1.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
+| 4 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
+
+---
+
 ## Project Summary
 
 Scout is a single automated pipeline for generating scouting reports for Weddington youth baseball (Spring 2026). It has two report components:
