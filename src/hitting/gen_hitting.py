@@ -83,60 +83,29 @@ def setup_logging(verbose=False):
 logger = logging.getLogger("gen_hitting")
 logger.addHandler(logging.NullHandler())
 
-# Resolve Spring folder relative to this script's own location.
-# Script lives in Spring/Dev/Hitting_Scout/Scripts/; "../../.." points to Spring/.
+# ---------------------------------------------------------------------------
+# PATH BOOTSTRAP — locate season_config.py in src/
+# ---------------------------------------------------------------------------
+# This script lives at src/hitting/gen_hitting.py.
+# season_config.py lives at src/season_config.py (one level up).
+import sys as _sys
+from pathlib import Path as _Path
+_SRC_DIR = _Path(__file__).resolve().parent.parent   # → Scout/src/
+if str(_SRC_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SRC_DIR))
 
-BASE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.."))
+from season_config import SCOUT_ROOT, SEASON_DIR, build_hitting_divisions  # noqa: E402
 
-DIVISIONS = {
-    "Majors": {
-        "scorebooks":      f"{BASE}/Majors/Reports/Scorebooks",
-        "output":          f"{BASE}/Majors/Reports/Scouting_Reports",
-        "csv":             f"{BASE}/Majors/Reports/Spring 2026 Draft Results.xlsx - Majors.csv",
-        "roster_json":     f"{BASE}/Majors/Reports/rosters.json",
-        "verify_json":     f"{BASE}/Majors/Reports/box_verify.json",
-        "csv_overrides":   {"Diamondbacks": "Dbacks"},
-        "roster_additions": {},
-        "league_scan": True,
-        "label_suffix": "Majors",
-        "teams": [
-            ("Guardians","Esau"), ("Royals","Hall"), ("Diamondbacks","Vandiford"),
-            ("Marlins","McLendon"), ("Dodgers","Pearson"), ("A's","Blanco"),
-            ("Braves","Rue"), ("Twins","Ewart"), ("Padres","Schick"),
-            ("Cubs","Holtzer"), ("Rays","Madero"),
-        ],
-    },
-    "Minors": {
-        "scorebooks":      f"{BASE}/Minors/Reports/Scorebooks",
-        "output":          f"{BASE}/Minors/Reports/Scouting_Reports",
-        "csv":             f"{BASE}/Minors/Reports/Spring 2026 Draft Results.xlsx - Minors.csv",
-        "roster_json":     f"{BASE}/Minors/Reports/rosters.json",
-        "verify_json":     f"{BASE}/Minors/Reports/box_verify.json",
-        "csv_overrides":   {},
-        "roster_additions": {"Mets-Hornung": {"B A": "B. Amerine"}},
-        "league_scan": True,
-        "label_suffix": "Minors",
-        "teams": [
-            ("Astros","Barbour"), ("Dodgers","Winchester"), ("Padres","Midkiff"),
-            ("Reds","Naturale"), ("Rangers","Leonard"), ("Yankees","DePasquale"),
-            ("Marlins","Eberlin"), ("Guardians","Plunkett"), ("Angels","Casper"),
-            ("Braves","Brooks"), ("Cubs","Verlinde"), ("Brewers","Linnenkohl"),
-            ("Rays","Pearson"), ("Mets","Hornung"),
-        ],
-    },
-    "Wild": {
-        "wild_base":   f"{BASE}/Wild",
-        "league_scan": False,
-        "label_suffix": "Weddington Wild",
-        "fixed_thresholds": {"slg_top33": 0.450, "c_bot33": 0.500, "bb_top33": 0.200},
-    },
-    "Storm": {
-        "wild_base":   f"{BASE}/Storm",
-        "league_scan": False,
-        "label_suffix": "Weddington Storm",
-        "fixed_thresholds": {"slg_top33": 0.450, "c_bot33": 0.500, "bb_top33": 0.200},
-    },
-}
+# BASE is kept as an alias for SEASON_DIR (str) for backward compatibility
+# with any f-string path joins that use BASE directly.
+BASE = str(SEASON_DIR)
+
+# ---------------------------------------------------------------------------
+# DIVISIONS — loaded from config/<season_id>.yaml via season_config
+# ---------------------------------------------------------------------------
+# WHY NOT HARDCODED: Team lists, coach names, and file paths are now in
+# config/2026-spring.yaml. New season = new YAML, same Python code.
+DIVISIONS = build_hitting_divisions()
 
 # ---------------------------------------------------------------------------
 # 1. Roster

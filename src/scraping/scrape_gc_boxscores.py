@@ -44,6 +44,16 @@ except ImportError:
     print("Run: pip3 install playwright --break-system-packages && playwright install chromium")
     raise
 
+# ---------------------------------------------------------------------------
+# PATH BOOTSTRAP — locate season_config.py in src/
+# ---------------------------------------------------------------------------
+import sys as _sys
+_SRC_DIR = Path(__file__).resolve().parent.parent   # → Scout/src/
+if str(_SRC_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SRC_DIR))
+
+from season_config import SCOUT_ROOT, SEASON_DIR, build_scraper_divisions  # noqa: E402
+
 # ─────────────────────────────────────────────────────────────
 # DEBUG CONFIGURATION
 # ─────────────────────────────────────────────────────────────
@@ -56,77 +66,16 @@ DEBUG_TEAM_NAMES    = False   # Log team name before/after normalization
 # PATHS
 # ─────────────────────────────────────────────────────────────
 
-SPRING_DIR = Path(
-    "~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com"
-    "/My Drive/Baseball/WCWAA/2026/Spring"
-).expanduser()
-
 SCRIPTS_DIR  = Path(__file__).parent
-SESSION_FILE = SCRIPTS_DIR / "gc_session.json"
-LOGS_DIR     = SCRIPTS_DIR.parent / "Logs"
+SESSION_FILE = SCOUT_ROOT / "sessions" / "gc_session.json"
+LOGS_DIR     = SCOUT_ROOT / "logs"
 
 GC_BASE_URL = "https://web.gc.com"
 
-DIVISIONS = {
-    "Majors": {
-        "type":        "org",
-        "org_id":      "1CMI2BBazG8C",
-        "roster_out":  SPRING_DIR / "Majors" / "Reports" / "rosters.json",
-        "verify_out":  SPRING_DIR / "Majors" / "Reports" / "box_verify.json",
-    },
-    "Minors": {
-        "type":        "org",
-        "org_id":      "GdcFopba2PbE",
-        "roster_out":  SPRING_DIR / "Minors" / "Reports" / "rosters.json",
-        "verify_out":  SPRING_DIR / "Minors" / "Reports" / "box_verify.json",
-    },
-    # ── Wild opponents ────────────────────────────────────────────────────────
-    # Builds roster.txt per team folder from box score pages.
-    # To add a new opponent, follow the same pattern as scrape_gc_playbyplay.py:
-    #   ("team_id", "slug", "Exact Folder Name")
-    # ─────────────────────────────────────────────────────────────────────────
-    "Wild": {
-        "type":        "teams",
-        "base_dir":    SPRING_DIR / "Wild",
-        "teams": [
-            ("1yv2qtI89QSD", "2026-spring-arena-national-browning-11u", "Arena National Browning 11U"),
-            ("Kih0oavXNZB3", "2026-spring-south-charlotte-panthers-11u", "South Charlotte Panthers 11U"),
-            ("Ye94sB963tUX", "2026-spring-weddington-wild-11u",          "Weddington Wild 11U"),
-            ("1gqDRuls0oER", "2026-spring-qc-flight-baseball-11u",          "QC Flight Baseball 11U"),
-            ("I2XcyUwmye3p", "2026-spring-t24-garnet-11u",                   "T24 Garnet 11U"),
-            ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
-            ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
-            ("PVUBGhDYocE0", "2026-spring-tega-cay-titans-11u", "Tega CAY Titans 11U"),
-            ("3rRRtn4fZToI", "2026-spring-weddington-vipers-12u", "Weddington Vipers 12U"),
-            ("wRYOMV2TuwFs", "2026-spring-mara-bulls-8u-8u", "Mara Bulls 8U 8U"),
-        ],
-    },
-    # ── Storm opponents ───────────────────────────────────────────────────────
-    "Storm": {
-        "type":        "teams",
-        "base_dir":    SPRING_DIR / "Storm",
-        "teams": [
-            ("lTxYlYLH52KU", "2026-spring-itaa-9u-spartans",  "ITAA 9U Spartans"),
-            ("VdoWDJdlCgAH", "2026-spring-mara-9u-stingers",  "MARA 9U Stingers"),
-            ("lc7rtdls8Ht6", "2026-spring-south-charlotte-challenge-9u-doggett", "South Charlotte Challenge 9U Doggett"),
-            ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),            
-            ("xduuY8fEkGLx", "2026-spring-lkn-lightning-10u", "LKN Lightning 10U"),
-            ("HZ3pkdRb5s6P", "2026-spring-park-sharon-nationals-10u", "Park Sharon Nationals 10U"),
-            ("L3KLX1oI2VGl", "2026-spring-weddington-stormtroopers", "Weddington Stormtroopers"),
-
-            ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
-            ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
-            ("XVsrx4NMoxtd", "2026-spring-crushers-white-10u", "Crushers White 10U"),
-            ("TRxdck3guZR2", "2026-spring-weddington-10u-gophers", "Weddington 10U Gophers"),
-            ("cWO18bx9QygS", "2026-spring-titans-9u", "Titans 9U"),
-            ("EXINEHCNJvCh", "2026-spring-mara-outlaws-9u", "Mara Outlaws 9U"),
-            ("NKYvDeRxd6Ix", "2025-fall-eagles-9u", "Eagles 9U"),
-            ("cuZvbXiqW27V", "2026-spring-shelby-storm-9u", "Shelby Storm 9U"),
-            ("z6at0bImwKhn", "2026-spring-carolina-river-rats-9u", "Carolina River Rats 9U"),
-            ("iBsijsXdt6tG", "2026-spring-lkn-storm-9u", "LKN Storm 9U"),
-        ],
-    },
-}
+# ---------------------------------------------------------------------------
+# DIVISIONS — loaded from config/<season_id>.yaml via season_config
+# ---------------------------------------------------------------------------
+DIVISIONS = build_scraper_divisions()
 
 # ─────────────────────────────────────────────────────────────
 # LOGGING

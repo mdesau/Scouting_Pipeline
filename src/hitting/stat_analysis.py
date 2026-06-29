@@ -53,20 +53,29 @@ from datetime import datetime
 #   gen_hitting.py already has battle-tested parsing logic. Duplicating would
 #   create a maintenance burden (any parser fix would need to be applied twice).
 #   Importing keeps stat_analysis.py as a pure *consumer* of the parsed data.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gen_hitting import (
-    DIVISIONS, BASE,
+import sys as _sys
+from pathlib import Path as _Path
+_SRC_DIR = _Path(__file__).resolve().parent.parent   # → Scout/src/
+if str(_SRC_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SRC_DIR))
+
+from season_config import SCOUT_ROOT, SEASON_DIR, build_hitting_divisions  # noqa: E402
+from gen_hitting import (  # noqa: E402
     parse_game_for_team, compute_stats, compute_team_totals,
     get_wild_opponents, load_wild_roster,
     load_box_rosters, build_rosters,
     fmt_avg, fmt_pct,
 )
 
+# DIVISIONS and BASE are now provided by season_config
+DIVISIONS = build_hitting_divisions()
+BASE = str(SEASON_DIR)  # kept for any legacy f-string references
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 DEFAULT_MIN_PA = 15       # Minimum PAs to qualify — filters noise from pinch-hitters
-DEFAULT_OUTPUT = os.path.join(BASE, "Dev", "Hitting_Scout", "Scripts", "stat_analysis_report.html")
+DEFAULT_OUTPUT = str(SCOUT_ROOT / "src" / "web" / "stat_analysis_report.html")
 
 # The 8 stats we're analyzing, in display order
 STATS = [

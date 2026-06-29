@@ -1,8 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# WCWAA 2026 Spring — Git Ignore
+# WCWAA Scout Pipeline — Git Ignore
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Data / output folders (game files, PDFs, rosters) ────────────────────────
+# ── Season data (game files, PDFs, rosters — all gitignored, lives in seasons/) ─
+seasons/
+
+# ── Legacy data folders (pre-v3.0.0 locations — kept for migration period) ──
 Majors/
 Minors/
 Wild/
@@ -18,13 +21,25 @@ __pycache__/
 
 # ── Virtual environment ──────────────────────────────────────────────────────
 Dev/venv/
+venv/
 
-# ── Logs ─────────────────────────────────────────────────────────────────────
+# ── Logs (unified under logs/ in v3.0.0+) ───────────────────────────────────
+logs/
 Dev/Hitting_Scout/Logs/
 Dev/Pitching_Savant/Logs/
+Scout_Development/Logs/
 
-# ── Session / credentials ────────────────────────────────────────────────────
+# ── Session / credentials (GC auth tokens — never commit these) ─────────────
+sessions/
 Dev/Hitting_Scout/Scripts/gc_session.json
+
+# ── Generated HTML reports ───────────────────────────────────────────────────
+src/web/stat_analysis_report.html
+Dev/Hitting_Scout/Scripts/stat_analysis_report.html
+
+# ── Backup files ─────────────────────────────────────────────────────────────
+*.bak
+*.py.bak
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -32,3 +47,4 @@ Dev/Hitting_Scout/Scripts/gc_session.json
 # ── Generated PDFs (except examples) ────────────────────────────────────────
 Scout_Development/*.pdf
 Pitching_Savant/*.pdf
+Dev/Hitting_Scout/*.pdf

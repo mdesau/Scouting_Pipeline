@@ -60,41 +60,26 @@ DEBUG_PA_ATTRIBUTION    = False  # Log each PA attributed to which pitcher
 DEBUG_STAT_CALC         = False  # Log intermediate stat calculations
 DEBUG_PERCENTILES       = False  # Log percentile rank computation
 
-LOGS_DIR = Path(__file__).parent.parent / "Logs"
-
 # ===========================================================================
-# PATH SETUP — locate Hitting_Scout scripts + data directories
+# PATH BOOTSTRAP — locate season_config + gen_hitting in src/
 # ===========================================================================
-# This script lives in Dev/Pitching_Savant/Scripts/
-# Hitting_Scout lives at the same level: ../Hitting_Scout/Scripts/
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)                      # Dev/Pitching_Savant/
-DEV_DIR = os.path.dirname(PROJECT_DIR)                          # Dev/
-SPRING_DIR = os.path.dirname(DEV_DIR)                          # Spring/
-SCOUT_SCRIPTS = os.path.join(DEV_DIR, "Hitting_Scout", "Scripts")
+# This script lives at src/pitching/gen_pitching.py.
+# season_config.py is at src/season_config.py.
+# gen_hitting.py is at src/hitting/gen_hitting.py.
+# We add both src/ and src/hitting/ to sys.path so imports resolve cleanly.
+_SRC_DIR = Path(__file__).resolve().parent.parent           # → Scout/src/
+_HITTING_DIR = _SRC_DIR / "hitting"                         # → Scout/src/hitting/
+for _p in (str(_SRC_DIR), str(_HITTING_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-# Import DIVISIONS from Hitting_Scout's scraper — single source of truth
-# We use importlib to avoid modifying sys.path permanently
-import importlib.util
+from season_config import SCOUT_ROOT, SEASON_DIR, build_hitting_divisions  # noqa: E402
 
-# Temporarily add Scout's Scripts dir to sys.path so the scraper's own imports
-# (e.g. parse_gc_text) resolve correctly when we load it
-_scout_in_path = SCOUT_SCRIPTS in sys.path
-if not _scout_in_path:
-    sys.path.insert(0, SCOUT_SCRIPTS)
+LOGS_DIR = SCOUT_ROOT / "logs"
 
-_scraper_path = os.path.join(SCOUT_SCRIPTS, "scrape_gc_playbyplay.py")
-_spec = importlib.util.spec_from_file_location("_scout_scraper", _scraper_path)
-_scout_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_scout_mod)
-DIVISIONS_RAW = _scout_mod.DIVISIONS
-
-# Also grab gen_hitting.py's DIVISIONS for folder paths
-_gen_path = os.path.join(SCOUT_SCRIPTS, "gen_hitting.py")
-_spec2 = importlib.util.spec_from_file_location("_gen_hitting", _gen_path)
-_gen_mod = importlib.util.module_from_spec(_spec2)
-_spec2.loader.exec_module(_gen_mod)
-DIVISIONS_PATHS = _gen_mod.DIVISIONS
+# DIVISIONS provides folder paths for all four divisions.
+# Use the hitting shape since gen_pitching needs scorebooks/wild_base paths.
+DIVISIONS = build_hitting_divisions()
 
 
 # ===========================================================================
@@ -1023,7 +1008,7 @@ def run_league_division(division_name, team_filter=None, verbose=False):
     Parses ALL games in the division to build league-wide percentile pools,
     then generates PDFs for the requested team(s).
     """
-    div_cfg = DIVISIONS_PATHS.get(division_name)
+    div_cfg = DIVISIONS.get(division_name)
     if not div_cfg:
         logger.error(f"Unknown division: {division_name}")
         return
@@ -1146,7 +1131,7 @@ def run_travel_division(division_name, team_filter=None, verbose=False):
     Each opponent team has its own folder with Games/ subfolder.
     Teams are discovered dynamically from the filesystem (same as gen_hitting).
     """
-    div_cfg = DIVISIONS_PATHS.get(division_name)
+    div_cfg = DIVISIONS.get(division_name)
     if not div_cfg:
         logger.error(f"Unknown division: {division_name}")
         return

@@ -1,0 +1,234 @@
+# ===========================================================================
+# WCWAA Scout Pipeline — Season Configuration
+# Season: 2026 Spring
+# ===========================================================================
+#
+# HOW TO USE THIS FILE
+# --------------------
+# This file is the single source of truth for all season-specific data:
+# team names, GameChanger IDs, division settings, and file paths.
+#
+# To create a new season (e.g. Fall 2026):
+#   1. Copy this file to config/2026-fall.yaml
+#   2. Update season_id, display_name, and any changed team rosters
+#   3. Update config/active_season.txt to "2026-fall"
+#   4. Create seasons/2026-fall/ folder structure
+#
+# To add a new team mid-season:
+#   Use the interactive menu (bash launchers/run_scout.sh -> option [3])
+#   The wizard will update this file automatically.
+#
+# PATH NOTES
+# ----------
+# All paths under each division are RELATIVE to the season data directory
+# (seasons/2026-spring/). The Python code prepends the full SEASON_DIR path.
+#
+# DIVISION TYPES
+# --------------
+# league: Majors/Minors — org-based GameChanger schedule, centralized scorebooks
+# travel: Wild/Storm — team-based GC schedule pages, per-team Games/ folders
+# ===========================================================================
+
+season_id: "2026-spring"
+display_name: "2026 Spring"
+
+divisions:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # MAJORS — 11U in-house league (11 teams)
+  # ─────────────────────────────────────────────────────────────────────────
+  Majors:
+    type: league
+    age: "11U"
+    gc_org_id: "1CMI2BBazG8C"
+    scorebooks: "Majors/Reports/Scorebooks"
+    output: "Majors/Reports/Scouting_Reports"
+    roster_json: "Majors/Reports/rosters.json"
+    verify_json: "Majors/Reports/box_verify.json"
+    csv: "Majors/Reports/Spring 2026 Draft Results.xlsx - Majors.csv"
+    label_suffix: "Majors"
+    csv_overrides:
+      Diamondbacks: Dbacks
+    roster_additions: {}
+    teams:
+      - name: Guardians
+        coach: Esau
+      - name: Royals
+        coach: Hall
+      - name: Diamondbacks
+        coach: Vandiford
+      - name: Marlins
+        coach: McLendon
+      - name: Dodgers
+        coach: Pearson
+      - name: "A's"
+        coach: Blanco
+      - name: Braves
+        coach: Rue
+      - name: Twins
+        coach: Ewart
+      - name: Padres
+        coach: Schick
+      - name: Cubs
+        coach: Holtzer
+      - name: Rays
+        coach: Madero
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # MINORS — 9U in-house league (14 teams)
+  # ─────────────────────────────────────────────────────────────────────────
+  Minors:
+    type: league
+    age: "9U"
+    gc_org_id: "GdcFopba2PbE"
+    scorebooks: "Minors/Reports/Scorebooks"
+    output: "Minors/Reports/Scouting_Reports"
+    roster_json: "Minors/Reports/rosters.json"
+    verify_json: "Minors/Reports/box_verify.json"
+    csv: "Minors/Reports/Spring 2026 Draft Results.xlsx - Minors.csv"
+    label_suffix: "Minors"
+    csv_overrides: {}
+    roster_additions:
+      Mets-Hornung:
+        B A: "B. Amerine"
+    teams:
+      - name: Astros
+        coach: Barbour
+      - name: Dodgers
+        coach: Winchester
+      - name: Padres
+        coach: Midkiff
+      - name: Reds
+        coach: Naturale
+      - name: Rangers
+        coach: Leonard
+      - name: Yankees
+        coach: DePasquale
+      - name: Marlins
+        coach: Eberlin
+      - name: Guardians
+        coach: Plunkett
+      - name: Angels
+        coach: Casper
+      - name: Braves
+        coach: Brooks
+      - name: Cubs
+        coach: Verlinde
+      - name: Brewers
+        coach: Linnenkohl
+      - name: Rays
+        coach: Pearson
+      - name: Mets
+        coach: Hornung
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # WILD — 11U travel opponents (per-team Games/ folders)
+  # ─────────────────────────────────────────────────────────────────────────
+  # IMPORTANT: The "name" field MUST exactly match the team name as written
+  # in GameChanger's inning headers (e.g. ===Top 1st - Arena National...===).
+  # Folder names on disk use the same string. Mismatches → 0 PAs.
+  Wild:
+    type: travel
+    age: "11U"
+    output_base: "Wild"
+    label_suffix: "Weddington Wild"
+    fixed_thresholds:
+      slg_top33: 0.450
+      c_bot33: 0.500
+      bb_top33: 0.200
+    teams:
+      - name: "Arena National Browning 11U"
+        gc_id: "1yv2qtI89QSD"
+        gc_slug: "2026-spring-arena-national-browning-11u"
+      - name: "South Charlotte Panthers 11U"
+        gc_id: "Kih0oavXNZB3"
+        gc_slug: "2026-spring-south-charlotte-panthers-11u"
+      - name: "Weddington Wild 11U"
+        gc_id: "Ye94sB963tUX"
+        gc_slug: "2026-spring-weddington-wild-11u"
+      - name: "QC Flight Baseball 11U"
+        gc_id: "1gqDRuls0oER"
+        gc_slug: "2026-spring-qc-flight-baseball-11u"
+      - name: "T24 Garnet 11U"
+        gc_id: "I2XcyUwmye3p"
+        gc_slug: "2026-spring-t24-garnet-11u"
+      - name: "SBA Alabama National 12U"
+        gc_id: "Wn2Abf32IXOz"
+        gc_slug: "2026-summer-sba-alabama-national-12u"
+      - name: "TN Nationals Heichelbech 12U"
+        gc_id: "QebtI4WHVMPn"
+        gc_slug: "2026-summer-tn-nationals-heichelbech-12u"
+      - name: "Tega CAY Titans 11U"
+        gc_id: "PVUBGhDYocE0"
+        gc_slug: "2026-spring-tega-cay-titans-11u"
+      - name: "Weddington Vipers 12U"
+        gc_id: "3rRRtn4fZToI"
+        gc_slug: "2026-spring-weddington-vipers-12u"
+      - name: "Mara Bulls 8U 8U"
+        gc_id: "wRYOMV2TuwFs"
+        gc_slug: "2026-spring-mara-bulls-8u-8u"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # STORM — 9U travel opponents (per-team Games/ folders)
+  # ─────────────────────────────────────────────────────────────────────────
+  Storm:
+    type: travel
+    age: "9U"
+    output_base: "Storm"
+    label_suffix: "Weddington Storm"
+    fixed_thresholds:
+      slg_top33: 0.450
+      c_bot33: 0.500
+      bb_top33: 0.200
+    teams:
+      - name: "ITAA 9U Spartans"
+        gc_id: "lTxYlYLH52KU"
+        gc_slug: "2026-spring-itaa-9u-spartans"
+      - name: "MARA 9U Stingers"
+        gc_id: "VdoWDJdlCgAH"
+        gc_slug: "2026-spring-mara-9u-stingers"
+      - name: "South Charlotte Challenge 9U Doggett"
+        gc_id: "lc7rtdls8Ht6"
+        gc_slug: "2026-spring-south-charlotte-challenge-9u-doggett"
+      - name: "Pineville Blue Sox 9U"
+        gc_id: "igECV1q4jzFV"
+        gc_slug: "2026-spring-pineville-blue-sox-9u"
+      - name: "LKN Lightning 10U"
+        gc_id: "xduuY8fEkGLx"
+        gc_slug: "2026-spring-lkn-lightning-10u"
+      - name: "Park Sharon Nationals 10U"
+        gc_id: "HZ3pkdRb5s6P"
+        gc_slug: "2026-spring-park-sharon-nationals-10u"
+      - name: "Weddington Stormtroopers"
+        gc_id: "L3KLX1oI2VGl"
+        gc_slug: "2026-spring-weddington-stormtroopers"
+      - name: "Lake Norman Lightning 9U"
+        gc_id: "H130ItYghVag"
+        gc_slug: "2026-spring-lake-norman-lightning-9u"
+      - name: "Dilworth 9U - Navy"
+        gc_id: "eR45wjQRgKYW"
+        gc_slug: "2026-spring-dilworth-9u---navy"
+      - name: "Crushers White 10U"
+        gc_id: "XVsrx4NMoxtd"
+        gc_slug: "2026-spring-crushers-white-10u"
+      - name: "Weddington 10U Gophers"
+        gc_id: "TRxdck3guZR2"
+        gc_slug: "2026-spring-weddington-10u-gophers"
+      - name: "Titans 9U"
+        gc_id: "cWO18bx9QygS"
+        gc_slug: "2026-spring-titans-9u"
+      - name: "Mara Outlaws 9U"
+        gc_id: "EXINEHCNJvCh"
+        gc_slug: "2026-spring-mara-outlaws-9u"
+      - name: "Eagles 9U"
+        gc_id: "NKYvDeRxd6Ix"
+        gc_slug: "2025-fall-eagles-9u"
+      - name: "Shelby Storm 9U"
+        gc_id: "cuZvbXiqW27V"
+        gc_slug: "2026-spring-shelby-storm-9u"
+      - name: "Carolina River Rats 9U"
+        gc_id: "z6at0bImwKhn"
+        gc_slug: "2026-spring-carolina-river-rats-9u"
+      - name: "LKN Storm 9U"
+        gc_id: "iBsijsXdt6tG"
+        gc_slug: "2026-spring-lkn-storm-9u"

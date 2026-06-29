@@ -1,55 +1,52 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# run_scout.sh — WCWAA 2026 Spring  |  Pipeline launcher
+# run_scout.sh — WCWAA Scout Pipeline launcher
 #
 # USAGE
 # ─────
 # Interactive mode (shows a menu — pick division, team, or run everything):
-#   bash run_scout.sh
+#   bash launchers/run_scout.sh
 #
-# CLI mode (skip menu — run directly with flags, same as before):
-#   bash run_scout.sh --division Wild
-#   bash run_scout.sh --division Majors --team "Cubs-Holtzer"
+# CLI mode (skip menu — run directly with flags):
+#   bash launchers/run_scout.sh --division Wild
+#   bash launchers/run_scout.sh --division Majors --team "Cubs-Holtzer"
 #
 # First time / session expired:
-#   python3 scrape_gc_playbyplay.py --login
+#   python3 src/scraping/scrape_gc_playbyplay.py --login
 #
 # WHAT THIS SCRIPT DOES
 # ─────────────────────
-# 1. Activates the project virtual environment (Hitting_Scout/venv/)
-#    — required for Playwright (scraping) and ReportLab (PDF generation).
+# 1. Activates the project virtual environment (venv/ at repo root)
 # 2. Hands control to run_menu.py, which:
 #    — Shows an interactive numbered menu when called with no arguments
 #    — Passes CLI flags straight through to the pipeline when arguments are given
 #
 # WHY A PYTHON SCRIPT HANDLES THE MENU (not bash):
-#   The menu needs to know all team names to build the numbered lists.
-#   Those names live in scrape_gc_playbyplay.py's DIVISIONS dict. Python can import
-#   that dict directly — no duplication. Bash cannot. Keeping one source
-#   of truth (DRY principle) means adding a team in scrape_gc_playbyplay.py
-#   automatically updates the menu with zero extra work.
+#   The menu needs team names which come from the YAML config. Python can load
+#   that config directly via season_config.py. Bash cannot. This keeps one
+#   source of truth (DRY principle) — adding a team to the YAML automatically
+#   updates the menu with zero extra work.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Navigate to Scripts/ so all python3 calls find scrape_gc_playbyplay.py etc.
-SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPTS_DIR"
+# Resolve paths — launchers/ sits one level below Scout/ (repo root)
+LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
+
+# Navigate to repo root so relative imports in Python scripts resolve correctly
+cd "$REPO_ROOT"
 
 # ── Activate the project virtual environment ──────────────────────────────
-# The venv lives one level up from Scripts/ (Hitting_Scout/venv/).
-# Playwright and ReportLab are installed there — NOT in system Python.
-VENV_DIR="$SCRIPTS_DIR/../../venv"
+# The venv lives at the repo root (Scout/venv/) — shared across all components.
+VENV_DIR="$REPO_ROOT/Dev/venv"
 if [[ -f "$VENV_DIR/bin/activate" ]]; then
     # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
 else
     echo "⚠️  WARNING: venv not found at $VENV_DIR"
     echo "   Recreate it with:"
-    echo "   cd Hitting_Scout && python3 -m venv venv && venv/bin/pip install -r requirements.txt"
+    echo "   python3 -m venv Dev/venv && Dev/venv/bin/pip install -r requirements.txt"
     echo "   Continuing with system Python — scripts may fail if Playwright/ReportLab missing."
 fi
 
 # ── Hand off to the Python menu / pipeline runner ─────────────────────────
-# "$@" passes any CLI arguments through unchanged.
-# With no arguments → interactive menu is shown.
-# With arguments (e.g. --division Wild) → menu is skipped, pipeline runs directly.
-python3 run_menu.py "$@"
+python3 src/orchestrator/run_menu.py "$@"

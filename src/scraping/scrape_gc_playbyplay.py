@@ -51,7 +51,21 @@ except ImportError:
     print("Run: pip3 install playwright --break-system-packages && playwright install chromium")
     raise
 
-from parse_gc_text import parse_gc_raw
+# ---------------------------------------------------------------------------
+# PATH BOOTSTRAP — locate season_config.py in src/
+# ---------------------------------------------------------------------------
+# This script lives at src/scraping/scrape_gc_playbyplay.py.
+# season_config.py lives at src/season_config.py (one level up).
+# We add src/ and src/scraping/ to sys.path so we can import both.
+import sys as _sys
+_SRC_DIR = Path(__file__).resolve().parent.parent   # → Scout/src/
+if str(_SRC_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SRC_DIR))
+if str(_SRC_DIR / "scraping") not in _sys.path:
+    _sys.path.insert(0, str(_SRC_DIR / "scraping"))
+
+from season_config import SCOUT_ROOT, SEASON_DIR, build_scraper_divisions  # noqa: E402
+from parse_gc_text import parse_gc_raw  # noqa: E402
 
 # ─────────────────────────────────────────────────────────────
 # DEBUG CONFIGURATION
@@ -64,21 +78,16 @@ from parse_gc_text import parse_gc_raw
 #   For heavy debugging: flip a flag below to True, then run normally.
 #
 # WHY FLAGS INSTEAD OF JUST --verbose:
-#   --verbose shows targeted debug messages (game skips, date parsing, etc.)
-#   These flags dump RAW DATA (full JS output, full page text) which can be
+#   --verbose shows targeted debug messages (game skips, date parsing, etc.)\n#   These flags dump RAW DATA (full JS output, full page text) which can be
 #   hundreds of lines — you only want that when hunting a specific issue.
 # ─────────────────────────────────────────────────────────────
 DEBUG_SCHEDULE_RAW = False   # Dump full SCHEDULE_JS return (every game card's raw fields)
 DEBUG_PAGE_TEXT    = False   # Dump raw page text from each /plays page before parsing
 
-SPRING_DIR = Path(
-    "~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com"
-    "/My Drive/Baseball/WCWAA/2026/Spring"
-).expanduser()
-
 GC_BASE_URL  = "https://web.gc.com"
-SESSION_FILE = Path(__file__).parent / "gc_session.json"
-LOGS_DIR     = Path(__file__).parent.parent / "Logs"
+# Session file lives in sessions/ at repo root (gitignored — contains auth tokens)
+SESSION_FILE = SCOUT_ROOT / "sessions" / "gc_session.json"
+LOGS_DIR     = SCOUT_ROOT / "logs"
 
 # ─────────────────────────────────────────────────────────────
 # LOGGING
@@ -114,74 +123,13 @@ def setup_logging(verbose=False):
 logger = logging.getLogger("scrape_gc_playbyplay")
 logger.addHandler(logging.NullHandler())
 
-# Majors and Minors: org-based schedule URLs
-# Wild and Storm:    team-based schedule URLs
-DIVISIONS = {
-    "Majors": {
-        "type":      "org",
-        "id":        "1CMI2BBazG8C",
-        "output":    SPRING_DIR / "Majors" / "Reports" / "Scorebooks",
-        "label":     "Majors",
-    },
-    "Minors": {
-        "type":      "org",
-        "id":        "GdcFopba2PbE",
-        "output":    SPRING_DIR / "Minors" / "Reports" / "Scorebooks",
-        "label":     "Minors",
-    },
-    # ── Wild opponents ────────────────────────────────────────────────────────
-    # To add a new opponent:
-    #   1. Go to their schedule page on GameChanger
-    #   2. Copy the URL — it looks like:
-    #      https://web.gc.com/teams/{team_id}/{slug}/schedule
-    #   3. Add one line below:  ("team_id", "slug", "Exact Folder Name")
-    #      The folder name must exactly match the team name in their GC inning headers.
-    # ─────────────────────────────────────────────────────────────────────────
-    "Wild": {
-        "type":   "teams",
-        "teams":  [
-            ("1yv2qtI89QSD", "2026-spring-arena-national-browning-11u", "Arena National Browning 11U"),
-            ("Kih0oavXNZB3", "2026-spring-south-charlotte-panthers-11u", "South Charlotte Panthers 11U"),
-            ("Ye94sB963tUX", "2026-spring-weddington-wild-11u",          "Weddington Wild 11U"),
-            ("1gqDRuls0oER", "2026-spring-qc-flight-baseball-11u",          "QC Flight Baseball 11U"),
-            ("I2XcyUwmye3p", "2026-spring-t24-garnet-11u",                   "T24 Garnet 11U"),
-            ("Wn2Abf32IXOz", "2026-summer-sba-alabama-national-12u",         "SBA Alabama National 12U"),
-            ("QebtI4WHVMPn", "2026-summer-tn-nationals-heichelbech-12u",     "TN Nationals Heichelbech 12U"),
-            ("PVUBGhDYocE0", "2026-spring-tega-cay-titans-11u", "Tega CAY Titans 11U"),
-            ("3rRRtn4fZToI", "2026-spring-weddington-vipers-12u", "Weddington Vipers 12U"),
-            ("wRYOMV2TuwFs", "2026-spring-mara-bulls-8u-8u", "Mara Bulls 8U 8U"),
-        ],
-        "output_base": SPRING_DIR / "Wild",
-        "label":       "Wild",
-    },
-    # ── Storm opponents ───────────────────────────────────────────────────────
-    # Same format as Wild above. Add new ITAA 9U travel opponents here.
-    # ─────────────────────────────────────────────────────────────────────────
-    "Storm": {
-        "type":   "teams",
-        "teams":  [
-            ("lTxYlYLH52KU", "2026-spring-itaa-9u-spartans",  "ITAA 9U Spartans"),
-            ("VdoWDJdlCgAH", "2026-spring-mara-9u-stingers",  "MARA 9U Stingers"),
-            ("lc7rtdls8Ht6", "2026-spring-south-charlotte-challenge-9u-doggett", "South Charlotte Challenge 9U Doggett"),
-            ("igECV1q4jzFV", "2026-spring-pineville-blue-sox-9u", "Pineville Blue Sox 9U"),
-            ("xduuY8fEkGLx", "2026-spring-lkn-lightning-10u", "LKN Lightning 10U"),
-            ("HZ3pkdRb5s6P", "2026-spring-park-sharon-nationals-10u", "Park Sharon Nationals 10U"),
-            ("L3KLX1oI2VGl", "2026-spring-weddington-stormtroopers", "Weddington Stormtroopers"),
-            ("H130ItYghVag", "2026-spring-lake-norman-lightning-9u", "Lake Norman Lightning 9U"),
-            ("eR45wjQRgKYW", "2026-spring-dilworth-9u---navy", "Dilworth 9U - Navy"),
-            ("XVsrx4NMoxtd", "2026-spring-crushers-white-10u", "Crushers White 10U"),
-            ("TRxdck3guZR2", "2026-spring-weddington-10u-gophers", "Weddington 10U Gophers"),
-            ("cWO18bx9QygS", "2026-spring-titans-9u", "Titans 9U"),
-            ("EXINEHCNJvCh", "2026-spring-mara-outlaws-9u", "Mara Outlaws 9U"),
-            ("NKYvDeRxd6Ix", "2025-fall-eagles-9u", "Eagles 9U"),
-            ("cuZvbXiqW27V", "2026-spring-shelby-storm-9u", "Shelby Storm 9U"),
-            ("z6at0bImwKhn", "2026-spring-carolina-river-rats-9u", "Carolina River Rats 9U"),
-            ("iBsijsXdt6tG", "2026-spring-lkn-storm-9u", "LKN Storm 9U"),
-        ],
-        "output_base": SPRING_DIR / "Storm",
-        "label":       "Storm",
-    },
-}
+# ---------------------------------------------------------------------------
+# DIVISIONS — loaded from config/<season_id>.yaml via season_config
+# ---------------------------------------------------------------------------
+# WHY NOT HARDCODED: All team IDs, slugs, and output paths now live in the
+# YAML config. To add a team use the interactive menu (run_scout.sh option [3])
+# or edit config/active_season.yaml directly. No Python files need editing.
+DIVISIONS = build_scraper_divisions()
 
 # ─────────────────────────────────────────────────────────────
 # JAVASCRIPT — runs inside the browser page

@@ -58,33 +58,39 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-# ── Paths ──────────────────────────────────────────────────────────────────
-# Scripts/ directory — where this file lives and where all scripts are located
+# ---------------------------------------------------------------------------
+# PATH BOOTSTRAP — locate season_config.py in src/
+# ---------------------------------------------------------------------------
+# This script lives at src/orchestrator/run_menu.py.
+# season_config.py lives at src/season_config.py (one level up).
+# src/scraping/ is also added so the DIVISIONS import resolves cleanly.
+_SRC_DIR = Path(__file__).resolve().parent.parent   # → Scout/src/
+for _p in (str(_SRC_DIR), str(_SRC_DIR / "scraping")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from season_config import (  # noqa: E402
+    SCOUT_ROOT, SEASON_DIR, SEASON_ID,
+    build_scraper_divisions, add_team_to_yaml,
+)
+
+# ── Paths ───────────────────────────────────────────────────────────────────
 SCRIPTS_DIR = Path(__file__).parent
+# SEASON_DIR is the active season's data root (e.g. Scout/seasons/2026-spring/)
+SESSION_FILE = SCOUT_ROOT / "sessions" / "gc_session.json"
+MAJORS_ROSTER = SEASON_DIR / "Majors" / "Reports" / "rosters.json"
+MINORS_ROSTER = SEASON_DIR / "Minors" / "Reports" / "rosters.json"
 
-# Spring/ directory — parent of Scout_Development/; holds Majors/, Minors/, Wild/, Storm/
-SPRING_DIR = Path(
-    "~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com"
-    "/My Drive/Baseball/WCWAA/2026/Spring"
-).expanduser()
+# Script paths for each pipeline step (all now live under src/)
+_SCRAPING_DIR     = _SRC_DIR / "scraping"
+_HITTING_DIR      = _SRC_DIR / "hitting"
+_PITCHING_SCRIPT  = _SRC_DIR / "pitching" / "gen_pitching.py"
 
-# Session file written by scrape_gc_playbyplay.py --login
-SESSION_FILE = SCRIPTS_DIR / "gc_session.json"
-
-# Rosters for Majors/Minors (keyed by team name like "Cubs-Holtzer")
-MAJORS_ROSTER = SPRING_DIR / "Majors" / "Reports" / "rosters.json"
-MINORS_ROSTER = SPRING_DIR / "Minors" / "Reports" / "rosters.json"
-
-# ── Import DIVISIONS from scrape_gc_playbyplay ───────────────────────────────────────
-# WHY: We import the live DIVISIONS dict rather than duplicating it here.
-# This means adding a team to scrape_gc_playbyplay.py automatically updates the menu —
-# no second place to edit. This is the DRY principle in action.
-try:
-    from scrape_gc_playbyplay import DIVISIONS
-except ImportError:
-    print("ERROR: Could not import DIVISIONS from scrape_gc_playbyplay.py.")
-    print("Make sure you are running this from the Scripts/ directory.")
-    sys.exit(1)
+# ── DIVISIONS from season_config (DRY — single source of truth) ─────────────
+# Previously imported from scrape_gc_playbyplay.py. Now loaded from YAML via
+# season_config so the menu, scrapers, and stat engines all stay in sync
+# without any inter-script imports.
+DIVISIONS = build_scraper_divisions()
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -242,7 +248,7 @@ def run_pipeline(division=None, team=None, headless=False):
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
     print(f"▶ Step 1/4  Scrape new games  [{scope}]")
     print("─" * 58)
-    _run([sys.executable, "scrape_gc_playbyplay.py"] + div_args + team_args, fatal=not headless)
+    _run([sys.executable, str(_SCRAPING_DIR / "scrape_gc_playbyplay.py")] + div_args + team_args, fatal=not headless)
 
     # Step 2: Update rosters
     # --team is now supported by scrape_gc_boxscores.py for Wild/Storm team-based divisions.
@@ -252,7 +258,7 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
     print(f"▶ Step 2/4  Update rosters    [{scope}]")
     print("─" * 58)
-    _run([sys.executable, "scrape_gc_boxscores.py"] + div_args + team_args, fatal=not headless)
+    _run([sys.executable, str(_SCRAPING_DIR / "scrape_gc_boxscores.py")] + div_args + team_args, fatal=not headless)
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).
@@ -263,28 +269,26 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
 
     if division:
-        _run([sys.executable, "gen_hitting.py", "--division", division] + team_args)
+        _run([sys.executable, str(_HITTING_DIR / "gen_hitting.py"), "--division", division] + team_args)
     else:
         # No division filter → run all four divisions
         for div in ["Majors", "Minors", "Wild", "Storm"]:
             print(f"  → {div}")
-            _run([sys.executable, "gen_hitting.py", "--division", div])
+            _run([sys.executable, str(_HITTING_DIR / "gen_hitting.py"), "--division", div])
 
     # Step 4: Generate Pitching Savant PDFs
-    # gen_pitching.py lives in the Pitching_Savant project but shares the same venv.
-    PITCHING_SCRIPT = SPRING_DIR / "Dev" / "Pitching_Savant" / "Scripts" / "gen_pitching.py"
-    if PITCHING_SCRIPT.exists():
+    if _PITCHING_SCRIPT.exists():
         print()
         print("─" * 58)
         print(f"▶ Step 4/4  Pitching PDFs    [{scope}]")
         print("─" * 58)
 
         if division:
-            _run([sys.executable, str(PITCHING_SCRIPT), "--division", division] + team_args)
+            _run([sys.executable, str(_PITCHING_SCRIPT), "--division", division] + team_args)
         else:
             for div in ["Majors", "Minors", "Wild", "Storm"]:
                 print(f"  → {div}")
-                _run([sys.executable, str(PITCHING_SCRIPT), "--division", div])
+                _run([sys.executable, str(_PITCHING_SCRIPT), "--division", div])
 
     print()
     print("=" * 58)
@@ -304,7 +308,7 @@ def run_pipeline(division=None, team=None, headless=False):
 # PIPELINE SUMMARY LOG
 # ════════════════════════════════════════════════════════════════════════════
 
-SUMMARY_LOG = SPRING_DIR / "Dev" / "Hitting_Scout" / "Logs" / "pipeline_summary.log"
+SUMMARY_LOG = SCOUT_ROOT / "logs" / "pipeline_summary.log"
 
 
 def _load_previous_summary():
@@ -345,8 +349,8 @@ def _load_previous_summary():
 
 
 def _find_latest_log(prefix, after_time=0):
-    """Find the most recent log file matching a prefix in Hitting_Scout/Logs/, modified after after_time."""
-    logs_dir = SPRING_DIR / "Dev" / "Hitting_Scout" / "Logs"
+    """Find the most recent log file matching a prefix in logs/, modified after after_time."""
+    logs_dir = SCOUT_ROOT / "logs"
     candidates = [f for f in logs_dir.glob(f"{prefix}_*.log") if f.stat().st_mtime >= after_time]
     candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     return candidates[0] if candidates else None
@@ -487,8 +491,8 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
     step1_log = _find_latest_log("scrape_gc_playbyplay", start_time)
     step2_log = _find_latest_log("scrape_gc_boxscores", start_time)
 
-    hitting_logs_dir = SPRING_DIR / "Dev" / "Hitting_Scout" / "Logs"
-    pitching_logs_dir = SPRING_DIR / "Dev" / "Pitching_Savant" / "Logs"
+    hitting_logs_dir  = SCOUT_ROOT / "logs"
+    pitching_logs_dir = SCOUT_ROOT / "logs"
 
     step3_logs = sorted(
         [f for f in hitting_logs_dir.glob("gen_hitting_*.log") if f.stat().st_mtime >= start_time],
@@ -710,69 +714,6 @@ def _slug_to_folder_name(slug):
     return " ".join(result)
 
 
-def _insert_team_into_file(filepath, division, team_id, slug, folder_name):
-    """
-    Insert a new team tuple into the DIVISIONS dict in a Python source file.
-
-    Finds the closing bracket of the correct division's teams list and
-    inserts the new tuple on the line just before it.
-
-    This works by finding a unique anchor string in the file — the line
-    that immediately follows the teams list closing bracket. Because each
-    division's anchor is unique, the replacement is unambiguous.
-
-    Args:
-        filepath:    Path to the Python file to modify.
-        division:    "Wild" or "Storm" — which section to insert into.
-        team_id:     GC team ID string.
-        slug:        GC URL slug string.
-        folder_name: Exact folder name for the team directory.
-
-    Returns:
-        True if insertion was successful, False otherwise.
-    """
-    with open(filepath, encoding="utf-8") as f:
-        content = f.read()
-
-    # New tuple line (12 spaces indent to match existing tuples)
-    new_line = f'            ("{team_id}", "{slug}", "{folder_name}"),'
-
-    # Each file has slightly different structure after the teams list,
-    # so we need different anchor strings for each file.
-    filename = Path(filepath).name
-
-    if filename == "scrape_gc_playbyplay.py":
-        anchors = {
-            "Wild":  '        ],\n        "output_base": SPRING_DIR / "Wild",',
-            "Storm": '        ],\n        "output_base": SPRING_DIR / "Storm",',
-        }
-    else:  # scrape_gc_boxscores.py
-        anchors = {
-            "Wild":  '        ],\n    },\n    # \u2500\u2500 Storm opponents',
-            "Storm": '        ],\n    },\n}',
-        }
-
-    anchor = anchors.get(division)
-    if not anchor or anchor not in content:
-        print(f"  ⚠️  Could not find insertion point in {filename}.")
-        print(f"     Please add this line manually to the {division} teams list:")
-        print(f"     {new_line}")
-        return False
-
-    # Replace anchor with: new_line + newline + anchor
-    new_content = content.replace(anchor, f"{new_line}\n{anchor}", 1)
-
-    # Write to a backup before overwriting (safety net)
-    backup = Path(filepath).with_suffix(".py.bak")
-    with open(backup, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(new_content)
-
-    return True
-
-
 def add_new_team():
     """
     Interactive flow to add a new Wild or Storm opponent to the pipeline.
@@ -781,16 +722,20 @@ def add_new_team():
       1. Paste a GC schedule URL → auto-parse team_id and slug
       2. Confirm or edit the suggested folder name
       3. Choose Wild or Storm division
-      4. Insert into scrape_gc_playbyplay.py and scrape_gc_boxscores.py
+      4. Write the new team to config/<season_id>.yaml via add_team_to_yaml()
       5. Create the Games/ folder structure on disk
       6. Print reminder about verifying folder name after first scrape
 
+    WHY YAML NOT PYTHON: Previously this wizard did brittle text-replacement
+    on Python source files (scrape_gc_playbyplay.py + scrape_gc_boxscores.py).
+    Now we write to the YAML config — a proper data file designed for this.
+    No Python source code is modified at runtime.
+
     IMPORTANT NOTE ON FOLDER NAMES:
     The folder name MUST match the team name as GameChanger writes it in the
-    inning headers of game files (e.g. "===Top 1st - SBA Alabama National 12U===").
-    The suggested name is a best guess from the URL slug. Always open the first
-    scraped game file and verify the inning header spelling before relying on
-    the PDF output.
+    inning headers (e.g. "===Top 1st - SBA Alabama National 12U===").
+    The suggested name is a best guess from the URL slug. Always verify by
+    opening the first scraped game file.
     """
     print("\n── Add a New Wild / Storm Opponent ──────────────────────")
     print("Paste the team's GameChanger schedule URL and press ENTER.")
@@ -833,36 +778,33 @@ def add_new_team():
     print()
     print(f"  Adding \"{folder_name}\" to {division}...")
 
-    # Modify scrape_gc_playbyplay.py
-    scraper_path = SCRIPTS_DIR / "scrape_gc_playbyplay.py"
-    ok1 = _insert_team_into_file(scraper_path, division, team_id, slug, folder_name)
+    # Write to YAML config (single source of truth — no Python file editing)
+    ok = add_team_to_yaml(division, team_id, slug, folder_name)
 
-    # Modify scrape_gc_boxscores.py
-    boxscore_path = SCRIPTS_DIR / "scrape_gc_boxscores.py"
-    ok2 = _insert_team_into_file(boxscore_path, division, team_id, slug, folder_name)
-
-    # Create folder structure
-    team_dir = SPRING_DIR / division / folder_name / "Games"
+    # Create folder structure on disk
+    team_dir = SEASON_DIR / division / folder_name / "Games"
     team_dir.mkdir(parents=True, exist_ok=True)
 
-    if ok1 and ok2:
+    if ok:
         print()
         print(f"  ✅ \"{folder_name}\" added to {division}.")
-        print(f"     scrape_gc_playbyplay.py — updated (backup: scrape_gc_playbyplay.py.bak)")
-        print(f"     scrape_gc_boxscores.py  — updated (backup: scrape_gc_boxscores.py.bak)")
-        print(f"     Folder created: {division}/{folder_name}/Games/")
+        print(f"     config/{SEASON_ID}.yaml updated")
+        print(f"     Folder created: seasons/{SEASON_ID}/{division}/{folder_name}/Games/")
         print()
         print("  Next steps:")
         print("  1. Run the pipeline (option [0]) to scrape the first batch of games.")
-        print(f"  2. Open a game file in {division}/{folder_name}/Games/")
+        print(f"  2. Open a game file in seasons/{SEASON_ID}/{division}/{folder_name}/Games/")
         print("     and verify the team name in the inning header matches the folder name.")
-        print("  3. If they differ, rename the folder (two-step to avoid macOS case bug):")
-        print(f'       mv "{division}/{folder_name}" "{division}/tmp"')
-        print(f'       mv "{division}/tmp" "{division}/<Corrected Name>"')
-        print("     Then update the folder name in scrape_gc_playbyplay.py and scrape_gc_boxscores.py.")
+        print("  3. If they differ, rename the folder and update the YAML:")
+        print(f"       Edit config/{SEASON_ID}.yaml → find the team's 'name:' field")
     else:
         print()
-        print("  ⚠️  Partial failure — check messages above and edit scripts manually.")
+        print(f"  ⚠️  Could not update YAML. Check config/{SEASON_ID}.yaml manually.")
+        print(f"     Add this entry to the {division} teams list:")
+        print(f"       - name: \"{folder_name}\"")
+        print(f"         gc_id: \"{team_id}\"")
+        print(f"         gc_slug: \"{slug}\"")
+
 
 
 # ════════════════════════════════════════════════════════════════════════════

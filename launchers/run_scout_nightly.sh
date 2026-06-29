@@ -8,6 +8,53 @@
 # The actual nightly launchd schedule uses ~/Library/LaunchAgents/run_wcwaa_nightly.sh
 # (a local wrapper that calls run_menu.py --all directly).
 # This script can be used for manual headless runs without the interactive menu.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Resolve paths ────────────────────────────────────────────────────────────
+LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
+LOGS_DIR="$REPO_ROOT/logs"
+VENV_DIR="$REPO_ROOT/Dev/venv"
+
+# ── Set up log file for this wrapper ─────────────────────────────────────────
+mkdir -p "$LOGS_DIR"
+STAMP="$(date +%Y%m%d_%H%M%S)"
+LOG_FILE="$LOGS_DIR/nightly_${STAMP}.log"
+
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "========================================================"
+echo "  WCWAA Nightly Scout Pipeline"
+echo "  Started: $(date)"
+echo "  Log: $LOG_FILE"
+echo "========================================================"
+
+# ── Activate virtual environment ─────────────────────────────────────────────
+if [[ -f "$VENV_DIR/bin/activate" ]]; then
+    # shellcheck disable=SC1091
+    source "$VENV_DIR/bin/activate"
+    echo "✅ venv activated: $VENV_DIR"
+else
+    echo "❌ ERROR: venv not found at $VENV_DIR"
+    echo "   Recreate with: python3 -m venv Dev/venv && Dev/venv/bin/pip install -r requirements.txt"
+    exit 1
+fi
+
+# ── Run the pipeline ──────────────────────────────────────────────────────────
+cd "$REPO_ROOT"
+python3 src/orchestrator/run_menu.py --all
+PIPELINE_EXIT=$?
+if [[ $PIPELINE_EXIT -ne 0 ]]; then
+    echo ""
+    echo "⚠️  WARNING: pipeline exited with code $PIPELINE_EXIT — check log for details"
+fi
+#
+# PURPOSE
+# ───────
+# Headless pipeline runner for manual testing or direct invocation.
+# The actual nightly launchd schedule uses ~/Library/LaunchAgents/run_wcwaa_nightly.sh
+# (a local wrapper that calls run_menu.py --all directly).
+# This script can be used for manual headless runs without the interactive menu.
 #
 # HOW IT DIFFERS FROM run_scout.sh
 # ─────────────────────────────────
