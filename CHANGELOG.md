@@ -14,6 +14,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0] - 2026-06-28
+
+### Changed — Directory Restructure (breaking: all script paths changed)
+- **`src/` layout** — All Python source files moved from `Dev/Hitting_Scout/Scripts/` and `Dev/Pitching_Savant/Scripts/` into `src/{hitting,pitching,scraping,orchestrator}/`
+- **`launchers/`** — All shell scripts and launchd plist consolidated from two separate Script directories into a single `launchers/` folder at repo root
+- **`seasons/` data directory** — Season-specific data (`Majors/`, `Minors/`, `Wild/`, `Storm/`) moved from repo root into `seasons/2026-spring/` (gitignored)
+- **`sessions/`** — `gc_session.json` moved from `Dev/Hitting_Scout/Scripts/` to `sessions/` at repo root (gitignored)
+- **`logs/`** — Unified log directory at repo root replacing split `Dev/Hitting_Scout/Logs/` + `Dev/Pitching_Savant/Logs/`
+
+### Added
+- **`src/season_config.py`** — Central config loader. Reads `config/<season_id>.yaml` and provides `SCOUT_ROOT`, `SEASON_DIR`, `build_scraper_divisions()`, `build_hitting_divisions()`, `add_team_to_yaml()`. All scripts import from here.
+- **`config/2026-spring.yaml`** — Single source of truth for all team data: GC IDs, slugs, coach names, division paths, roster_additions. Previously duplicated across 3 Python files.
+- **`config/active_season.txt`** — One-line file (`2026-spring`) that controls which season YAML is loaded. Change this to switch seasons; no Python edits needed.
+- **PyYAML 6.0.3** added to `requirements.txt`; venv rebuilt with corrected symlinks
+
+### Fixed
+- **Hardcoded absolute path removed** — `scrape_gc_playbyplay.py` and `scrape_gc_boxscores.py` previously hardcoded `/Users/mesau/.../WCWAA/2026/Spring`. All scripts now use fully relative paths anchored to `__file__` via `season_config.py`.
+- **`add_new_team()` wizard** (Orchestrator) — replaced brittle text-replacement on Python source files with `add_team_to_yaml()` which writes cleanly to the YAML config.
+- **Broken venv** — Rebuilt after symlink corruption from directory rename (`Scout_Development/` → `Dev/`). Now uses standard `python3 -m venv` at absolute path.
+
+---
+
 ## [2.8.0] - 2026-06-22
 
 ### Added
