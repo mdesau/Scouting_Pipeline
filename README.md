@@ -1,5 +1,5 @@
 # WCWAA Scout Pipeline
-![Version](https://img.shields.io/badge/version-2.8.0-blue)
+![Version](https://img.shields.io/badge/version-3.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -14,8 +14,8 @@ Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes ba
 |---|---|---|---|
 | **Majors** | 11U in-house | 11 teams | Full league |
 | **Minors** | 9U in-house | 14 teams | Full league |
-| **Wild** | 11U travel | 8 opponents | Opponent reports only |
-| **Storm** | 9U travel | 12 opponents | Opponent reports only |
+| **Wild** | 11U travel | 10 opponents | Opponent reports only |
+| **Storm** | 9U travel | 17 opponents | Opponent reports only |
 
 ---
 
@@ -36,26 +36,24 @@ cd Scouting_Pipeline
 
 ### 3. Create the virtual environment
 ```bash
-cd Dev
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv Dev/venv
+source Dev/venv/bin/activate
 ```
 
-> **Why a virtual environment?** It isolates this project's dependencies (Playwright, ReportLab) from your system Python.
+> **Why a virtual environment?** It isolates this project's dependencies (Flask, Playwright, ReportLab) from your system Python.
 
 ### 4. Install dependencies
 ```bash
-pip install -r ../requirements.txt
+pip install -r requirements.txt
 playwright install chromium
 ```
 
 ### 5. Log in to GameChanger (one time)
 
-This opens a real browser window. Log in manually — the session is saved to `gc_session.json` and reused automatically for all future runs.
+This opens a real browser window. Log in manually — the session is saved to `sessions/gc_session.json` and reused automatically for all future runs.
 
 ```bash
-cd Hitting_Scout/Scripts
-python3 scrape_gc_playbyplay.py --login
+python3 src/scraping/scrape_gc_playbyplay.py --login
 ```
 
 > **When to repeat:** Only when you see a "session expired" error — typically every few weeks.
@@ -64,11 +62,24 @@ python3 scrape_gc_playbyplay.py --login
 
 ## Weekly Usage (After Each Game Week)
 
-### Option A — Interactive Menu (Manual)
+### Option A — Web UI (Easiest)
+
+Double-click **`launchers/Start Scout.command`** in Finder. This starts the local
+web server and opens the app in your browser at **http://127.0.0.1:5050**.
+
+From the app you can:
+- **Build Reports** — pick a division → team → click Build; the pipeline log streams live on the page
+- **View Reports** — browse every generated PDF and open it in one click
+- **Add Team** — register a new Wild / Storm opponent from a GameChanger URL
+
+> Close the Terminal window the launcher opened (or press Ctrl+C in it) to stop the server.
+> Reports can only be **built** while the server is running on this Mac; the PDFs themselves
+> sync via Google Drive and can be **viewed anywhere**, including a phone (via the Google Drive app).
+
+### Option B — Interactive Terminal Menu
 
 ```bash
-cd Dev/Hitting_Scout/Scripts
-bash run_scout.sh
+bash launchers/run_scout.sh
 ```
 
 Choose from:
@@ -79,15 +90,15 @@ Choose from:
 
 Or skip the menu with flags:
 ```bash
-bash run_scout.sh --division Majors
-bash run_scout.sh --division Wild --team "QC Flight Baseball 11U"
+bash launchers/run_scout.sh --division Majors
+bash launchers/run_scout.sh --division Wild --team "QC Flight Baseball 11U"
 ```
 
-### Option B — Nightly Scheduled Run (Automatic)
+### Option C — Nightly Scheduled Run (Automatic)
 
 Runs daily at **10:00 AM EDT** via macOS `launchd`. Configured in:
 ```
-Dev/Hitting_Scout/launchd/com.wcwaa.scout_pipeline.plist
+launchers/com.wcwaa.scout_pipeline.plist
 ```
 
 ```bash
@@ -116,7 +127,7 @@ The `.plist` is the schedule config (when to run); `~/Library/LaunchAgents/run_w
 | **Re-enable** | `launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist` |
 | **Change time** | Edit `Hour` in the plist, then unload + reload |
 
-Plist location: `Dev/Hitting_Scout/launchd/com.wcwaa.scout_pipeline.plist` (symlinked to `~/Library/LaunchAgents/`).
+Plist location: `launchers/com.wcwaa.scout_pipeline.plist` (symlinked to `~/Library/LaunchAgents/`).
 
 ---
 
@@ -135,18 +146,19 @@ Plist location: `Dev/Hitting_Scout/launchd/com.wcwaa.scout_pipeline.plist` (syml
 
 ```bash
 # Regenerate hitting PDFs for one team (no scraping)
-cd Dev/Hitting_Scout/Scripts
-python3 gen_hitting.py --division Majors --team Cubs
+python3 src/hitting/gen_hitting.py --division Majors --team Cubs
 
 # Regenerate pitching PDFs for one division
-cd Dev/Pitching_Savant/Scripts
-python3 gen_pitching.py --division Majors
+python3 src/pitching/gen_pitching.py --division Majors
 
 # Scrape one division only
-python3 scrape_gc_playbyplay.py --division Storm
+python3 src/scraping/scrape_gc_playbyplay.py --division Storm
 
 # Check what new games are available without downloading
-python3 scrape_gc_playbyplay.py --check
+python3 src/scraping/scrape_gc_playbyplay.py --check
+
+# Launch just the web UI (without the .command launcher)
+python3 src/web/server.py
 ```
 
 ---
@@ -157,11 +169,11 @@ python3 scrape_gc_playbyplay.py --check
 |---|---|---|
 | `*-Scout-Hitting_2026.pdf` | Division report folders | Hitting scouting reports |
 | `*-Scout-Pitching_2026.pdf` | Division report folders | Pitching scouting reports |
-| `rosters.json` | `Majors/Reports/`, `Minors/Reports/` | Player names + jersey numbers |
-| `roster.txt` | `Wild/[Team]/`, `Storm/[Team]/` | Travel opponent rosters |
+| `rosters.json` | `seasons/2026-spring/Majors/Reports/`, `.../Minors/Reports/` | Player names + jersey numbers |
+| `roster.txt` | `seasons/2026-spring/Wild/[Team]/`, `.../Storm/[Team]/` | Travel opponent rosters |
 | `*.txt` game files | Scorebooks/Games folders | Play-by-play from GC |
 
-> All data files and PDFs are gitignored. See `Dev/Hitting_Scout/examples/` for samples.
+> All season data files and PDFs live under `seasons/` and are gitignored. See `examples/` for samples.
 
 ---
 
@@ -174,14 +186,23 @@ Spring/                          <- repo root
 |-- CHANGELOG.md                 <- unified version history
 |-- BUGS.md                      <- unified bug tracker
 |-- requirements.txt
-|-- Dev/
-|   |-- venv/                    <- shared Python venv
-|   |-- Hitting_Scout/Scripts/   <- scraping + hitting report scripts
-|   +-- Pitching_Savant/Scripts/ <- pitching report scripts
-|-- Majors/                      <- game data + PDFs [gitignored]
-|-- Minors/
-|-- Wild/
-+-- Storm/
+|-- config/
+|   |-- 2026-spring.yaml          <- season data: teams, GC IDs, paths
+|   +-- active_season.txt         <- one line: "2026-spring"
+|-- src/
+|   |-- season_config.py          <- central config loader (all scripts import this)
+|   |-- hitting/                  <- gen_hitting.py, stat_analysis.py
+|   |-- pitching/                 <- gen_pitching.py, pitcher_icon.png
+|   |-- scraping/                 <- scrape_gc_playbyplay.py, scrape_gc_boxscores.py, parse_gc_text.py
+|   |-- orchestrator/             <- run_menu.py
+|   +-- web/                      <- server.py, index.html, css/, js/  (web UI)
+|-- launchers/                    <- run_scout.sh, run_pitching.sh, *_nightly.sh,
+|                                    Start Scout.command, com.wcwaa.scout_pipeline.plist
+|-- sessions/                     <- gc_session.json [gitignored]
+|-- logs/                         <- pipeline_summary.log [gitignored]
+|-- seasons/2026-spring/          <- game data + PDFs [gitignored]
+|   |-- Majors/  Minors/  Wild/  Storm/  Coach_Pitch/
++-- Dev/venv/                     <- shared Python venv [gitignored]
 ```
 
 ---
@@ -190,11 +211,12 @@ Spring/                          <- repo root
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| `ImportError: playwright` | venv not activated | `source Dev/venv/bin/activate` |
-| `Session expired` | gc_session.json stale | `python3 scrape_gc_playbyplay.py --login` |
+| `ImportError: playwright` or `flask` | venv not activated | `source Dev/venv/bin/activate` |
+| `Session expired` | gc_session.json stale | `python3 src/scraping/scrape_gc_playbyplay.py --login` |
 | `0 PAs` for a team | Folder name ≠ GC inning header | Check exact spelling |
 | `?X X?` in output | Player not in roster | Run `scrape_gc_boxscores.py` |
 | `WARNING UNKNOWN` | Unrecognised play description | Add to `OUTCOME_TYPES` |
+| Web UI says "View-only" on the Mac | Server not running | Double-click `launchers/Start Scout.command` |
 
 ---
 

@@ -26,6 +26,7 @@ handling, and code style. Follow those guidelines throughout.
 
 ### Version History
 ```
+v3.1.0  feat: web UI — local Flask server + HTML front-end (build/view/add via browser)
 v3.0.0  refactor: restructure to src/ layout + YAML season config + seasons/ data dir
 v2.8.0  feat: add Swing% stat to hitting reports (card footer + summary table)
 v2.7.0  feat: pipeline summary log with per-team accounting + deltas + case-insensitive team matching
@@ -65,7 +66,7 @@ Scout is a single automated pipeline for generating scouting reports for Wedding
 | **Hitting** | Scrapes GameChanger, computes batting stats + archetypes, generates hitting PDFs | `*-Scout-Hitting_2026.pdf` |
 | **Pitching** | Reads same game files, computes pitching stats + league percentiles, generates Baseball Savant-style pitcher cards | `*-Scout-Pitching_2026.pdf` |
 
-Both components share the same virtual environment, game file data, and scraping infrastructure. Users can run hitting only, pitching only, or both together.
+Both components share the same virtual environment, game file data, and scraping infrastructure. Users can run hitting only, pitching only, or both together — from the terminal menu, CLI flags, the nightly scheduler, or the **web UI** (`src/web/`, v3.1.0). All entry points ultimately drive the same `run_menu.py` pipeline.
 
 ### Divisions
 
@@ -73,95 +74,112 @@ Both components share the same virtual environment, game file data, and scraping
 |---|---|---|---|
 | Majors | 11U in-house | 11 teams | Full league — reports on all opponents |
 | Minors | 9U in-house | 14 teams | Full league |
-| Wild | 11U travel | 8 opponent teams | Reports on travel opponents only |
-| Storm | 9U travel | 12 opponent teams | Reports on travel opponents only |
+| Wild | 11U travel | 10 opponent teams | Reports on travel opponents only |
+| Storm | 9U travel | 17 opponent teams | Reports on travel opponents only |
 
 ---
 
-## Scripts Overview (line counts as of May 19, 2026)
+## Scripts Overview (line counts as of v3.1.0, June 29 2026)
 
 | Script | Lines | Component | Role |
 |---|---|---|---|
-| `Dev/Hitting_Scout/Scripts/gen_hitting.py` | ~2164 | Hitting | Stat engine + PDF generator |
-| `Dev/Pitching_Savant/Scripts/gen_pitching.py` | ~1316 | Pitching | Stat engine + PDF generator |
-| `Dev/Hitting_Scout/Scripts/scrape_gc_boxscores.py` | ~841 | Scraping | Playwright: GC box scores → rosters |
-| `Dev/Hitting_Scout/Scripts/run_menu.py` | ~673 | Orchestrator | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) |
-| `Dev/Hitting_Scout/Scripts/scrape_gc_playbyplay.py` | ~632 | Scraping | Playwright: GC schedule → .txt game files |
-| `Dev/Pitching_Savant/Scripts/pilot_card.py` | ~521 | Pitching | Early proof-of-concept (superseded) |
-| `Dev/Hitting_Scout/Scripts/parse_gc_text.py` | ~270 | Parser | Raw GC text → WCWAA format (utility) |
-| `Dev/Hitting_Scout/Scripts/diag_schedule.py` | ~144 | Scraping | Schedule diagnostics (utility) |
-| `Dev/Hitting_Scout/Scripts/patch_march_initials.py` | ~117 | Utility | One-time March game file patch |
-| `Dev/Hitting_Scout/Scripts/scrape_storm.py` | ~62 | Scraping | Legacy Storm scraper (superseded) |
+| `src/hitting/gen_hitting.py` | ~2146 | Hitting | Stat engine + PDF generator |
+| `src/pitching/gen_pitching.py` | ~1301 | Pitching | Stat engine + PDF generator |
+| `src/orchestrator/run_menu.py` | ~945 | Orchestrator | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) + add-team wizard |
+| `src/scraping/scrape_gc_boxscores.py` | ~790 | Scraping | Playwright: GC box scores → rosters |
+| `src/hitting/stat_analysis.py` | ~605 | Hitting | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, To Do #3) |
+| `src/scraping/scrape_gc_playbyplay.py` | ~588 | Scraping | Playwright: GC schedule → .txt game files |
+| `src/season_config.py` | ~395 | Config | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()` |
+| `src/web/server.py` | ~385 | Web | Flask server backing the HTML front-end (build/view/add) |
+| `src/scraping/parse_gc_text.py` | ~270 | Parser | Raw GC text → WCWAA format (utility) |
+| `src/scraping/diag_schedule.py` | ~144 | Scraping | Schedule diagnostics (utility) |
 
-### Shell Launchers
+> **Web front-end assets** (not Python): `src/web/index.html`, `src/web/css/style.css`, `src/web/js/app.js`.
+>
+> **Legacy scripts** (`pilot_card.py`, `patch_march_initials.py`, `scrape_storm.py`) were retired in the v3.0.0 restructure and removed from the repo in v3.1.0. Sample files live in `examples/`.
+
+### Shell Launchers (all in `launchers/`)
 
 | Script | Purpose |
 |---|---|
-| `Dev/Hitting_Scout/Scripts/run_scout.sh` | Manual launcher: activates venv, calls run_menu.py (interactive) |
-| `Dev/Hitting_Scout/Scripts/run_scout_nightly.sh` | Headless launcher for manual testing; calls `run_menu.py --all` |
+| `launchers/Start Scout.command` | **Double-click launcher** for the web UI: activates venv, starts `src/web/server.py`, opens browser at http://127.0.0.1:5050 |
+| `launchers/run_scout.sh` | Manual launcher: activates venv, calls `run_menu.py` (interactive menu or `--division`/`--team` passthrough) |
+| `launchers/run_scout_nightly.sh` | Headless launcher for manual testing; calls `run_menu.py --all` |
 | `~/Library/LaunchAgents/run_wcwaa_nightly.sh` | **Actual nightly launcher** (local disk): called by launchd plist, calls `run_menu.py --all` directly. Lives outside repo so launchd can execute it even if GDrive is slow to mount. |
-| `Dev/Pitching_Savant/Scripts/run_pitching.sh` | Standalone manual launcher for pitching PDFs only |
-| `Dev/Pitching_Savant/Scripts/run_pitching_nightly.sh` | Standalone headless launcher for pitching PDFs only |
+| `launchers/run_pitching.sh` | Standalone manual launcher for pitching PDFs only |
+| `launchers/run_pitching_nightly.sh` | Standalone headless launcher for pitching PDFs only |
+| `launchers/com.wcwaa.scout_pipeline.plist` | launchd schedule config (symlinked to `~/Library/LaunchAgents/`) |
 
 ---
 
 ## Directory Structure
 
 ```
-Spring/                              <- git repo root (v2.8.0)
+Spring/                              <- git repo root (v3.1.0)
 |-- .git/
 |-- .gitignore
 |-- README.md                        <- project overview
 |-- Instructions.md                  <- this file
 |-- CHANGELOG.md                     <- unified version history
 |-- BUGS.md                          <- unified bug tracker
-|-- requirements.txt                 <- pip freeze
+|-- requirements.txt                 <- pip freeze (Flask, Playwright, ReportLab, PyYAML)
 |
-|-- Dev/                             <- all source code lives here
-|   |-- venv/                        <- shared Python venv [gitignored]
-|   |
-|   |-- Hitting_Scout/              <- Scraping + Hitting component
-|   |   |-- Scripts/
-|   |   |   |-- scrape_gc_playbyplay.py  <- Step 1: GC schedule -> .txt game files
-|   |   |   |-- scrape_gc_boxscores.py   <- Step 2: GC box scores -> rosters
-|   |   |   |-- gen_hitting.py           <- Step 3: stat engine + hitting PDFs
-|   |   |   |-- parse_gc_text.py         <- utility: raw GC text -> WCWAA format
-|   |   |   |-- run_menu.py              <- pipeline orchestrator (Steps 1-4)
-|   |   |   |-- run_scout.sh             <- manual launcher
-|   |   |   |-- run_scout_nightly.sh     <- headless launcher (manual testing)
-|   |   |   |-- gc_session.json          <- Playwright session [gitignored]
-|   |   |   +-- archetype_reference.txt  <- archetype system design notes
-|   |   |-- examples/
-|   |   |-- launchd/
-|   |   |   +-- com.wcwaa.scout_pipeline.plist
-|   |   +-- Logs/                        <- [gitignored]
-|   |       +-- pipeline_summary.log     <- appended each run (accounting)
-|   |
-|   +-- Pitching_Savant/             <- Pitching component
-|       |-- Scripts/
-|       |   |-- gen_pitching.py          <- Step 4: stat engine + pitching PDFs
-|       |   |-- pilot_card.py            <- early POC (superseded)
-|       |   |-- pitcher_icon.png         <- Savant-style pitcher silhouette
-|       |   |-- run_pitching.sh          <- standalone manual launcher
-|       |   +-- run_pitching_nightly.sh  <- standalone headless launcher
-|       +-- Logs/                        <- [gitignored]
+|-- config/                          <- season configuration (the only place teams live)
+|   |-- 2026-spring.yaml             <- single source of truth: GC IDs, slugs, coaches, paths
+|   +-- active_season.txt            <- one line: "2026-spring" (switch seasons here)
 |
-|-- Majors/                          <- [gitignored] game data + PDFs
-|   +-- Reports/
-|       |-- Scorebooks/              <- .txt game files
-|       |-- Scouting_Reports/        <- hitting + pitching PDFs
-|       |-- rosters.json
-|       +-- box_verify.json
-|-- Minors/                          <- [gitignored] same structure
-|-- Wild/                            <- [gitignored] travel teams
-|   +-- [TeamName]/
-|       |-- Games/                   <- .txt game files
-|       |-- roster.txt
-|       |-- *-Scout-Hitting_2026.pdf
-|       +-- *-Scout-Pitching_2026.pdf
-|-- Storm/                           <- [gitignored] travel teams (same structure)
-+-- Coach_Pitch/                     <- [gitignored] separate division
+|-- src/                             <- all Python source
+|   |-- season_config.py             <- central loader: SCOUT_ROOT, SEASON_DIR,
+|   |                                    build_scraper_divisions(), build_hitting_divisions(),
+|   |                                    add_team_to_yaml(). Every script imports from here.
+|   |-- hitting/
+|   |   |-- gen_hitting.py            <- Step 3: stat engine + hitting PDFs
+|   |   |-- stat_analysis.py          <- distribution/percentile analysis -> HTML report
+|   |   +-- archetype_reference.txt   <- archetype system design notes
+|   |-- pitching/
+|   |   |-- gen_pitching.py           <- Step 4: stat engine + pitching PDFs
+|   |   +-- pitcher_icon.png          <- Savant-style pitcher silhouette
+|   |-- scraping/
+|   |   |-- scrape_gc_playbyplay.py   <- Step 1: GC schedule -> .txt game files
+|   |   |-- scrape_gc_boxscores.py    <- Step 2: GC box scores -> rosters
+|   |   |-- parse_gc_text.py          <- utility: raw GC text -> WCWAA format
+|   |   +-- diag_schedule.py          <- utility: schedule diagnostics
+|   |-- orchestrator/
+|   |   +-- run_menu.py               <- pipeline orchestrator (Steps 1-4) + add-team wizard
+|   +-- web/                          <- HTML front-end (v3.1.0)
+|       |-- server.py                 <- Flask server (build/view/add endpoints + live log SSE)
+|       |-- index.html                <- single-page app shell
+|       |-- css/style.css
+|       +-- js/app.js
+|
+|-- launchers/                       <- all shell scripts + launchd plist
+|   |-- Start Scout.command           <- double-click: start web UI + open browser
+|   |-- run_scout.sh                  <- manual launcher (interactive menu)
+|   |-- run_scout_nightly.sh          <- headless launcher (manual testing)
+|   |-- run_pitching.sh               <- standalone pitching launcher
+|   |-- run_pitching_nightly.sh       <- standalone headless pitching launcher
+|   +-- com.wcwaa.scout_pipeline.plist <- launchd schedule (symlinked to ~/Library/LaunchAgents/)
+|
+|-- sessions/                        <- [gitignored]
+|   +-- gc_session.json               <- Playwright GC login session
+|-- logs/                            <- [gitignored]
+|   +-- pipeline_summary.log          <- appended each run (per-team accounting)
+|
+|-- seasons/                         <- [gitignored] all season data
+|   +-- 2026-spring/
+|       |-- Majors/Reports/           <- Scorebooks/, Scouting_Reports/, rosters.json, box_verify.json
+|       |-- Minors/Reports/           <- same structure
+|       |-- Wild/[TeamName]/           <- Games/, roster.txt, *-Scout-*.pdf
+|       |-- Storm/[TeamName]/          <- same structure
+|       +-- Coach_Pitch/
+|
++-- Dev/
+    +-- venv/                         <- shared Python venv [gitignored]
 ```
+
+> **Note:** The repo root is still physically named `Spring/` on disk; all code uses
+> relative paths anchored to `__file__` (via `season_config.py`), so the folder can be
+> renamed freely without touching any script.
 
 ---
 
@@ -178,14 +196,20 @@ The pipeline runs 4 steps, orchestrated by `run_menu.py`:
 
 Step 1 skips games already on disk (safe to re-run). Step 2 is incremental by default.
 
-After all 4 steps, `run_menu.py` appends a **pipeline summary** to `Dev/Hitting_Scout/Logs/pipeline_summary.log` — per-division and per-team accounting with game counts, PAs, and deltas vs. the previous run.
+After all 4 steps, `run_menu.py` appends a **pipeline summary** to `logs/pipeline_summary.log` — per-division and per-team accounting with game counts, PAs, and deltas vs. the previous run.
 
 ### Running the Pipeline
 
-**Option A -- interactive menu:**
+**Option A -- web UI (easiest):**
 ```bash
-cd .../Dev/Hitting_Scout/Scripts
-bash run_scout.sh
+# Double-click launchers/Start Scout.command in Finder, or:
+bash "launchers/Start Scout.command"
+# Opens http://127.0.0.1:5050 — build, view, and add teams from the browser.
+```
+
+**Option B -- interactive menu:**
+```bash
+bash launchers/run_scout.sh
 ```
 
 **Option B -- nightly scheduled (launchd at 10am EDT):**
@@ -202,27 +226,24 @@ launchctl start com.wcwaa.scout_pipeline  # trigger immediately
 **Option C -- CLI direct:**
 ```bash
 # Full pipeline, all divisions
-bash run_scout.sh --all
+bash launchers/run_scout.sh --all
 
 # Single division
-bash run_scout.sh --division Wild
+bash launchers/run_scout.sh --division Wild
 
 # Single team
-bash run_scout.sh --division Majors --team "Cubs-Holtzer"
+bash launchers/run_scout.sh --division Majors --team "Cubs-Holtzer"
 
 # Pitching only (standalone)
-cd .../Dev/Pitching_Savant/Scripts
-bash run_pitching.sh --division Majors
+bash launchers/run_pitching.sh --division Majors
 ```
 
 **Step-by-step manual:**
 ```bash
-cd .../Dev/Hitting_Scout/Scripts
-python3 scrape_gc_playbyplay.py                     # Step 1
-python3 scrape_gc_boxscores.py                      # Step 2
-python3 gen_hitting.py --division Majors             # Step 3
-cd .../Dev/Pitching_Savant/Scripts
-python3 gen_pitching.py --division Majors            # Step 4
+python3 src/scraping/scrape_gc_playbyplay.py                 # Step 1
+python3 src/scraping/scrape_gc_boxscores.py                  # Step 2
+python3 src/hitting/gen_hitting.py --division Majors          # Step 3
+python3 src/pitching/gen_pitching.py --division Majors        # Step 4
 ```
 
 ---
@@ -244,9 +265,9 @@ Navigates GC schedule pages, finds FINAL games, downloads play-by-play text, con
 | `fmt_date()` | ~307 | Normalizes GC date strings to `MonDD` format for filenames |
 | `safe()` | ~316 | Sanitizes team name for use in filenames |
 | `SCHEDULE_JS` | ~130 | JS injected into browser to extract game cards from GC's React DOM |
-| `DIVISIONS` dict | ~85 | All team IDs, slugs, folder paths -- **edit here to add/remove teams** |
+| `DIVISIONS` dict | built at import | `build_scraper_divisions()` from `season_config` (loaded from `config/<season>.yaml`) -- **do NOT edit here; edit the YAML or use the add-team wizard** |
 
-**Dependencies:** `parse_gc_text.parse_gc_raw()`, `gc_session.json`
+**Dependencies:** `parse_gc_text.parse_gc_raw()`, `season_config.build_scraper_divisions()`, `sessions/gc_session.json`
 
 ### scrape_gc_boxscores.py (Step 2 -- Playwright scraper)
 Navigates GC `/box-score` pages, extracts player names + jersey numbers + AB/BB/SO, builds rosters.json (Majors/Minors) and roster.txt (Wild/Storm), writes box_verify.json.
@@ -264,7 +285,7 @@ Navigates GC `/box-score` pages, extracts player names + jersey numbers + AB/BB/
 | `display_name()` | ~305 | Formats `"FirstName L. #jersey"` display string |
 | `normalize_team_name()` | ~288 | Applies `TEAM_NAME_ALIASES` to fix GC name differences |
 | `setup_logging()` | ~125 | Configures logging |
-| `DIVISIONS` dict | ~100 | Must match scrape_gc_playbyplay.py exactly |
+| `DIVISIONS` dict | built at import | `build_scraper_divisions()` from `season_config` (same source as scrape_gc_playbyplay.py -- always in sync) |
 | `TEAM_NAME_ALIASES` | ~60 | Maps GC box score team name variants -> canonical keys |
 
 **Known limitation:** Minors `/box-score` pages redirect to `/info` -- jersey numbers permanently unavailable.
@@ -308,7 +329,7 @@ Reads game `.txt` files, parses every plate appearance, computes batting stats +
 | `load_box_verify()` | ~202 | Loads box_verify.json |
 | `load_box_rosters()` | ~159 | Loads rosters.json |
 | `setup_logging()` | ~43 | Configures logging |
-| `DIVISIONS` dict | ~80 | Folder paths + roster file locations |
+| `DIVISIONS` dict | built at import | `build_hitting_divisions()` from `season_config` (folder paths + roster file locations, loaded from YAML) |
 | `INNING_RE` | ~420 | Regex for `===Top/Bottom N - TeamName===` headers |
 | `PITCHING_APPROACH` | ~952 | Archetype -> pitching recommendation lookup dict |
 
@@ -326,18 +347,40 @@ Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subproces
 
 | Function | ~Line | Purpose |
 |---|---|---|
-| `main()` | ~597 | CLI entry point -- parses `--all`, `--division`, `--team` |
-| `interactive_menu()` | ~525 | Menu: [0] Full, [1] Division, [2] Team, [3] Add team |
-| `run_pipeline()` | ~207 | Runs steps 1->2->3->4 as subprocesses for given scope |
-| `_run()` | ~276 | Subprocess wrapper with exit-code handling |
-| `add_new_team()` | ~429 | Wizard: paste GC URL -> creates folder + inserts into scrapers |
-| `_parse_gc_url()` | ~303 | Extracts `team_id` and `slug` from a GC schedule URL |
-| `_slug_to_folder_name()` | ~327 | Converts GC slug to folder name |
-| `_insert_team_into_file()` | ~366 | Inserts a new team tuple into a scraper's DIVISIONS dict |
-| `get_team_list()` | ~174 | Reads DIVISIONS to build team picker list |
-| `check_session()` | ~103 | Validates gc_session.json exists and is not expired |
+| `main()` | ~886 | CLI entry point -- parses `--all`, `--division`, `--team` |
+| `interactive_menu()` | ~814 | Menu: [0] Full, [1] Division, [2] Team, [3] Add team |
+| `add_new_team()` | ~717 | Wizard: paste GC URL -> `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/` |
+| `_slug_to_folder_name()` | ~678 | Converts GC slug to folder name |
+| `_parse_gc_url()` | ~654 | Extracts `team_id` and `slug` from a GC schedule URL |
+| `_run()` | ~627 | Subprocess wrapper with exit-code handling |
+| `run_pipeline()` | ~216 | Runs steps 1->2->3->4 as subprocesses for given scope |
+| `get_team_list()` | ~183 | Wild/Storm: reads DIVISIONS tuples; Majors/Minors: reads rosters.json keys |
+| `check_session()` | ~112 | Warns if `sessions/gc_session.json` is missing |
 
-**Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` from `Dev/Pitching_Savant/Scripts/` after gen_hitting.py. Path resolved via `SPRING_DIR / "Dev" / "Pitching_Savant" / "Scripts" / "gen_pitching.py"`.
+> **Team additions** now write to `config/<season>.yaml` via `season_config.add_team_to_yaml()`
+> (the old `_insert_team_into_file()` text-replacement on Python source was removed in v3.0.0).
+
+**Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` via `_PITCHING_SCRIPT = _SRC_DIR / "pitching" / "gen_pitching.py"` after gen_hitting.py.
+
+### server.py (Web UI -- v3.1.0)
+Local Flask server that backs the HTML front-end. Reuses `get_team_list()`, `_parse_gc_url()`,
+`_slug_to_folder_name()` from run_menu.py and `add_team_to_yaml()` from season_config (DRY).
+Builds run by shelling out to `run_menu.py --division X --team Y` (same proven path as the
+terminal menu + nightly cron), streaming live output to the page via Server-Sent Events.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /` + `/css/*` + `/js/*` | Serve the single-page app |
+| `GET /api/divisions` | Divisions + team lists (from `get_team_list()`) |
+| `GET /api/reports` | Scan `seasons/<id>/` for `*-Scout-{Hitting,Pitching}_*.pdf`, grouped by division/team |
+| `GET /report/<path>` | Stream a PDF (with path-traversal protection \u2014 must resolve inside `seasons/`) |
+| `GET /api/run?division=&team=` | Build reports; stream live log via SSE; guarded by a single-run lock |
+| `POST /api/add_team` | Add a Wild/Storm opponent from a GC URL |
+
+**Config flags (env):** `SCOUT_WEB_HOST` (default `127.0.0.1`), `SCOUT_WEB_PORT` (default `5050`),
+`SCOUT_WEB_DEBUG` (`0`/`1`). Set `SCOUT_WEB_HOST=0.0.0.0` to reach the build UI from another
+device on the same Wi-Fi. The build subprocess runs with `python -u` + `PYTHONUNBUFFERED=1`
+so log lines stream live instead of arriving in one dump.
 
 ---
 
@@ -346,7 +389,7 @@ Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subproces
 ### gen_pitching.py (Step 4 -- Pitching stat engine + PDF generator)
 Reads game `.txt` files from the opponent's perspective (who was pitching), computes 13 pitching stats, ranks all pitchers in the division by percentile, generates Baseball Savant-style pitcher profile cards with colored slider bars.
 
-**Imports from Hitting_Scout:** `DIVISIONS` dict from `scrape_gc_playbyplay.py` (team IDs, slugs) and `DIVISIONS` dict from `gen_hitting.py` (folder paths). Uses shared venv.
+**Config source:** `DIVISIONS` is built from `season_config.build_hitting_divisions()` (team IDs, slugs, and folder paths all come from `config/<season>.yaml`). Uses the shared venv. No inter-script imports — it has its own local `parse_outcome()`/`parse_ball_type()`/`parse_pitch_seq()`.
 
 | Function | ~Line | Purpose |
 |---|---|---|
@@ -496,20 +539,26 @@ Cards with 5-9 PA show `*` suffix. Fewer than 5 PA: `--`.
 
 ## Adding a New Wild or Storm Opponent
 
-1. Get GC schedule URL: `https://web.gc.com/teams/{team_id}/{slug}/schedule`
-2. In `scrape_gc_playbyplay.py`, add tuple to `DIVISIONS["Wild"/"Storm"]["teams"]`
-3. Make identical addition in `scrape_gc_boxscores.py`
-4. Create folder: `Wild/[Exact Team Name]/Games/` (name must match GC inning headers exactly)
+Teams live in `config/<season>.yaml` — **never** edited into Python source anymore. Three ways:
 
-Or use the interactive menu: `bash run_scout.sh` -> option [3] "Add new team"
+1. **Web UI (easiest):** Start Scout.command -> "Add Team" tab -> paste the GC schedule URL.
+2. **Terminal menu:** `bash launchers/run_scout.sh` -> option [3] "Add new team".
+3. **Manual:** add a `{name, gc_id, gc_slug}` entry under `divisions.Wild.teams` (or `Storm`) in the YAML,
+   then create `seasons/<season>/<Div>/<Exact Team Name>/Games/`.
+
+All three call `season_config.add_team_to_yaml()` (idempotent — guards duplicates) and create the
+`Games/` folder. The folder name MUST match the GC inning-header spelling exactly; verify it after
+the first game is scraped.
 
 ---
 
 ## Teams Reference (Spring 2026)
 
+> Source of truth: `config/2026-spring.yaml`. Counts: Majors 11, Minors 14, Wild 10, Storm 17.
+
 ### Majors (11 teams)
 Guardians-Esau, Royals-Hall, Diamondbacks-Vandiford, Marlins-McLendon,
-Dodgers-Pearson, As-Blanco, Braves-Rue, Twins-Ewart, Padres-Schick,
+Dodgers-Pearson, A's-Blanco, Braves-Rue, Twins-Ewart, Padres-Schick,
 Cubs-Holtzer (has B A collision map), Rays-Madero
 
 ### Minors (14 teams)
@@ -518,30 +567,30 @@ Rangers-Leonard, Yankees-DePasquale, Marlins-Eberlin, Guardians-Plunkett,
 Angels-Casper, Braves-Brooks, Cubs-Verlinde, Brewers-Linnenkohl,
 Rays-Pearson, Mets-Hornung
 
-### Wild (8 teams, 11U travel)
-Arena National Browning 11U, South Charlotte Panthers 11U,
-Weddington Wild 11U, QC Flight Baseball 11U, T24 Garnet 11U,
-SBA Alabama National 12U, TN Nationals Heichelbech 12U, Tega Cay Titans 11U
+### Wild (10 teams, 11U travel)
+Arena National Browning 11U, South Charlotte Panthers 11U, Weddington Wild 11U,
+QC Flight Baseball 11U, T24 Garnet 11U, SBA Alabama National 12U,
+TN Nationals Heichelbech 12U, Tega CAY Titans 11U, Weddington Vipers 12U,
+Mara Bulls 8U 8U
 
-### Storm (12 teams, 9U travel)
-9u Challenge, ITAA 9U Spartans, MARA 9U Stingers,
-South Charlotte Challenge 9U Doggett, Pineville Blue Sox 9U,
-LKN Lightning 10U, Park Sharon Nationals 10U, Weddington Stormtroopers,
-Lake Norman Lightning 9U, Dilworth 9U - Navy, Crushers White 10U,
-Weddington 10U Gophers
+### Storm (17 teams, 9U travel)
+ITAA 9U Spartans, MARA 9U Stingers, South Charlotte Challenge 9U Doggett,
+Pineville Blue Sox 9U, LKN Lightning 10U, Park Sharon Nationals 10U,
+Weddington Stormtroopers, Lake Norman Lightning 9U, Dilworth 9U - Navy,
+Crushers White 10U, Weddington 10U Gophers, Titans 9U, Mara Outlaws 9U,
+Eagles 9U, Shelby Storm 9U, Carolina River Rats 9U, LKN Storm 9U
 
 ---
 
 ## Prerequisites (First-Time Setup)
 
 ```bash
-cd .../Dev
-python3 -m venv venv
-source venv/bin/activate
-pip install -r ../../requirements.txt
+cd .../Spring
+python3 -m venv Dev/venv
+source Dev/venv/bin/activate
+pip install -r requirements.txt
 playwright install chromium
-cd Hitting_Scout/Scripts
-python3 scrape_gc_playbyplay.py --login   # save GC session
+python3 src/scraping/scrape_gc_playbyplay.py --login   # save GC session
 ```
 
 ---
@@ -573,6 +622,6 @@ python3 scrape_gc_playbyplay.py --login   # save GC session
 | `?F L?` in output | Player initials not in rosters.json | Run scrape_gc_boxscores.py; or add to roster_additions |
 | `WARNING UNKNOWN` | Play outcome not in OUTCOME_TYPES | Add to parser |
 | Jersey numbers missing (Minors) | Box scores inaccessible | Known permanent limitation |
-| Session expired error | gc_session.json expired | `python3 scrape_gc_playbyplay.py --login` |
+| Session expired error | gc_session.json expired | `python3 src/scraping/scrape_gc_playbyplay.py --login` |
 | High pitcher count (Wild/Storm) | Initials-only names not deduped | Check dedup_pitcher_names() logic |
 | Player with accented name missing | Regex uses ASCII-only char class | Verify `[a-z\u00C0-\u024F]` in regex (BUG-16 fix) |

@@ -5,12 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`), Orchestrator (`run_menu.py`)
+**Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`), Orchestrator (`run_menu.py`), Web UI (`src/web/server.py`)
 
 ---
 
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
+
+---
+
+## [3.1.1] - 2026-06-29
+
+### Documentation
+- **README.md + Instructions.md accuracy pass** — fixed all stale pre-v3.0.0 paths (`Dev/Hitting_Scout/Scripts/` → `src/...`), corrected division counts (Wild 8→10, Storm 12→17), refreshed the directory tree, scripts overview, launchers table, function maps, add-team workflow, teams reference, and prerequisites to match the v3.1.0 layout.
+- **Web UI documented** — added Web UI sections to README (usage Option A) and Instructions (`server.py` endpoint map + config flags); README version badge 2.8.0 → 3.1.0.
+
+### Removed
+- **Orphaned legacy files** retired in the v3.0.0 restructure but still tracked: `pilot_card.py`, `patch_march_initials.py`, `scrape_storm.py`, three dev-artifact PDFs, and a stray `Scout_Development/` log.
+- **`examples/`** relocated from `Dev/Hitting_Scout/examples/` to the repo root.
 
 ---
 
