@@ -14,6 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.0] - 2026-06-29
+
+### Added — Web UI (HTML front-end)
+- **`src/web/server.py`** — Local Flask server (loopback `127.0.0.1:5050` by default) that puts a clean graphical front-end on the pipeline. It is the visual replacement for the `run_menu.py` text menu — same capabilities, friendlier experience.
+  - `GET /api/divisions` — divisions + team lists (reuses `get_team_list()` so the web UI and terminal menu always match)
+  - `GET /api/reports` — scans `seasons/<id>/` for every `*-Scout-{Hitting,Pitching}_<year>.pdf` and groups them by division/team
+  - `GET /report/<path>` — streams a PDF for in-browser viewing (with path-traversal protection — paths are confirmed inside `seasons/` before serving)
+  - `GET /api/run?division=&team=` — builds reports and **streams the live log** to the page via Server-Sent Events (shells out to `run_menu.py`, the same proven path the terminal + nightly cron use — DRY). Guarded by a single-run lock.
+  - `POST /api/add_team` — registers a new Wild/Storm opponent from a GameChanger URL (reuses `_parse_gc_url()` + `add_team_to_yaml()`)
+- **`src/web/index.html` + `css/style.css` + `js/app.js`** — single-page app: Build Reports (division → team → live log), View Reports (open any PDF), Add Team. Vanilla JS, no build step.
+- **`launchers/Start Scout.command`** — double-clickable launcher: activates the venv, starts the server, and opens the browser automatically.
+- **Flask 3.1.3** added to `requirements.txt`.
+
+### Notes
+- **Build vs. view:** Reports can only be **built** on the Mac (the engine needs Python + Playwright + the venv). The generated PDFs sync via Google Drive, so they can be **viewed anywhere** — including on a phone through the Google Drive app. The web UI auto-detects when the server is unreachable and switches to a friendly view-only message.
+- **Unbuffered streaming:** the build subprocess runs with `python -u` + `PYTHONUNBUFFERED=1` so log lines stream live rather than arriving in one dump at the end.
+
+---
+
 ## [3.0.0] - 2026-06-28
 
 ### Changed — Directory Restructure (breaking: all script paths changed)

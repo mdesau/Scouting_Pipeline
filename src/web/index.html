@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- width=device-width so the layout adapts on a phone (view-only) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WCWAA Scout</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!--
+    WCWAA Scout — web front-end shell
+    =================================
+    This is a single-page app. All behavior lives in js/app.js, which talks to
+    the local Flask server (server.py). When the server is NOT running (for
+    example this file is opened directly from Google Drive on a phone), the app
+    detects that and switches to a friendly "view-only" message instead of
+    showing build controls that could not work anyway.
+  -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⚾</span>
+      <div>
+        <h1>WCWAA Scout</h1>
+        <p class="sub" id="seasonLabel">loading…</p>
+      </div>
+    </div>
+    <div class="status" id="connStatus" title="Server connection">
+      <span class="dot"></span><span class="txt">checking…</span>
+    </div>
+  </header>
+
+  <!-- Shown only when the local server is unreachable (e.g. opened on mobile) -->
+  <div id="offlineBanner" class="offline-banner hidden">
+    <strong>View-only mode.</strong> The build engine runs on your Mac. To build
+    reports, start the server there (double-click <code>Start Scout.command</code>).
+    You can still open any PDF below from Google Drive.
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="build">Build Reports</button>
+    <button class="tab" data-tab="reports">View Reports</button>
+    <button class="tab" data-tab="addteam">Add Team</button>
+  </nav>
+
+  <main>
+    <!-- ── BUILD TAB ─────────────────────────────────────────────────────── -->
+    <section id="tab-build" class="panel">
+      <div class="card">
+        <h2>Build scouting reports</h2>
+        <p class="hint">Pick a scope, then click Build. Progress streams live below.</p>
+
+        <div class="row">
+          <label>Division
+            <select id="buildDivision"><option value="">All divisions</option></select>
+          </label>
+          <label>Team
+            <select id="buildTeam"><option value="">All teams</option></select>
+          </label>
+          <button id="buildBtn" class="primary">▶ Build</button>
+        </div>
+
+        <div class="console-wrap">
+          <div class="console-head">
+            <span>Live log</span>
+            <button id="clearLog" class="ghost">Clear</button>
+          </div>
+          <pre id="console" class="console"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── REPORTS TAB ───────────────────────────────────────────────────── -->
+    <section id="tab-reports" class="panel hidden">
+      <div class="card">
+        <div class="reports-head">
+          <h2>Existing reports</h2>
+          <button id="refreshReports" class="ghost">↻ Refresh</button>
+        </div>
+        <input id="reportFilter" class="filter" type="search" placeholder="Filter teams…" />
+        <div id="reportsList" class="reports-list"></div>
+      </div>
+    </section>
+
+    <!-- ── ADD TEAM TAB ──────────────────────────────────────────────────── -->
+    <section id="tab-addteam" class="panel hidden">
+      <div class="card">
+        <h2>Add a Wild / Storm opponent</h2>
+        <p class="hint">Paste the team's GameChanger schedule URL.</p>
+        <div class="form">
+          <label>GameChanger URL
+            <input id="addUrl" type="url"
+                   placeholder="https://web.gc.com/teams/&lt;id&gt;/&lt;slug&gt;/schedule" />
+          </label>
+          <label>Division
+            <select id="addDivision">
+              <option value="Wild">Wild</option>
+              <option value="Storm">Storm</option>
+            </select>
+          </label>
+          <label>Folder name <span class="muted">(auto-filled from URL; edit if needed)</span>
+            <input id="addFolder" type="text" placeholder="e.g. QC Flight Baseball 11U" />
+          </label>
+          <button id="addBtn" class="primary">+ Add team</button>
+        </div>
+        <div id="addResult" class="add-result"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

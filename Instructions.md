@@ -50,8 +50,8 @@ v0.1.0  initial commit
 | # | Item | Status | Target Version | Notes |
 |---|------|--------|----------------|-------|
 | 1 | Optimize directory structure for growth and future seasons | ✅ Done | v3.0.0 | `src/`, `launchers/`, `config/`, `seasons/`, YAML season config |
-| 2 | Build a user-friendly HTML front end ("HTML-based app") | 🔲 Not Started | v3.0.0 | Leverage stat_analysis.py HTML report pattern; create an interactive dashboard |
-| 3 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.1.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
+| 2 | Build a user-friendly HTML front end ("HTML-based app") | ✅ Done | v3.1.0 | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
+| 3 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.2.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
 | 4 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
 
 ---
