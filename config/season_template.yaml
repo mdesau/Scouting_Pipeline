@@ -1,0 +1,114 @@
+# ===========================================================================
+# WCWAA Scout Pipeline — Season Configuration Template
+# ===========================================================================
+#
+# HOW TO USE THIS FILE
+# --------------------
+# This file is the scaffold used when creating a new season. You should
+# never need to edit or use it directly. Instead, create a new season via:
+#
+#   • Web UI:    Season dropdown → "Create New Season"
+#   • Terminal:  bash launchers/run_scout.sh → [4] Manage seasons → Create new
+#
+# The wizard will prompt for the new season ID and the two GameChanger org
+# IDs (Majors + Minors), then generate the season YAML and folder structure
+# automatically.
+#
+# DO NOT set this as the active season — it is a scaffold, not a real season.
+#
+# AFTER CREATING A NEW SEASON
+# ---------------------------
+# 1. Majors/Minors teams are populated during the draft — add them directly
+#    under divisions.Majors/Minors.teams in the generated YAML:
+#       - name: Cubs
+#         coach: Smith
+# 2. Wild/Storm opponents accumulate during the season via "Add Team"
+#    (terminal menu or web UI Add Team tab).
+# 3. Run scrape_gc_boxscores.py after the first games to build rosters.json.
+#
+# PATH NOTES
+# ----------
+# All paths are RELATIVE to seasons/<season_id>/. The Python code prepends
+# the full SEASON_DIR path automatically.
+#
+# DIVISION TYPES
+# --------------
+# league: Majors/Minors — org-based GameChanger schedule, centralized scorebooks
+# travel: Wild/Storm — team-based GC schedule pages, per-team Games/ folders
+# ===========================================================================
+
+season_id: TEMPLATE
+display_name: TEMPLATE
+divisions:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # MAJORS — 11U in-house league
+  # ─────────────────────────────────────────────────────────────────────────
+  # gc_org_id: Find this in GameChanger admin console after creating the
+  # new org for the season. It appears in the org's schedule page URL.
+  # teams: Populated after the draft — add name/coach entries manually or
+  # via a future wizard.
+  # ─────────────────────────────────────────────────────────────────────────
+  Majors:
+    type: league
+    age: 11U
+    gc_org_id: REPLACE_WITH_MAJORS_GC_ORG_ID
+    scorebooks: Majors/Reports/Scorebooks
+    output: Majors/Reports/Scouting_Reports
+    roster_json: Majors/Reports/rosters.json
+    verify_json: Majors/Reports/box_verify.json
+    csv: Majors/Reports/Draft Results.xlsx - Majors.csv
+    label_suffix: Majors
+    csv_overrides: {}
+    roster_additions: {}
+    teams: []
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # MINORS — 9U in-house league
+  # ─────────────────────────────────────────────────────────────────────────
+  Minors:
+    type: league
+    age: 9U
+    gc_org_id: REPLACE_WITH_MINORS_GC_ORG_ID
+    scorebooks: Minors/Reports/Scorebooks
+    output: Minors/Reports/Scouting_Reports
+    roster_json: Minors/Reports/rosters.json
+    verify_json: Minors/Reports/box_verify.json
+    csv: Minors/Reports/Draft Results.xlsx - Minors.csv
+    label_suffix: Minors
+    csv_overrides: {}
+    roster_additions: {}
+    teams: []
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # WILD — 11U travel opponents (per-team Games/ folders)
+  # ─────────────────────────────────────────────────────────────────────────
+  # IMPORTANT: Each team's "name" MUST exactly match the spelling in
+  # GameChanger's inning headers (===Top 1st - Team Name===).
+  # Folder names on disk use the same string. Mismatches → 0 PAs.
+  # Teams accumulate during the season via the "Add Team" wizard.
+  # ─────────────────────────────────────────────────────────────────────────
+  Wild:
+    type: travel
+    age: 11U
+    output_base: Wild
+    label_suffix: Weddington Wild
+    fixed_thresholds:
+      slg_top33: 0.45
+      c_bot33: 0.5
+      bb_top33: 0.2
+    teams: []
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # STORM — 9U travel opponents (per-team Games/ folders)
+  # ─────────────────────────────────────────────────────────────────────────
+  Storm:
+    type: travel
+    age: 9U
+    output_base: Storm
+    label_suffix: Weddington Storm
+    fixed_thresholds:
+      slg_top33: 0.45
+      c_bot33: 0.5
+      bb_top33: 0.2
+    teams: []

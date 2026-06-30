@@ -19,13 +19,16 @@ scrape_gc_playbyplay.py, scrape_gc_boxscores.py, and gen_hitting.py.
 Adding one team required editing three files. Now there is one YAML file
 and one Python loader — all scripts import from here (DRY principle).
 
-NEW SEASON WORKFLOW
--------------------
-1. cp config/2026-spring.yaml config/2026-fall.yaml
-2. Edit the new YAML (update teams, IDs, paths as needed)
-3. echo "2026-fall" > config/active_season.txt
-4. mkdir -p seasons/2026-fall/{Majors,Minors,Wild,Storm}/Reports
-5. Run the pipeline — it picks up the new season automatically.
+NEW SEASON WORKFLOW (automated — v3.2.0+)
+------------------------------------------
+Use the terminal menu [4] Manage seasons → Create new season, or the web UI
+Season dropdown → "Create New Season". Both call create_season() below.
+
+Manual fallback (if needed):
+  1. Call create_season("2026-fall", majors_gc_id, minors_gc_id) directly
+  2. Add Majors/Minors teams to the generated YAML (name/coach per team)
+  3. Activate: set_active_season("2026-fall")
+  4. Wild/Storm opponents accumulate via "Add Team" during the season.
 
 ADDING A TEAM MID-SEASON
 -------------------------
@@ -38,17 +41,21 @@ EXPORTS
 SCOUT_ROOT      : Path  — repo root (Scout/ directory)
 SEASON_ID       : str   — active season identifier
 SEASON_DIR      : Path  — seasons/<season_id>/
-get_season_dir(): Path  — same as SEASON_DIR (callable for testing)
-build_scraper_divisions()  : dict — shape for scrape_gc_playbyplay/boxscores
-build_hitting_divisions()  : dict — shape for gen_hitting + stat_analysis
-add_team_to_yaml()         : bool — appends a new travel team to the YAML
+get_season_dir()           : Path  — same as SEASON_DIR (callable for testing)
+build_scraper_divisions()  : dict  — shape for scrape_gc_playbyplay/boxscores
+build_hitting_divisions()  : dict  — shape for gen_hitting + stat_analysis
+add_team_to_yaml()         : bool  — appends a new travel team to the YAML
+list_seasons()             : list  — all season configs found in config/
+set_active_season()        : None  — writes active_season.txt
+create_season()            : Path  — scaffolds new season YAML + folder structure
 
 REFERENCED IN
 -------------
   scrape_gc_playbyplay.py, scrape_gc_boxscores.py,
-  gen_hitting.py, gen_pitching.py, stat_analysis.py, run_menu.py
+  gen_hitting.py, gen_pitching.py, stat_analysis.py, run_menu.py,
+  server.py
 
-Version: Part of Scout Pipeline v3.0.0+
+Version: Part of Scout Pipeline v3.2.0+
 """
 
 import os
@@ -368,6 +375,216 @@ def add_team_to_yaml(
 
 
 # ---------------------------------------------------------------------------
+# Season Management (v3.2.0+)
+# ---------------------------------------------------------------------------
+
+def list_seasons() -> list:
+    """
+    Return all available seasons found in the config directory.
+
+    Scans config/*.yaml, skipping season_template.yaml (the scaffold file).
+    Each entry carries enough info for UI display without loading full configs.
+
+    Returns:
+        List of dicts sorted by season_id, each with:
+          {"id": str, "display_name": str, "is_active": bool}
+
+    Example:
+        [
+            {"id": "2026-spring", "display_name": "2026 Spring", "is_active": True},
+            {"id": "2026-fall",   "display_name": "2026 Fall",   "is_active": False},
+        ]
+    """
+    active = get_active_season_id()
+    seasons = []
+
+    for yaml_path in sorted(_CONFIG_DIR.glob("*.yaml")):
+        # The template is a scaffold, not a real season — skip it.
+        if yaml_path.stem == "season_template":
+            continue
+        try:
+            with open(yaml_path, encoding="utf-8") as f:
+                cfg = yaml.safe_load(f)
+            # Use season_id from file content if present; fall back to filename.
+            season_id = str(cfg.get("season_id", yaml_path.stem))
+            display_name = str(cfg.get("display_name", season_id))
+            seasons.append({
+                "id": season_id,
+                "display_name": display_name,
+                "is_active": (season_id == active),
+            })
+        except Exception:
+            # Skip malformed or unreadable YAMLs rather than crashing.
+            continue
+
+    return seasons
+
+
+def set_active_season(season_id: str) -> None:
+    """
+    Set the active season by writing its ID to active_season.txt.
+
+    All scripts that import season_config will pick up the new season on
+    their next startup/import. Running processes (e.g. the web server) need
+    to be restarted to see the change.
+
+    Args:
+        season_id: Season ID string (e.g. "2026-fall"). A config YAML for
+                   this ID must already exist in config/.
+
+    Raises:
+        FileNotFoundError: If config/<season_id>.yaml does not exist.
+    """
+    yaml_path = _CONFIG_DIR / f"{season_id}.yaml"
+    if not yaml_path.exists():
+        raise FileNotFoundError(
+            f"No config found for season '{season_id}'. "
+            f"Create it first with create_season().\n"
+            f"Available: {[p.stem for p in _CONFIG_DIR.glob('*.yaml') if p.stem != 'season_template']}"
+        )
+    # WHY trailing newline: text editors and tools expect POSIX-style files
+    # to end with a newline; avoids "no newline at end of file" warnings.
+    _ACTIVE_SEASON_FILE.write_text(season_id + "\n", encoding="utf-8")
+
+
+def create_season(
+    season_id: str,
+    majors_gc_id: str,
+    minors_gc_id: str,
+    display_name: str = None,
+    set_active: bool = False,
+) -> "Path":
+    """
+    Scaffold a new season config from the season template.
+
+    Creates:
+      • config/<season_id>.yaml  — season config with provided GC org IDs,
+                                   empty team lists for all 4 divisions
+      • seasons/<season_id>/     — folder structure for Scorebooks,
+                                   Scouting_Reports, Wild/, Storm/
+
+    WHY TEAMS START EMPTY
+    ─────────────────────
+    GC org IDs are created by the league admin before the season; they are
+    the only piece of data known up-front. In-house team rosters are unknown
+    until after the draft, and travel opponents are discovered game-by-game.
+      • Majors/Minors teams: add manually to the YAML after the draft
+        (name + coach per entry under divisions.Majors/Minors.teams).
+      • Wild/Storm teams: accumulate via "Add Team" wizard as games are
+        scheduled — exactly the same flow as today.
+
+    NOTE ON ACTIVE SEASON
+    ─────────────────────
+    Switching the active season requires a server restart to take effect
+    (SEASON_ID is resolved at module import time for all running scripts).
+    The web UI and terminal menu prompt for this restart automatically.
+
+    Args:
+        season_id:     Unique identifier, e.g. "2026-fall". Used as the
+                       YAML filename and folder name under seasons/.
+        majors_gc_id:  GameChanger org ID for Majors. Find it in the GC
+                       admin console or the org's schedule URL.
+        minors_gc_id:  GameChanger org ID for Minors.
+        display_name:  Human-readable label (e.g. "2026 Fall"). Auto-derived
+                       from season_id if not provided:
+                         "2026-fall" → "2026 Fall"
+                         "2026-spring" → "2026 Spring"
+        set_active:    If True, also updates active_season.txt so this
+                       season becomes the active one immediately.
+
+    Returns:
+        Path to the newly created season YAML file.
+
+    Raises:
+        FileExistsError:    If config/<season_id>.yaml already exists.
+        FileNotFoundError:  If config/season_template.yaml is missing.
+    """
+    yaml_path = _CONFIG_DIR / f"{season_id}.yaml"
+    if yaml_path.exists():
+        raise FileExistsError(
+            f"Season config already exists: {yaml_path}\n"
+            f"Delete it first if you want to recreate this season."
+        )
+
+    template_path = _CONFIG_DIR / "season_template.yaml"
+    if not template_path.exists():
+        raise FileNotFoundError(
+            f"Season template not found: {template_path}\n"
+            f"This file should be in the config/ folder of the repo."
+        )
+
+    # Auto-generate display_name from season_id if caller did not supply one.
+    # Split on "-", capitalize non-numeric parts, preserve year digits:
+    #   "2026-fall"   → "2026 Fall"
+    #   "2026-spring" → "2026 Spring"
+    if display_name is None:
+        parts = season_id.split("-")
+        display_name = " ".join(
+            p if p.isdigit() else p.capitalize()
+            for p in parts
+        )
+
+    # Load the template as a plain data dict (yaml.safe_load discards comments,
+    # which is fine — the generated YAML is a data file, not a human-edit file).
+    with open(template_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+
+    # Fill in season-specific values.
+    cfg["season_id"] = season_id
+    cfg["display_name"] = display_name
+    cfg["divisions"]["Majors"]["gc_org_id"] = majors_gc_id
+    cfg["divisions"]["Minors"]["gc_org_id"] = minors_gc_id
+
+    # Generate the CSV path using the display name to follow the project
+    # convention (e.g. "2026 Fall Draft Results.xlsx - Majors.csv").
+    # The actual .xlsx → .csv export must be placed at this path before
+    # running gen_hitting.py for the first time.
+    cfg["divisions"]["Majors"]["csv"] = (
+        f"Majors/Reports/{display_name} Draft Results.xlsx - Majors.csv"
+    )
+    cfg["divisions"]["Minors"]["csv"] = (
+        f"Minors/Reports/{display_name} Draft Results.xlsx - Minors.csv"
+    )
+
+    # Write the new season YAML. PyYAML reformats the file (no comments),
+    # which is the same known trade-off as add_team_to_yaml().
+    with open(yaml_path, "w", encoding="utf-8") as f:
+        yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True,
+                  sort_keys=False)
+
+    # Create the on-disk folder structure the pipeline expects.
+    _scaffold_season_dirs(_SEASONS_DIR / season_id, cfg)
+
+    if set_active:
+        set_active_season(season_id)
+
+    return yaml_path
+
+
+def _scaffold_season_dirs(season_dir: "Path", cfg: dict) -> None:
+    """
+    Create the folder tree for a new season based on its config dict.
+
+    League divisions (Majors/Minors) need Scorebooks + Scouting_Reports.
+    Travel divisions (Wild/Storm) need only the output_base folder;
+    per-team Games/ subfolders are created by add_team_to_yaml() / "Add Team".
+
+    Args:
+        season_dir: Root path for this season (seasons/<season_id>/).
+        cfg:        Parsed season config dict (from yaml.safe_load).
+    """
+    for div_cfg in cfg.get("divisions", {}).values():
+        if div_cfg.get("type") == "league":
+            # Scorebooks: where raw game .txt files land after scraping.
+            (season_dir / div_cfg["scorebooks"]).mkdir(parents=True, exist_ok=True)
+            # Scouting_Reports: where generated PDFs are written.
+            (season_dir / div_cfg["output"]).mkdir(parents=True, exist_ok=True)
+        else:
+            # Travel: base folder only; Games/ subfolders come later per team.
+            (season_dir / div_cfg["output_base"]).mkdir(parents=True, exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
 # Self-test (python3 src/season_config.py)
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -393,3 +610,9 @@ if __name__ == "__main__":
             print(f"  {name}: {len(d['teams'])} teams  scorebooks={d['scorebooks']}")
         else:
             print(f"  {name}: travel  wild_base={d['wild_base']}")
+
+    print()
+    print("Available seasons:")
+    for s in list_seasons():
+        active_marker = " ← active" if s["is_active"] else ""
+        print(f"  {s['id']}  ({s['display_name']}){active_marker}")
