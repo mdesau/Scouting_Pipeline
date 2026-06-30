@@ -7,14 +7,14 @@
 
 ---
 
-## BUG-18 · [STATUS: Open]
+## BUG-18 · [STATUS: RV]
 
 **Title:** Season selector missing from Build, View Reports, and Add Team tab panels
 
 **Severity:** Medium
 **Date Reported:** 2026-06-30
 **Release Found:** v3.2.0
-**Release Fixed:** N/A — Open
+**Release Fixed:** v3.3.0
 
 ### Observable Problem
 When the web UI is open and the server is running, there is no season dropdown inline with the

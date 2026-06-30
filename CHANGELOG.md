@@ -14,6 +14,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3.0] - 2026-06-30
+
+### Added
+- **Per-tab season selectors in web UI** (resolves BUG-18):
+  - **Build tab**: `#buildSeason` dropdown (no "All") before Division/Team. Changing season reloads Division/Team lists for that season. Passes `?season=` to `/api/run`.
+  - **View Reports tab**: `#reportsSeason` dropdown with **"All seasons"** as first option, then individual seasons. Defaults to active season. Changing it refreshes the reports list instantly.
+  - **Add Team tab**: `#addSeason` dropdown (no "All") above Division. Team is added to the selected season's YAML and Games/ folder.
+  - Header sub-line now shows active season name (e.g. "Season: 2026 Spring") via `loadSeasons()`.
+
+### Changed
+- **`server.py`**:
+  - `GET /api/divisions`: now accepts `?season=<id>` query param — loads divisions from that season's YAML (default: active season)
+  - `GET /api/reports`: now accepts `?season=<id>` — scans only that season's PDFs; omit/empty scans **all** seasons, with division labels prefixed by season name
+  - `GET /report/<path>`: security guard widened to `seasons/` root so PDFs from any season can be served (was locked to single `SEASON_DIR`)
+  - `POST /api/add_team`: accepts optional `season` field in body; adds team to the correct season YAML + creates Games/ folder in the right season directory
+  - `GET /api/run`: accepts `?season=` and passes it as `SCOUT_SEASON` env var to the run_menu.py subprocess — builds against any season without changing `active_season.txt` or restarting the server
+- **`app.js`**: global header season picker removed; replaced with `populateTabSeasonSelects()` that feeds all three per-tab selects from `loadSeasons()` data; `reloadBuildDivisions()` wired to `#buildSeason` change
+- **`style.css`**: removed `.topbar-right`, `.season-picker`, `#seasonSelect` header styles (no longer used)
+- **`index.html`**: removed `#seasonPickerWrap`/`#seasonSelect` from header
+
+### Fixed
+- BUG-18: Season selector was missing from Build, View Reports, and Add Team tab panels
+
+---
+
 ## [3.2.1] - 2026-06-30
 
 ### Changed
