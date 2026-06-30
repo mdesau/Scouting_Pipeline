@@ -62,8 +62,12 @@ function setStatus(online) {
   connStatus.classList.toggle("offline", !online);
   connStatus.querySelector(".txt").textContent = online ? "Server online" : "View-only";
   offlineBanner.classList.toggle("hidden", online);
-  // Disable build/add controls when the engine is unreachable.
-  ["buildBtn", "addBtn", "buildDivision", "buildTeam", "addUrl", "addDivision", "addFolder"]
+  // Show season picker in header only when server is reachable.
+  el("seasonPickerWrap").classList.toggle("hidden", !online);
+  // Disable build/add/season controls when the engine is unreachable.
+  ["buildBtn", "addBtn", "buildDivision", "buildTeam", "addUrl", "addDivision",
+   "addFolder", "seasonSelect", "createSeasonBtn",
+   "newSeasonId", "newSeasonDisplay", "newMajorsId", "newMinorsId", "newSetActive"]
     .forEach((id) => { const n = el(id); if (n) n.disabled = !online; });
 }
 
@@ -227,9 +231,211 @@ el("addBtn").addEventListener("click", async () => {
   }
 });
 
+// ── Seasons tab ──────────────────────────────────────────────────────────────
+/**
+ * Load all seasons from /api/seasons and populate:
+ *   1. The header #seasonSelect dropdown
+ *   2. The seasons list in the Seasons tab
+ */
+async function loadSeasons() {
+  try {
+    const res  = await fetch("/api/seasons", { cache: "no-store" });
+    const data = await res.json();
+    populateSeasonSelect(data);
+    renderSeasonsList(data);
+  } catch (_e) {
+    // Non-fatal — server may just not be up yet during boot
+  }
+}
+
+/** Populate the header season dropdown with all available seasons. */
+function populateSeasonSelect(data) {
+  const select = el("seasonSelect");
+  select.innerHTML = "";
+  (data.seasons || []).forEach((s) => {
+    const o = document.createElement("option");
+    o.value       = s.id;
+    o.textContent = s.display_name;
+    o.selected    = s.is_active;
+    select.appendChild(o);
+  });
+}
+
+/** Render the seasons list in the Seasons tab (name + active badge / Activate button). */
+function renderSeasonsList(data) {
+  const list = el("seasonsList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (!data.seasons || data.seasons.length === 0) {
+    list.innerHTML = '<p class="empty">No seasons found.</p>';
+    return;
+  }
+
+  data.seasons.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "season-row";
+
+    if (s.is_active) {
+      row.innerHTML =
+        `<span class="season-name">${s.display_name}</span>` +
+        `<span class="season-active-badge">● Active</span>`;
+    } else {
+      row.innerHTML =
+        `<span class="season-name">${s.display_name}</span>` +
+        `<button class="activate-btn" data-id="${s.id}">Activate</button>`;
+    }
+    list.appendChild(row);
+  });
+
+  // Wire Activate buttons
+  list.querySelectorAll(".activate-btn").forEach((btn) => {
+    btn.addEventListener("click", () => _activateSeason(btn.dataset.id));
+  });
+}
+
+/**
+ * Switch the active season by calling POST /api/seasons/active.
+ * Shows a confirmation dialog first (this has pipeline-wide impact),
+ * then displays a restart notice on success.
+ */
+async function _activateSeason(seasonId) {
+  if (!confirm(
+    `Switch active season to "${seasonId}"?\n\n` +
+    "The server must be restarted for the change to take effect.\n" +
+    "Any in-progress build will be unaffected."
+  )) return;
+
+  const out = el("seasonSwitchResult");
+  out.className = "add-result";
+  out.textContent = "Switching…";
+
+  try {
+    const res  = await fetch("/api/seasons/active", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ season_id: seasonId }),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      out.className = "add-result ok";
+      out.innerHTML =
+        `✅ Active season updated to <strong>${seasonId}</strong>.<br>` +
+        `<div class="restart-banner">` +
+        `⚠️ <strong>Restart required:</strong> stop the server (Ctrl+C or close the terminal) ` +
+        `and re-launch <code>Start Scout.command</code> for the change to take effect.` +
+        `</div>`;
+      // Refresh the seasons list to show new active state
+      loadSeasons();
+    } else {
+      out.className = "add-result err";
+      out.textContent = "❌ " + (data.error || "Could not switch season.");
+    }
+  } catch (_e) {
+    out.className = "add-result err";
+    out.textContent = "❌ Could not reach the server.";
+  }
+}
+
+// Header season dropdown — switching via the header picker calls the same flow.
+el("seasonSelect").addEventListener("change", (e) => {
+  _activateSeason(e.target.value);
+});
+
+// Refresh seasons list button
+el("refreshSeasons").addEventListener("click", loadSeasons);
+
+// Auto-fill display name from season ID as the user types
+el("newSeasonId").addEventListener("input", () => {
+  const id = el("newSeasonId").value.trim();
+  if (!id) return;
+  const suggested = id.split("-")
+    .map((p) => (p.match(/^\d+$/) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+  // Only auto-fill if the user hasn't manually edited the display name
+  if (!el("newSeasonDisplay").dataset.manualEdit) {
+    el("newSeasonDisplay").value = suggested;
+  }
+});
+el("newSeasonDisplay").addEventListener("input", () => {
+  // Mark as manually edited so auto-fill stops overwriting it
+  el("newSeasonDisplay").dataset.manualEdit = "1";
+});
+
+/**
+ * Create a new season by calling POST /api/seasons.
+ * Validates inputs, submits, shows next-step instructions on success.
+ */
+el("createSeasonBtn").addEventListener("click", async () => {
+  const out = el("createSeasonResult");
+  out.className = "add-result";
+
+  const seasonId    = el("newSeasonId").value.trim();
+  const displayName = el("newSeasonDisplay").value.trim();
+  const majorsId    = el("newMajorsId").value.trim();
+  const minorsId    = el("newMinorsId").value.trim();
+  const setActive   = el("newSetActive").checked;
+
+  if (!seasonId)  { out.className = "add-result err"; out.textContent = "❌ Season ID is required."; return; }
+  if (!majorsId)  { out.className = "add-result err"; out.textContent = "❌ Majors GC org ID is required."; return; }
+  if (!minorsId)  { out.className = "add-result err"; out.textContent = "❌ Minors GC org ID is required."; return; }
+
+  out.textContent = "Creating…";
+  try {
+    const res  = await fetch("/api/seasons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        season_id:    seasonId,
+        display_name: displayName || undefined,
+        majors_gc_id: majorsId,
+        minors_gc_id: minorsId,
+        set_active:   setActive,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      out.className = "add-result ok";
+      let html = `✅ Season <strong>${seasonId}</strong> created.<br>` +
+        `<span class="muted">Config: config/${data.yaml} &nbsp;|&nbsp; Data: seasons/${seasonId}/</span><br><br>` +
+        `<strong>Next steps:</strong><br>` +
+        `1. Add Majors + Minors teams to <code>config/${data.yaml}</code> after the draft.<br>` +
+        `2. Wild/Storm opponents: use "Add Team" tab as games are scheduled.<br>` +
+        `3. Run scrape_gc_boxscores.py after the first games to build rosters.`;
+      if (data.restart_required) {
+        html += `<div class="restart-banner">` +
+          `⚠️ <strong>Restart required:</strong> stop the server and re-launch ` +
+          `<code>Start Scout.command</code> to start using this season.` +
+          `</div>`;
+      }
+      out.innerHTML = html;
+      // Clear form + reset manual-edit flag
+      ["newSeasonId", "newSeasonDisplay", "newMajorsId", "newMinorsId"].forEach((id) => {
+        el(id).value = "";
+        delete el(id).dataset.manualEdit;
+      });
+      el("newSetActive").checked = false;
+      // Refresh seasons list to show the new entry
+      loadSeasons();
+    } else {
+      out.className = "add-result err";
+      out.textContent = "❌ " + (data.error || "Could not create season.");
+    }
+  } catch (_e) {
+    out.className = "add-result err";
+    out.textContent = "❌ Could not reach the server.";
+  }
+});
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 (async function boot() {
   const data = await checkConnection();
-  if (data) populateDivisions(data);
-  else el("seasonLabel").textContent = "View-only mode";
+  if (data) {
+    populateDivisions(data);
+    loadSeasons();
+  } else {
+    el("seasonLabel").textContent = "View-only mode";
+  }
 })();

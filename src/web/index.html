@@ -22,11 +22,19 @@
       <span class="logo">⚾</span>
       <div>
         <h1>WCWAA Scout</h1>
+        <!-- seasonLabel shown in offline/view-only mode -->
         <p class="sub" id="seasonLabel">loading…</p>
       </div>
     </div>
-    <div class="status" id="connStatus" title="Server connection">
-      <span class="dot"></span><span class="txt">checking…</span>
+    <div class="topbar-right">
+      <!-- seasonSelect shown when server is online; hidden otherwise -->
+      <div class="season-picker hidden" id="seasonPickerWrap">
+        <label class="season-picker-label" for="seasonSelect">Season</label>
+        <select id="seasonSelect" title="Switch active season"></select>
+      </div>
+      <div class="status" id="connStatus" title="Server connection">
+        <span class="dot"></span><span class="txt">checking…</span>
+      </div>
     </div>
   </header>
 
@@ -41,6 +49,7 @@
     <button class="tab active" data-tab="build">Build Reports</button>
     <button class="tab" data-tab="reports">View Reports</button>
     <button class="tab" data-tab="addteam">Add Team</button>
+    <button class="tab" data-tab="seasons">Seasons</button>
   </nav>
 
   <main>
@@ -106,6 +115,53 @@
         <div id="addResult" class="add-result"></div>
       </div>
     </section>
+    <!-- ── SEASONS TAB ──────────────────────────────────────────────────────── -->
+    <section id="tab-seasons" class="panel hidden">
+
+      <!-- Existing seasons list + switch -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="reports-head">
+          <h2>Available seasons</h2>
+          <button id="refreshSeasons" class="ghost">↻ Refresh</button>
+        </div>
+        <p class="hint">Click "Activate" to switch the active season. A server restart is
+          required for the change to take effect.</p>
+        <div id="seasonsList"></div>
+        <!-- Shown after activating a season -->
+        <div id="seasonSwitchResult" class="add-result"></div>
+      </div>
+
+      <!-- Create new season -->
+      <div class="card">
+        <h2>Create a new season</h2>
+        <p class="hint">Scaffolds a new season config and folder structure from the template.
+          You will need the GameChanger org IDs for Majors and Minors — find them in the
+          GC admin console after creating the new org for the season.</p>
+        <div class="form">
+          <label>Season ID
+            <span class="muted">(e.g. 2026-fall — becomes the config filename)</span>
+            <input id="newSeasonId" type="text" placeholder="2026-fall" />
+          </label>
+          <label>Display name
+            <span class="muted">(auto-filled from Season ID; edit if needed)</span>
+            <input id="newSeasonDisplay" type="text" placeholder="2026 Fall" />
+          </label>
+          <label>Majors GC org ID
+            <input id="newMajorsId" type="text" placeholder="GameChanger org ID" />
+          </label>
+          <label>Minors GC org ID
+            <input id="newMinorsId" type="text" placeholder="GameChanger org ID" />
+          </label>
+          <label class="row-label">
+            <input id="newSetActive" type="checkbox" />
+            Set as active season immediately
+          </label>
+          <button id="createSeasonBtn" class="primary">+ Create season</button>
+        </div>
+        <div id="createSeasonResult" class="add-result"></div>
+      </div>
+    </section>
+
   </main>
 
   <script src="/js/app.js"></script>

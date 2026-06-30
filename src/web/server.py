@@ -12,6 +12,7 @@ text-based menu in run_menu.py — same capabilities, nicer experience:
   • Pick a division → pick a team → click "Build Reports"   (live log streams)
   • Browse every existing report and open the PDF in one click
   • Add a new Wild / Storm opponent from a GameChanger URL
+  • Switch between seasons or create a new season from the Seasons tab
 
 WHY A LOCAL SERVER (AND NOT A PLAIN HTML FILE)?
 ───────────────────────────────────────────────
@@ -78,6 +79,7 @@ for _p in (str(_SRC_DIR), str(_SRC_DIR / "orchestrator")):
 from season_config import (  # noqa: E402
     SCOUT_ROOT, SEASON_DIR, SEASON_ID,
     build_scraper_divisions, add_team_to_yaml,
+    list_seasons, set_active_season, create_season,
 )
 # Reuse the menu's helpers verbatim (DRY): team listing, URL parsing, folder
 # naming. These are pure functions with no interactive side effects.
@@ -288,6 +290,120 @@ def api_add_team():
         "folder_name": folder_name,
         "note": "Verify the folder name matches GameChanger's inning-header "
                 "spelling exactly after the first game is scraped.",
+    })
+
+
+@app.route("/api/seasons")
+def api_seasons():
+    """
+    Return all available seasons and which one is currently active.
+
+    Used by the web UI season selector to populate the dropdown and mark
+    the active entry. list_seasons() scans config/*.yaml each call (fast),
+    so newly-created seasons appear without a server restart.
+
+    Response shape:
+        {
+            "active":  "2026-spring",
+            "seasons": [
+                {"id": "2026-fall",   "display_name": "2026 Fall",   "is_active": false},
+                {"id": "2026-spring", "display_name": "2026 Spring", "is_active": true},
+            ]
+        }
+    """
+    return jsonify({"active": SEASON_ID, "seasons": list_seasons()})
+
+
+@app.route("/api/seasons/active", methods=["POST"])
+def api_set_active_season():
+    """
+    Switch the active season by updating active_season.txt.
+
+    Body (JSON): {"season_id": "2026-fall"}
+
+    IMPORTANT: The server process must be restarted after switching — SEASON_ID
+    and SEASON_DIR are resolved once at module import time. The response always
+    includes a "restart_required" flag so the UI can display the notice.
+    """
+    data = request.get_json(silent=True) or {}
+    season_id = (data.get("season_id") or "").strip()
+
+    if not season_id:
+        return jsonify({"ok": False, "error": "season_id is required."}), 400
+
+    try:
+        set_active_season(season_id)
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+
+    return jsonify({
+        "ok": True,
+        "season_id": season_id,
+        "restart_required": True,
+        "note": "Restart the server for the season change to take effect: "
+                "stop the server (Ctrl+C) and re-launch Start Scout.command.",
+    })
+
+
+@app.route("/api/seasons", methods=["POST"])
+def api_create_season():
+    """
+    Scaffold a new season config and folder structure.
+
+    Body (JSON):
+        {
+            "season_id":    "2026-fall",        required
+            "majors_gc_id": "abc123",           required
+            "minors_gc_id": "def456",           required
+            "display_name": "2026 Fall",        optional (auto-derived if omitted)
+            "set_active":   false               optional (default false)
+        }
+
+    On success:
+        • Writes config/<season_id>.yaml from the season template
+        • Creates seasons/<season_id>/ folder tree
+        • Optionally updates active_season.txt (if set_active=true)
+
+    Returns 409 if the season already exists, 500 if template is missing.
+    """
+    data = request.get_json(silent=True) or {}
+    season_id    = (data.get("season_id")    or "").strip()
+    majors_gc_id = (data.get("majors_gc_id") or "").strip()
+    minors_gc_id = (data.get("minors_gc_id") or "").strip()
+    display_name = (data.get("display_name") or "").strip() or None
+    set_active   = bool(data.get("set_active", False))
+
+    if not season_id:
+        return jsonify({"ok": False, "error": "season_id is required."}), 400
+    if not majors_gc_id:
+        return jsonify({"ok": False, "error": "majors_gc_id is required."}), 400
+    if not minors_gc_id:
+        return jsonify({"ok": False, "error": "minors_gc_id is required."}), 400
+
+    try:
+        yaml_path = create_season(
+            season_id=season_id,
+            majors_gc_id=majors_gc_id,
+            minors_gc_id=minors_gc_id,
+            display_name=display_name,
+            set_active=set_active,
+        )
+    except FileExistsError as e:
+        return jsonify({"ok": False, "error": str(e)}), 409
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({
+        "ok": True,
+        "season_id": season_id,
+        "yaml": yaml_path.name,
+        "set_active": set_active,
+        "restart_required": set_active,
+        "note": (
+            "Restart the server to use the new season."
+            if set_active else
+            "Use the season dropdown to switch to this season, then restart the server."
+        ),
     })
 
 

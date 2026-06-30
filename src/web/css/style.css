@@ -156,8 +156,57 @@ button.ghost:hover { color: var(--text); border-color: var(--muted); }
 .add-result.err { color: var(--danger); }
 .empty { color: var(--muted); font-size: 14px; }
 
-/* ── Phone tweaks ────────────────────────────────────────────────────────── */
-@media (max-width: 600px) {
+/* ── Top bar right cluster (season picker + status dot) ─────────────────── */
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+
+/* Season picker: compact inline dropdown in the header */
+.season-picker { display: flex; align-items: center; gap: 8px; }
+.season-picker-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+#seasonSelect {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 7px;
+  padding: 5px 10px; font-size: 13px; min-width: 130px; cursor: pointer;
+}
+#seasonSelect:focus { outline: none; border-color: var(--accent); }
+
+/* Season restart notice banner */
+.restart-banner {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  background: #2a2013;
+  border: 1px solid #6b5a1f;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #f0c060;
+}
+
+/* Season list rows */
+.season-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+}
+.season-row .season-name { font-size: 14px; }
+.season-row .season-active-badge {
+  font-size: 12px; color: var(--accent); font-weight: 600;
+  background: rgba(63,185,80,0.12); border: 1px solid #2a5b34;
+  border-radius: 20px; padding: 3px 10px;
+}
+button.activate-btn {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 7px;
+  padding: 5px 12px; font-size: 13px; cursor: pointer;
+}
+button.activate-btn:hover { color: var(--text); border-color: var(--accent); }
+
+/* Inline checkbox label */
+.row-label {
+  display: flex; flex-direction: row; align-items: center;
+  gap: 8px; font-size: 14px; color: var(--text); cursor: pointer;
+}
+.row-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+/* ── Phone tweaks ────────────────────────────────────────────────────────── */@media (max-width: 600px) {
   .row { flex-direction: column; align-items: stretch; }
   select, input { min-width: 0; width: 100%; }
   .console { height: 240px; }
