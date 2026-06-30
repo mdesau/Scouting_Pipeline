@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+### Fixed
+- **Newly added Wild/Storm team missing from web UI dropdown** (Web UI) — `api_divisions()` was serving a startup-time snapshot of division data; now reads YAML fresh on every request so teams added via "Add Team" appear immediately without a server restart. (BUG-17)
+
+### Changed
+- **Teams sorted alphabetically in all dropdowns and terminal menus** (Web UI + Orchestrator) — Wild/Storm team lists were previously returned in YAML insertion order. Now sorted alphabetically in `api_divisions()` (web UI) and `get_team_list()` (terminal menu), matching the existing Majors/Minors sort behavior.
+
 ---
 
 ## [3.1.2] - 2026-06-29

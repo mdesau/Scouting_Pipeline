@@ -195,8 +195,10 @@ def get_team_list(division):
         List of team name strings, or [] if none found.
     """
     if division in ("Wild", "Storm"):
-        # Each entry is a (team_id, slug, display_name) tuple
-        return [name for (_, _, name) in DIVISIONS[division].get("teams", [])]
+        # Each entry is a (team_id, slug, display_name) tuple.
+        # Sorted alphabetically to match Majors/Minors behaviour (rosters.json
+        # keys are already sorted via sorted() below).
+        return sorted(name for (_, _, name) in DIVISIONS[division].get("teams", []))
 
     # Majors / Minors — read team keys from rosters.json
     roster_path = MAJORS_ROSTER if division == "Majors" else MINORS_ROSTER

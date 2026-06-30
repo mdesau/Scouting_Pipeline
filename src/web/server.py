@@ -96,9 +96,6 @@ DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
 # Path to run_menu.py — the single entry point we shell out to for every build.
 RUN_MENU = _SRC_DIR / "orchestrator" / "run_menu.py"
 
-# DIVISIONS metadata (org vs. teams) used to label league vs. travel divisions.
-_DIVISIONS = build_scraper_divisions()
-
 # ── Run lock ────────────────────────────────────────────────────────────────
 # Only one build may run at a time. A second request while a build is active
 # gets a clear "busy" response instead of two scrapers fighting over the same
@@ -141,18 +138,41 @@ def api_divisions():
     """
     Return every division and its team list for the Build dropdowns.
 
-    Team lists come straight from get_team_list() (run_menu.py) so the web UI
-    and the terminal menu always show the exact same teams.
+    WHY WE REBUILD DIVISIONS ON EVERY REQUEST
+    ──────────────────────────────────────────
+    build_scraper_divisions() reads the season YAML each time it is called.
+    This ensures newly-added Wild/Storm teams (written to the YAML by
+    add_team_to_yaml()) appear in the dropdown immediately — without needing
+    a server restart. The YAML read is fast (< 1 ms) and this endpoint is
+    only called on page load and after an "Add Team" action.
+
+    Team lists come from two sources (DRY — same data as the terminal menu):
+      • Wild/Storm: extracted directly from fresh YAML data, sorted alpha.
+        We bypass get_team_list() here because that function reads from a
+        module-level DIVISIONS cache in run_menu.py (frozen at import time)
+        — it would return stale data for teams added mid-session.
+      • Majors/Minors: get_team_list() reads rosters.json fresh each call,
+        so it is already correct and we continue to use it.
     """
+    # Read fresh from YAML on every request so newly-added teams appear
+    # immediately without a server restart. (See docstring above.)
+    divisions = build_scraper_divisions()
     out = []
     for div in DIVISION_ORDER:
-        meta = _DIVISIONS.get(div, {})
-        # "org" = league (Majors/Minors); "teams" = travel (Wild/Storm)
+        meta = divisions.get(div, {})
         div_type = "league" if meta.get("type") == "org" else "travel"
+
+        if div in ("Wild", "Storm"):
+            # Extract names from fresh YAML data and sort alphabetically.
+            teams = sorted(name for (_, _, name) in meta.get("teams", []))
+        else:
+            # Majors/Minors: get_team_list() reads rosters.json fresh — correct.
+            teams = get_team_list(div)
+
         out.append({
             "name": div,
             "type": div_type,
-            "teams": get_team_list(div),
+            "teams": teams,
         })
     return jsonify({"season": SEASON_ID, "divisions": out})
 

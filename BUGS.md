@@ -1,9 +1,50 @@
 # WCWAA Scouting Report Pipeline — Bug Tracker
 
 > **Format:** Each entry includes Bug ID, Date, Component, Problem, Fix, and Status.
-> **Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_*.py`), Parser (`parse_gc_text.py`), Orchestrator (`run_menu.py`)
+> **Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_*.py`), Parser (`parse_gc_text.py`), Orchestrator (`run_menu.py`), Web UI (`server.py`)
 >
 > Entries are listed in reverse chronological order (newest first). Bug IDs are sequential and never reused.
+
+---
+
+## BUG-17 · [STATUS: RV]
+
+**Title:** Newly added Wild/Storm team does not appear in web UI dropdown after "Add Team"
+
+**Severity:** Medium
+**Date Reported:** 2026-06-29
+**Release Found:** v3.1.0
+**Release Fixed:** v3.1.3
+
+### Observable Problem
+After adding a new Wild or Storm opponent via the web UI "Add Team" tab, the team does not appear in the Build division/team dropdowns — even though the success message confirms the team was added. A server restart is required to see the new team, which is not obvious to the user.
+
+As a secondary issue, Wild/Storm teams appear in YAML insertion order rather than alphabetically, making long lists harder to scan. Majors/Minors were already alphabetical.
+
+### Steps to Reproduce
+1. Open the web UI → Add Team tab
+2. Add a valid Wild or Storm opponent via a GC URL
+3. Switch to the Build tab and open the division dropdown
+4. Expected: new team appears in the dropdown — Actual: team is missing until server restart
+
+### Fix Explanation *(Exec Level — No Code)*
+The server was loading division/team data once when it started up and reusing that snapshot for every request. Adding a team updates the config file on disk, but the server was still serving its startup snapshot. Fixed by reading the config file fresh on every request to the divisions endpoint — the read is fast enough that users won't notice. Also sorted Wild/Storm team lists alphabetically to match Majors/Minors behavior.
+
+### Fix Details *(Technical)*
+Two module-level caches caused the stale data:
+1. `server.py` — `_DIVISIONS = build_scraper_divisions()` was called once at module load. `api_divisions()` used this frozen dict for every subsequent request.
+2. `run_menu.py` — `get_team_list()` reads Wild/Storm teams from `run_menu.DIVISIONS`, also a module-level import-time cache. Since `server.py` imports `get_team_list`, this cache is frozen for the server's lifetime.
+
+**Fix:** Removed the module-level `_DIVISIONS` cache from `server.py`. `api_divisions()` now calls `build_scraper_divisions()` fresh on every request (reads YAML — fast, < 1 ms). For Wild/Storm, team names are extracted directly from the fresh data and sorted alphabetically, bypassing the stale `run_menu.DIVISIONS` cache entirely. For Majors/Minors, `get_team_list()` continues to be used — it reads `rosters.json` from disk on each call, so it was already fresh.
+
+`run_menu.py` `get_team_list()` also updated: added `sorted()` to the Wild/Storm return so the terminal menu also displays teams alphabetically (matching Majors/Minors, which was already sorted via `rosters.json` key sort).
+
+Note: The JS side (`app.js` line 219) already correctly re-fetched `/api/divisions` after a successful Add Team response — the bug was entirely server-side.
+
+Files changed: `src/web/server.py`, `src/orchestrator/run_menu.py`
+
+### Workaround
+Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding a team.
 
 ---
 
