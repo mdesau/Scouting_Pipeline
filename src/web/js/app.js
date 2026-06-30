@@ -62,12 +62,11 @@ function setStatus(online) {
   connStatus.classList.toggle("offline", !online);
   connStatus.querySelector(".txt").textContent = online ? "Server online" : "View-only";
   offlineBanner.classList.toggle("hidden", online);
-  // Show season picker in header only when server is reachable.
-  el("seasonPickerWrap").classList.toggle("hidden", !online);
   // Disable build/add/season controls when the engine is unreachable.
-  ["buildBtn", "addBtn", "buildDivision", "buildTeam", "addUrl", "addDivision",
-   "addFolder", "seasonSelect", "createSeasonBtn",
-   "newSeasonId", "newSeasonDisplay", "newMajorsId", "newMinorsId", "newSetActive"]
+  ["buildBtn", "addBtn", "buildSeason", "buildDivision", "buildTeam",
+   "addSeason", "addUrl", "addDivision", "addFolder",
+   "createSeasonBtn", "newSeasonId", "newSeasonDisplay",
+   "newMajorsId", "newMinorsId", "newSetActive"]
     .forEach((id) => { const n = el(id); if (n) n.disabled = !online; });
 }
 
@@ -78,7 +77,6 @@ let DIVISIONS = [];   // [{name, type, teams:[...]}, ...]
 
 /** Populate the division dropdown and wire the team dropdown to follow it. */
 function populateDivisions(data) {
-  el("seasonLabel").textContent = "Season: " + data.season;
   DIVISIONS = data.divisions;
   buildDivision.innerHTML = '<option value="">All divisions</option>';
   DIVISIONS.forEach((d) => {
@@ -89,6 +87,21 @@ function populateDivisions(data) {
   });
   refreshTeamOptions();
 }
+
+/**
+ * Re-fetch /api/divisions for the currently selected build season and repopulate
+ * the division + team dropdowns. Called on boot and when #buildSeason changes.
+ */
+async function reloadBuildDivisions() {
+  const season = el("buildSeason").value;
+  try {
+    const params = season ? `?season=${encodeURIComponent(season)}` : "";
+    const res  = await fetch(`/api/divisions${params}`, { cache: "no-store" });
+    const data = await res.json();
+    populateDivisions(data);
+  } catch (_e) { /* non-fatal — server may be starting */ }
+}
+el("buildSeason").addEventListener("change", reloadBuildDivisions);
 
 /** Rebuild the team dropdown to match the currently selected division. */
 function refreshTeamOptions() {
@@ -120,6 +133,8 @@ el("clearLog").addEventListener("click", () => { consoleEl.textContent = ""; });
 el("buildBtn").addEventListener("click", () => {
   if (!SERVER_ONLINE || activeStream) return;
   const params = new URLSearchParams();
+  const season = el("buildSeason").value;
+  if (season)              params.set("season", season);
   if (buildDivision.value) params.set("division", buildDivision.value);
   if (buildTeam.value)     params.set("team", buildTeam.value);
 
@@ -153,7 +168,9 @@ async function loadReports() {
   const list = el("reportsList");
   list.innerHTML = '<p class="empty">Loading…</p>';
   try {
-    const res = await fetch("/api/reports", { cache: "no-store" });
+    const season = el("reportsSeason").value;  // "" = all seasons
+    const params = season ? `?season=${encodeURIComponent(season)}` : "";
+    const res = await fetch(`/api/reports${params}`, { cache: "no-store" });
     const data = await res.json();
     REPORTS = data.divisions;
     renderReports();
@@ -198,6 +215,7 @@ function renderReports() {
 }
 el("refreshReports").addEventListener("click", loadReports);
 el("reportFilter").addEventListener("input", renderReports);
+el("reportsSeason").addEventListener("change", loadReports);
 
 // ── Add-team tab ─────────────────────────────────────────────────────────────
 el("addBtn").addEventListener("click", async () => {
@@ -209,6 +227,7 @@ el("addBtn").addEventListener("click", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        season: el("addSeason").value,
         url: el("addUrl").value,
         division: el("addDivision").value,
         folder_name: el("addFolder").value,
@@ -234,31 +253,63 @@ el("addBtn").addEventListener("click", async () => {
 // ── Seasons tab ──────────────────────────────────────────────────────────────
 /**
  * Load all seasons from /api/seasons and populate:
- *   1. The header #seasonSelect dropdown
+ *   1. The three per-tab season selects (Build, View Reports, Add Team)
  *   2. The seasons list in the Seasons tab
+ *   3. The active-season label in the header
  */
 async function loadSeasons() {
   try {
     const res  = await fetch("/api/seasons", { cache: "no-store" });
     const data = await res.json();
-    populateSeasonSelect(data);
+    populateTabSeasonSelects(data);
     renderSeasonsList(data);
+    // Header sub-line shows active season name for quick reference
+    const active = (data.seasons || []).find((s) => s.is_active);
+    if (active) el("seasonLabel").textContent = "Season: " + active.display_name;
   } catch (_e) {
     // Non-fatal — server may just not be up yet during boot
   }
 }
 
-/** Populate the header season dropdown with all available seasons. */
-function populateSeasonSelect(data) {
-  const select = el("seasonSelect");
-  select.innerHTML = "";
-  (data.seasons || []).forEach((s) => {
-    const o = document.createElement("option");
-    o.value       = s.id;
-    o.textContent = s.display_name;
-    o.selected    = s.is_active;
-    select.appendChild(o);
+/**
+ * Populate the three per-tab season <select> elements.
+ *   buildSeason   — no "All" option (must target a specific season to build)
+ *   reportsSeason — includes "All seasons" as first option
+ *   addSeason     — no "All" option (must target a specific season to add a team)
+ * Marks the currently active season as default selection on all three.
+ */
+function populateTabSeasonSelects(data) {
+  const seasons = data.seasons || [];
+  const activeId = data.active || "";
+
+  // Build and Add Team selects: specific season only, active pre-selected
+  ["buildSeason", "addSeason"].forEach((id) => {
+    const sel = el(id);
+    if (!sel) return;
+    sel.innerHTML = "";
+    seasons.forEach((s) => {
+      const o = document.createElement("option");
+      o.value    = s.id;
+      o.textContent = s.display_name + (s.is_active ? " ✓" : "");
+      o.selected = s.id === activeId;
+      sel.appendChild(o);
+    });
   });
+
+  // Reports select: "All seasons" first, then each season; default to active
+  const rSel = el("reportsSeason");
+  if (!rSel) return;
+  rSel.innerHTML = '<option value="">All seasons</option>';
+  seasons.forEach((s) => {
+    const o = document.createElement("option");
+    o.value    = s.id;
+    o.textContent = s.display_name + (s.is_active ? " ✓" : "");
+    o.selected = s.id === activeId;   // default view to active season
+    rSel.appendChild(o);
+  });
+
+  // After populating buildSeason, reload division/team lists for the new value
+  reloadBuildDivisions();
 }
 
 /** Render the seasons list in the Seasons tab (name + active badge / Activate button). */
@@ -337,11 +388,6 @@ async function _activateSeason(seasonId) {
     out.textContent = "❌ Could not reach the server.";
   }
 }
-
-// Header season dropdown — switching via the header picker calls the same flow.
-el("seasonSelect").addEventListener("change", (e) => {
-  _activateSeason(e.target.value);
-});
 
 // Refresh seasons list button
 el("refreshSeasons").addEventListener("click", loadSeasons);
@@ -433,7 +479,8 @@ el("createSeasonBtn").addEventListener("click", async () => {
 (async function boot() {
   const data = await checkConnection();
   if (data) {
-    populateDivisions(data);
+    // loadSeasons → populateTabSeasonSelects → reloadBuildDivisions chains all
+    // startup population: season selects, divisions, and teams in one flow.
     loadSeasons();
   } else {
     el("seasonLabel").textContent = "View-only mode";

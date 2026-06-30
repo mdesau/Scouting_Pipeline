@@ -22,19 +22,12 @@
       <span class="logo">⚾</span>
       <div>
         <h1>WCWAA Scout</h1>
-        <!-- seasonLabel shown in offline/view-only mode -->
+        <!-- Active season name; updated on boot from /api/seasons response -->
         <p class="sub" id="seasonLabel">loading…</p>
       </div>
     </div>
-    <div class="topbar-right">
-      <!-- seasonSelect shown when server is online; hidden otherwise -->
-      <div class="season-picker hidden" id="seasonPickerWrap">
-        <label class="season-picker-label" for="seasonSelect">Season</label>
-        <select id="seasonSelect" title="Switch active season"></select>
-      </div>
-      <div class="status" id="connStatus" title="Server connection">
-        <span class="dot"></span><span class="txt">checking…</span>
-      </div>
+    <div class="status" id="connStatus" title="Server connection">
+      <span class="dot"></span><span class="txt">checking…</span>
     </div>
   </header>
 
@@ -60,6 +53,9 @@
         <p class="hint">Pick a scope, then click Build. Progress streams live below.</p>
 
         <div class="row">
+          <label>Season
+            <select id="buildSeason"></select>
+          </label>
           <label>Division
             <select id="buildDivision"><option value="">All divisions</option></select>
           </label>
@@ -86,6 +82,9 @@
           <h2>Existing reports</h2>
           <button id="refreshReports" class="ghost">↻ Refresh</button>
         </div>
+        <label style="margin-top:12px; display:flex; flex-direction:column; gap:5px; font-size:13px; color:var(--muted); max-width:260px;">Season
+          <select id="reportsSeason"><option value="">All seasons</option></select>
+        </label>
         <input id="reportFilter" class="filter" type="search" placeholder="Filter teams…" />
         <div id="reportsList" class="reports-list"></div>
       </div>
@@ -97,6 +96,9 @@
         <h2>Add a Wild / Storm opponent</h2>
         <p class="hint">Paste the team's GameChanger schedule URL.</p>
         <div class="form">
+          <label>Season
+            <select id="addSeason"></select>
+          </label>
           <label>GameChanger URL
             <input id="addUrl" type="url"
                    placeholder="https://web.gc.com/teams/&lt;id&gt;/&lt;slug&gt;/schedule" />

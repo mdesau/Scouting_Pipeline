@@ -156,20 +156,7 @@ button.ghost:hover { color: var(--text); border-color: var(--muted); }
 .add-result.err { color: var(--danger); }
 .empty { color: var(--muted); font-size: 14px; }
 
-/* ── Top bar right cluster (season picker + status dot) ─────────────────── */
-.topbar-right { display: flex; align-items: center; gap: 16px; }
-
-/* Season picker: compact inline dropdown in the header */
-.season-picker { display: flex; align-items: center; gap: 8px; }
-.season-picker-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
-#seasonSelect {
-  background: var(--panel-2); color: var(--text);
-  border: 1px solid var(--line); border-radius: 7px;
-  padding: 5px 10px; font-size: 13px; min-width: 130px; cursor: pointer;
-}
-#seasonSelect:focus { outline: none; border-color: var(--accent); }
-
-/* Season restart notice banner */
+/* ── Phone tweaks ────────────────────────────────────────────────────────── */
 .restart-banner {
   margin: 10px 0 0;
   padding: 10px 14px;

@@ -140,13 +140,16 @@ def api_divisions():
     """
     Return every division and its team list for the Build dropdowns.
 
+    Query params:
+        season — season ID to load (default: active SEASON_ID)
+
     WHY WE REBUILD DIVISIONS ON EVERY REQUEST
     ──────────────────────────────────────────
     build_scraper_divisions() reads the season YAML each time it is called.
     This ensures newly-added Wild/Storm teams (written to the YAML by
     add_team_to_yaml()) appear in the dropdown immediately — without needing
     a server restart. The YAML read is fast (< 1 ms) and this endpoint is
-    only called on page load and after an "Add Team" action.
+    only called on page load, season switch, and after an "Add Team" action.
 
     Team lists come from two sources (DRY — same data as the terminal menu):
       • Wild/Storm: extracted directly from fresh YAML data, sorted alpha.
@@ -156,9 +159,10 @@ def api_divisions():
       • Majors/Minors: get_team_list() reads rosters.json fresh each call,
         so it is already correct and we continue to use it.
     """
+    season = (request.args.get("season") or "").strip() or SEASON_ID
     # Read fresh from YAML on every request so newly-added teams appear
     # immediately without a server restart. (See docstring above.)
-    divisions = build_scraper_divisions()
+    divisions = build_scraper_divisions(season_id=season)
     out = []
     for div in DIVISION_ORDER:
         meta = divisions.get(div, {})
@@ -176,14 +180,17 @@ def api_divisions():
             "type": div_type,
             "teams": teams,
         })
-    return jsonify({"season": SEASON_ID, "divisions": out})
+    return jsonify({"season": season, "divisions": out})
 
 
 @app.route("/api/reports")
 def api_reports():
     """
-    Scan the season folder for every generated PDF and return them grouped by
+    Scan the season folder(s) for every generated PDF and return them grouped by
     division, each with its hitting and/or pitching report path.
+
+    Query params:
+        season — season ID to scope to, or omit/empty for ALL seasons.
 
     HOW REPORTS ARE LOCATED
     ───────────────────────
@@ -198,38 +205,59 @@ def api_reports():
 
     Grouping by <stem> pairs each team's hitting + pitching report together,
     regardless of which layout produced it.
+
+    When scanning all seasons, division sections are prefixed with the season
+    name (e.g. "Majors — 2026 Spring") so the user knows which season each
+    group belongs to.
     """
-    season_rel = Path("seasons") / SEASON_ID
+    season_filter = (request.args.get("season") or "").strip()
     pat = re.compile(r"^(?P<stem>.+)-Scout-(?P<kind>Hitting|Pitching)_\d{4}\.pdf$")
+    seasons_root = SCOUT_ROOT / "seasons"
+
+    # Build the list of (season_id, season_dir) pairs to scan.
+    if season_filter:
+        scan_list = [(season_filter, seasons_root / season_filter)]
+    else:
+        # All seasons: discover every seasons/<id>/ folder on disk.
+        scan_list = sorted(
+            (p.name, p) for p in seasons_root.iterdir() if p.is_dir()
+        )
 
     out = []
-    for div in DIVISION_ORDER:
-        div_dir = SEASON_DIR / div
-        if not div_dir.is_dir():
-            continue
-
-        # stem → {"hitting": relpath, "pitching": relpath, "mtime": float}
-        teams: dict[str, dict] = {}
-        for pdf in div_dir.rglob("*-Scout-*_*.pdf"):
-            m = pat.match(pdf.name)
-            if not m:
+    for sid, season_dir in scan_list:
+        # Use a season-qualified label when showing all seasons together.
+        label_suffix = f" — {sid}" if not season_filter else ""
+        for div in DIVISION_ORDER:
+            div_dir = season_dir / div
+            if not div_dir.is_dir():
                 continue
-            stem = m.group("stem")
-            kind = m.group("kind").lower()
-            # Path the browser will request (relative to the season folder),
-            # used by /report/<path> below to stream the file.
-            rel = str(pdf.relative_to(SEASON_DIR))
-            entry = teams.setdefault(stem, {"name": _pretty_stem(stem),
-                                            "hitting": None,
-                                            "pitching": None,
-                                            "mtime": 0.0})
-            entry[kind] = rel
-            entry["mtime"] = max(entry["mtime"], pdf.stat().st_mtime)
 
-        team_list = sorted(teams.values(), key=lambda t: t["name"].lower())
-        out.append({"name": div, "teams": team_list})
+            # stem → {"hitting": relpath, "pitching": relpath, "mtime": float}
+            teams: dict[str, dict] = {}
+            for pdf in div_dir.rglob("*-Scout-*_*.pdf"):
+                m = pat.match(pdf.name)
+                if not m:
+                    continue
+                stem = m.group("stem")
+                kind = m.group("kind").lower()
+                # Path relative to season_dir so /report/<path> can serve it.
+                rel = str(pdf.relative_to(season_dir))
+                entry = teams.setdefault(stem, {"name": _pretty_stem(stem),
+                                                "hitting": None,
+                                                "pitching": None,
+                                                "mtime": 0.0})
+                entry[kind] = rel
+                entry["mtime"] = max(entry["mtime"], pdf.stat().st_mtime)
 
-    return jsonify({"season": SEASON_ID, "root": str(season_rel), "divisions": out})
+            if not teams:
+                continue
+            team_list = sorted(teams.values(), key=lambda t: t["name"].lower())
+            out.append({"name": div + label_suffix, "teams": team_list,
+                        "season": sid})
+
+    season_rel = Path("seasons") / (season_filter or "")
+    return jsonify({"season": season_filter or "all", "root": str(season_rel),
+                    "divisions": out})
 
 
 @app.route("/report/<path:relpath>")
@@ -238,12 +266,15 @@ def serve_report(relpath):
     Stream a single PDF for viewing in the browser.
 
     SECURITY: the requested path is resolved and confirmed to live INSIDE the
-    season folder before anything is served. This blocks path-traversal
+    seasons/ root folder before anything is served. This blocks path-traversal
     attempts (e.g. ../../etc/passwd) from reaching files outside seasons/.
+
+    Paths are now relative to the seasons/ root (not a single season), so they
+    work correctly for both single-season and all-seasons report views.
     """
-    target = (SEASON_DIR / relpath).resolve()
-    season_root = SEASON_DIR.resolve()
-    if season_root not in target.parents or not target.is_file():
+    seasons_root = (SCOUT_ROOT / "seasons").resolve()
+    target = (seasons_root / relpath).resolve()
+    if seasons_root not in target.parents or not target.is_file():
         abort(404)
     return send_file(target, mimetype="application/pdf")
 
@@ -253,13 +284,17 @@ def api_add_team():
     """
     Register a new Wild / Storm opponent from a GameChanger schedule URL.
 
+    Accepts an optional "season" field in the JSON body to target a specific
+    season's YAML and Games/ folder. Defaults to the active SEASON_ID.
+
     Reuses _parse_gc_url() + _slug_to_folder_name() + add_team_to_yaml() so the
     web flow writes the SAME YAML the terminal "Add new team" option does.
     Creates the team's Games/ folder so the next pipeline run can scrape it.
     """
     data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    division = (data.get("division") or "").strip()
+    season       = (data.get("season")      or "").strip() or SEASON_ID
+    url          = (data.get("url")         or "").strip()
+    division     = (data.get("division")    or "").strip()
     folder_override = (data.get("folder_name") or "").strip()
 
     if division not in ("Wild", "Storm"):
@@ -274,16 +309,18 @@ def api_add_team():
 
     # Append to the season YAML (idempotent — guards duplicates).
     try:
-        add_team_to_yaml(division, team_id, slug, folder_name)
+        add_team_to_yaml(division, team_id, slug, folder_name, season_id=season)
     except Exception as e:  # surface YAML write problems to the UI clearly
         return jsonify({"ok": False, "error": f"Failed to update season config: {e}"}), 500
 
     # Create the Games/ folder the scraper will drop game files into.
-    games_dir = SEASON_DIR / division / folder_name / "Games"
+    target_season_dir = SCOUT_ROOT / "seasons" / season
+    games_dir = target_season_dir / division / folder_name / "Games"
     games_dir.mkdir(parents=True, exist_ok=True)
 
     return jsonify({
         "ok": True,
+        "season": season,
         "division": division,
         "team_id": team_id,
         "slug": slug,
@@ -425,6 +462,9 @@ def api_run():
     """
     division = (request.args.get("division") or "").strip()
     team = (request.args.get("team") or "").strip()
+    # Optional season override — uses the SCOUT_SEASON env var so run_menu.py
+    # (and season_config.py) pick it up without any argument changes.
+    season = (request.args.get("season") or "").strip()
 
     def stream():
         # Non-blocking lock acquire: reject overlapping builds with a clear note.
@@ -449,6 +489,11 @@ def api_run():
             # cwd = SCOUT_ROOT so all the scripts' relative paths resolve.
             # stderr→stdout so warnings/errors stream inline with progress.
             env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+            # If a specific season was requested, pass it via SCOUT_SEASON so
+            # season_config.py picks it up at import time in the subprocess —
+            # without changing active_season.txt or restarting the server.
+            if season:
+                env["SCOUT_SEASON"] = season
             proc = subprocess.Popen(
                 cmd, cwd=str(SCOUT_ROOT),
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
