@@ -18,10 +18,10 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field | Value |
 |---|---|
-| **Version** | 3.2.0 |
-| **Last commit** | `5693198` — `chore: release v3.2.0 — season management feature` |
+| **Version** | 3.2.1 |
+| **Last commit** | `70e7835` — `feat(config): add Carolina Locos Black 9U to Storm (2026-spring)` |
 | **Branch** | `main` |
-| **Uncommitted** | `config/2026-spring.yaml` — PyYAML reformat + Carolina Locos Black 9U added to Storm (pre-existing; should be committed as `feat(config): add Carolina Locos Black 9U to Storm`) |
+| **Uncommitted** | None — working tree clean |
 
 ### Session Handoff Protocol
 
@@ -80,8 +80,9 @@ v0.1.0  initial commit
 | 1 | Optimize directory structure for growth and future seasons | ✅ Done | v3.0.0 | `src/`, `launchers/`, `config/`, `seasons/`, YAML season config |
 | 2 | Build a user-friendly HTML front end ("HTML-based app") | ✅ Done | v3.1.0 | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
 | 3 | Season management — create/switch seasons without manual YAML editing | ✅ Done | v3.2.0 | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker |
-| 4 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.3.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
-| 5 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
+| 4 | Per-tab season selectors in web UI (BUG-18) | 🔲 Not Started | v3.3.0 | Add inline season `<select>` to Build, View Reports, and Add Team tab panels. See BUG-18 for full spec. |
+| 5 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.3.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
+| 6 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
 
 ---
 

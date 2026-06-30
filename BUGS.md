@@ -7,6 +7,55 @@
 
 ---
 
+## BUG-18 · [STATUS: Open]
+
+**Title:** Season selector missing from Build, View Reports, and Add Team tab panels
+
+**Severity:** Medium
+**Date Reported:** 2026-06-30
+**Release Found:** v3.2.0
+**Release Fixed:** N/A — Open
+
+### Observable Problem
+When the web UI is open and the server is running, there is no season dropdown inline with the
+Division/Team controls on the Build tab, no season filter on the View Reports tab, and no season
+selector on the Add Team tab. Users cannot target a specific season from within those panels.
+
+### Steps to Reproduce
+1. Start the server (`Start Scout.command`)
+2. Open http://127.0.0.1:5050
+3. Observe Build tab — no season dropdown next to Division/Team
+4. Observe View Reports tab — no season dropdown
+5. Observe Add Team tab — no season dropdown above Division
+6. Expected: season selector inline on each tab — Actual: no season selector on any operational tab
+
+### Fix Explanation *(Exec Level — No Code)*
+The v3.2.0 season management feature added a global season picker to the page header and a
+dedicated "Seasons" tab for creating and activating seasons. However, the per-tab inline
+season selectors (inline with Division/Team on Build; filter on View Reports; above Division
+on Add Team) were never added to those three panels. This is a design gap — the header picker
+controls which season is *active* system-wide, but there is no way to target a specific
+season's data from within the operational tabs without switching the global active season.
+
+### Fix Details *(Technical)*
+Three panels in `index.html` need a season `<select>` added, and `app.js` needs to:
+- **Build tab**: Add `#buildSeason` select (populated from `loadSeasons()`, no "All" option) before
+  the Division select. Pass `season=` param to `/api/run` and `/api/divisions`. Server may need
+  a `?season=` query param on those endpoints to scope the division/team lists and build target.
+- **View Reports tab**: Add `#reportsSeason` select before the filter input. Filter `reportsList`
+  render to only show PDFs under `seasons/<selected>/`.
+- **Add Team tab**: Add `#addSeason` select above the Division select. Pass to `/api/add_team`.
+
+Note: the global header picker (`#seasonSelect`) still makes sense as a convenience for switching
+the system-wide active season. These per-tab selectors are about targeting a specific season
+for an operation without necessarily switching the global active.
+
+### Workaround
+Use the "Seasons" tab (4th tab) to activate the desired season first, then restart the server,
+then proceed with Build/View/Add Team. Clunky but functional.
+
+---
+
 ## BUG-17 · [STATUS: RV]
 
 **Title:** Newly added Wild/Storm team does not appear in web UI dropdown after "Add Team"
