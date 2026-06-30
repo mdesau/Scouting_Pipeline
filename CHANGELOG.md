@@ -14,6 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.1] - 2026-06-30
+
+### Changed
+- **`Instructions.md`** — Full refactor:
+  - Title generalized (removed hardcoded "2026 Spring")
+  - Added **Current State** table (version, last commit, uncommitted work) — was missing entirely
+  - Added **Session Handoff Protocol** section (Code Mentor principle #11)
+  - Version history updated with v3.1.3 and v3.2.0 entries
+  - To Do table: season management marked ✅ Done; dynamic archetypes bumped to v3.3.0; added item #5
+  - Scripts Overview: all line counts updated to v3.2.0 actual values
+  - Directory tree: added `config/season_template.yaml`; updated `run_menu.py` and `season_config.py` descriptions
+  - Function maps updated: `season_config.py` (4 new functions), `run_menu.py` (3 new functions + stale line numbers), `server.py` (3 new endpoints + BUG-17 note)
+  - Teams Reference: Storm count 17 → 18; added Carolina Locos Black 9U
+  - Added **Starting a New Season** section describing the create/switch wizard workflow
+- **`README.md`** — Version badge bumped to 3.2.0
+
+---
+
 ## [3.2.0] - 2026-06-30
 
 ### Added — Season Management
