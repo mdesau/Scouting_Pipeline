@@ -1,4 +1,4 @@
-# WCWAA 2026 Spring — Scout Pipeline
+# WCWAA Scout Pipeline
 
 This file is the authoritative reference for the WCWAA Scout pipeline.
 Load it at the start of every new AI coding session (GitHub Copilot, Claude, etc.).
@@ -14,6 +14,30 @@ handling, and code style. Follow those guidelines throughout.
 
 ---
 
+## Current State
+
+| Field | Value |
+|---|---|
+| **Version** | 3.2.0 |
+| **Last commit** | `5693198` — `chore: release v3.2.0 — season management feature` |
+| **Branch** | `main` |
+| **Uncommitted** | `config/2026-spring.yaml` — PyYAML reformat + Carolina Locos Black 9U added to Storm (pre-existing; should be committed as `feat(config): add Carolina Locos Black 9U to Storm`) |
+
+### Session Handoff Protocol
+
+When starting a new session on this project:
+
+1. **Load this file first** — it's the authoritative context document
+2. **Read the Code Mentor principles** — user may re-paste them; follow them throughout
+3. **Check `git status`** — note any uncommitted changes before touching anything
+4. **Check `active_season.txt`** — confirms which season config is active
+5. **Scan `[Unreleased]` in CHANGELOG.md** — see what work is in-flight
+6. **Review open items in BUGS.md** — check for `Open` or `In Progress` bugs
+
+At session end, update this **Current State** table with the latest version and last commit SHA before closing.
+
+---
+
 ## Development Environment
 
 - **Python 3.9.6** (macOS system Python)
@@ -26,6 +50,8 @@ handling, and code style. Follow those guidelines throughout.
 
 ### Version History
 ```
+v3.2.0  feat: season management — list/create/switch seasons (terminal + web UI)
+v3.1.3  fix: BUG-17 — newly added team missing from web UI dropdown + alphabetical sort
 v3.1.2  chore: relocate repo to WCWAA/Scout/ + venv at root + AllStars into seasons/
 v3.1.0  feat: web UI — local Flask server + HTML front-end (build/view/add via browser)
 v3.0.0  refactor: restructure to src/ layout + YAML season config + seasons/ data dir
@@ -53,14 +79,15 @@ v0.1.0  initial commit
 |---|------|--------|----------------|-------|
 | 1 | Optimize directory structure for growth and future seasons | ✅ Done | v3.0.0 | `src/`, `launchers/`, `config/`, `seasons/`, YAML season config |
 | 2 | Build a user-friendly HTML front end ("HTML-based app") | ✅ Done | v3.1.0 | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
-| 3 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.2.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
-| 4 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
+| 3 | Season management — create/switch seasons without manual YAML editing | ✅ Done | v3.2.0 | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker |
+| 4 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.3.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
+| 5 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
 
 ---
 
 ## Project Summary
 
-Scout is a single automated pipeline for generating scouting reports for Weddington youth baseball (Spring 2026). It has two report components:
+Scout is a single automated pipeline for generating scouting reports for Weddington youth baseball. It has two report components:
 
 | Component | Purpose | Output |
 |---|---|---|
@@ -80,22 +107,22 @@ Both components share the same virtual environment, game file data, and scraping
 
 ---
 
-## Scripts Overview (line counts as of v3.1.0, June 29 2026)
+## Scripts Overview (line counts as of v3.2.0, June 30 2026)
 
 | Script | Lines | Component | Role |
 |---|---|---|---|
 | `src/hitting/gen_hitting.py` | ~2146 | Hitting | Stat engine + PDF generator |
 | `src/pitching/gen_pitching.py` | ~1301 | Pitching | Stat engine + PDF generator |
-| `src/orchestrator/run_menu.py` | ~945 | Orchestrator | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) + add-team wizard |
+| `src/orchestrator/run_menu.py` | ~1143 | Orchestrator | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) + add-team wizard + season management |
 | `src/scraping/scrape_gc_boxscores.py` | ~790 | Scraping | Playwright: GC box scores → rosters |
-| `src/hitting/stat_analysis.py` | ~605 | Hitting | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, To Do #3) |
+| `src/hitting/stat_analysis.py` | ~605 | Hitting | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, To Do #4) |
 | `src/scraping/scrape_gc_playbyplay.py` | ~588 | Scraping | Playwright: GC schedule → .txt game files |
-| `src/season_config.py` | ~395 | Config | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()` |
-| `src/web/server.py` | ~385 | Web | Flask server backing the HTML front-end (build/view/add) |
+| `src/season_config.py` | ~618 | Config | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()`, season lifecycle (`list_seasons`, `create_season`, `set_active_season`) |
+| `src/web/server.py` | ~521 | Web | Flask server backing the HTML front-end (build/view/add/seasons) |
 | `src/scraping/parse_gc_text.py` | ~270 | Parser | Raw GC text → WCWAA format (utility) |
 | `src/scraping/diag_schedule.py` | ~144 | Scraping | Schedule diagnostics (utility) |
 
-> **Web front-end assets** (not Python): `src/web/index.html`, `src/web/css/style.css`, `src/web/js/app.js`.
+> **Web front-end assets** (not Python): `src/web/index.html` (~169 lines), `src/web/css/style.css` (~213 lines), `src/web/js/app.js` (~441 lines).
 >
 > **Legacy scripts** (`pilot_card.py`, `patch_march_initials.py`, `scrape_storm.py`) were retired in the v3.0.0 restructure and removed from the repo in v3.1.0. Sample files live in `examples/`.
 
@@ -127,12 +154,14 @@ Spring/                              <- git repo root (v3.1.0)
 |
 |-- config/                          <- season configuration (the only place teams live)
 |   |-- 2026-spring.yaml             <- single source of truth: GC IDs, slugs, coaches, paths
+|   |-- season_template.yaml         <- scaffold for new seasons (used by create_season())
 |   +-- active_season.txt            <- one line: "2026-spring" (switch seasons here)
 |
 |-- src/                             <- all Python source
 |   |-- season_config.py             <- central loader: SCOUT_ROOT, SEASON_DIR,
 |   |                                    build_scraper_divisions(), build_hitting_divisions(),
-|   |                                    add_team_to_yaml(). Every script imports from here.
+|   |                                    add_team_to_yaml(), list_seasons(), create_season(),
+|   |                                    set_active_season(). Every script imports from here.
 |   |-- hitting/
 |   |   |-- gen_hitting.py            <- Step 3: stat engine + hitting PDFs
 |   |   |-- stat_analysis.py          <- distribution/percentile analysis -> HTML report
@@ -146,7 +175,7 @@ Spring/                              <- git repo root (v3.1.0)
 |   |   |-- parse_gc_text.py          <- utility: raw GC text -> WCWAA format
 |   |   +-- diag_schedule.py          <- utility: schedule diagnostics
 |   |-- orchestrator/
-|   |   +-- run_menu.py               <- pipeline orchestrator (Steps 1-4) + add-team wizard
+|   |   +-- run_menu.py               <- pipeline orchestrator (Steps 1-4) + add-team + season management
 |   +-- web/                          <- HTML front-end (v3.1.0)
 |       |-- server.py                 <- Flask server (build/view/add endpoints + live log SSE)
 |       |-- index.html                <- single-page app shell
@@ -343,40 +372,68 @@ Converts raw GC page text into WCWAA-structured `.txt` game file format. Called 
 | `GC_NAME_FIXES` | ~20 | Dict of known GC data errors to auto-correct |
 | `OUTCOME_TYPES` | ~35 | Outcome string -> code mapping (must sync with gen_hitting.py) |
 
+### season_config.py (Central Config Loader)
+Gateway module — every script imports from here. Reads `active_season.txt` → loads `config/<season>.yaml` → exposes all season data as module-level constants and helper functions. Also manages the season lifecycle (create, list, switch).
+
+| Function / Constant | ~Line | Purpose |
+|---|---|---|
+| `SCOUT_ROOT` | ~150 | Absolute path to repo root (derived from `__file__`) |
+| `SEASON_ID` | ~153 | Active season ID (`"2026-spring"`) — read from `active_season.txt` at import |
+| `SEASON_DIR` | ~155 | `seasons/<season_id>/` data directory |
+| `build_scraper_divisions()` | ~200 | Builds `DIVISIONS` dict for scraping scripts (GC org ID, team slugs, team IDs) |
+| `build_hitting_divisions()` | ~265 | Builds `DIVISIONS` dict for hitting/pitching scripts (folder paths, roster files) |
+| `add_team_to_yaml()` | ~330 | Adds a new Wild/Storm team to the active season YAML (idempotent) |
+| `list_seasons()` | ~370 | Scans `config/*.yaml` (excluding template); returns `[{id, display_name, is_active}]` |
+| `set_active_season()` | ~410 | Writes a new season ID to `active_season.txt`; guards for missing config |
+| `create_season()` | ~440 | Scaffolds a new season YAML from `season_template.yaml` (fills GC IDs, display name); calls `_scaffold_season_dirs()` |
+| `_scaffold_season_dirs()` | ~560 | Private helper — creates on-disk folder tree for a new season (`seasons/<id>/Majors/`, `Minors/`, `Wild/`, `Storm/`) |
+
+> **Important:** `SEASON_ID` and `SEASON_DIR` are module-level constants resolved at import time.
+> Calling `set_active_season()` updates `active_season.txt` on disk, but the **running process still
+> uses the old values** until restarted. All season-switch responses include a `restart_required` flag.
+
 ### run_menu.py (Orchestrator)
 Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subprocesses.
 
 | Function | ~Line | Purpose |
 |---|---|---|
-| `main()` | ~886 | CLI entry point -- parses `--all`, `--division`, `--team` |
-| `interactive_menu()` | ~814 | Menu: [0] Full, [1] Division, [2] Team, [3] Add team |
-| `add_new_team()` | ~717 | Wizard: paste GC URL -> `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/` |
-| `_slug_to_folder_name()` | ~678 | Converts GC slug to folder name |
-| `_parse_gc_url()` | ~654 | Extracts `team_id` and `slug` from a GC schedule URL |
-| `_run()` | ~627 | Subprocess wrapper with exit-code handling |
-| `run_pipeline()` | ~216 | Runs steps 1->2->3->4 as subprocesses for given scope |
-| `get_team_list()` | ~183 | Wild/Storm: reads DIVISIONS tuples; Majors/Minors: reads rosters.json keys |
-| `check_session()` | ~112 | Warns if `sessions/gc_session.json` is missing |
+| `main()` | ~1091 | CLI entry point -- parses `--all`, `--division`, `--team` |
+| `interactive_menu()` | ~1019 | Menu: [0] Full, [1] Division, [2] Team, [3] Add team, [4] Manage seasons |
+| `manage_seasons()` | ~963 | Sub-menu: [1] Switch season, [2] Create season, [B] Back |
+| `_switch_season_wizard()` | ~920 | Lists all seasons → user picks one → calls `set_active_season()` → prints restart notice |
+| `_create_season_wizard()` | ~840 | Interactive wizard: season ID, display name, Majors/Minors GC org IDs → `create_season()` → prints next-steps |
+| `add_new_team()` | ~752 | Wizard: paste GC URL → `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/` |
+| `_slug_to_folder_name()` | ~713 | Converts GC slug to folder name |
+| `_parse_gc_url()` | ~689 | Extracts `team_id` and `slug` from a GC schedule URL |
+| `_run()` | ~662 | Subprocess wrapper with exit-code handling |
+| `run_pipeline()` | ~251 | Runs steps 1->2->3->4 as subprocesses for given scope |
+| `get_team_list()` | ~218 | Wild/Storm: reads DIVISIONS tuples (sorted alphabetically); Majors/Minors: reads rosters.json keys |
+| `print_header()` | ~85 | Prints the menu banner; season name is dynamic from `SEASON_ID` (not hardcoded) |
+| `check_session()` | ~147 | Warns if `sessions/gc_session.json` is missing |
 
 > **Team additions** now write to `config/<season>.yaml` via `season_config.add_team_to_yaml()`
 > (the old `_insert_team_into_file()` text-replacement on Python source was removed in v3.0.0).
 
 **Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` via `_PITCHING_SCRIPT = _SRC_DIR / "pitching" / "gen_pitching.py"` after gen_hitting.py.
 
-### server.py (Web UI -- v3.1.0)
+### server.py (Web UI -- v3.2.0)
 Local Flask server that backs the HTML front-end. Reuses `get_team_list()`, `_parse_gc_url()`,
-`_slug_to_folder_name()` from run_menu.py and `add_team_to_yaml()` from season_config (DRY).
+`_slug_to_folder_name()` from run_menu.py and `add_team_to_yaml()`, `list_seasons()`, `set_active_season()`,
+`create_season()` from season_config (DRY).
 Builds run by shelling out to `run_menu.py --division X --team Y` (same proven path as the
 terminal menu + nightly cron), streaming live output to the page via Server-Sent Events.
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /` + `/css/*` + `/js/*` | Serve the single-page app |
-| `GET /api/divisions` | Divisions + team lists (from `get_team_list()`) |
+| `GET /api/divisions` | Divisions + team lists (fresh call each request — BUG-17 fix) |
 | `GET /api/reports` | Scan `seasons/<id>/` for `*-Scout-{Hitting,Pitching}_*.pdf`, grouped by division/team |
-| `GET /report/<path>` | Stream a PDF (with path-traversal protection \u2014 must resolve inside `seasons/`) |
+| `GET /report/<path>` | Stream a PDF (with path-traversal protection — must resolve inside `seasons/`) |
 | `GET /api/run?division=&team=` | Build reports; stream live log via SSE; guarded by a single-run lock |
 | `POST /api/add_team` | Add a Wild/Storm opponent from a GC URL |
+| `GET /api/seasons` | Returns all seasons + active ID (`list_seasons()` fresh each call) |
+| `POST /api/seasons/active` | Switches active season; returns `restart_required: true` |
+| `POST /api/seasons` | Creates a new season from wizard data (`create_season()`) |
 
 **Config flags (env):** `SCOUT_WEB_HOST` (default `127.0.0.1`), `SCOUT_WEB_PORT` (default `5050`),
 `SCOUT_WEB_DEBUG` (`0`/`1`). Set `SCOUT_WEB_HOST=0.0.0.0` to reach the build UI from another
@@ -551,11 +608,27 @@ All three call `season_config.add_team_to_yaml()` (idempotent — guards duplica
 `Games/` folder. The folder name MUST match the GC inning-header spelling exactly; verify it after
 the first game is scraped.
 
+## Starting a New Season
+
+Use the season management wizard — no more manual file copying:
+
+1. **Web UI:** Seasons tab -> "Create New Season" form.
+2. **Terminal:** `bash launchers/run_scout.sh` -> option [4] "Manage seasons" -> [2] "Create".
+
+Both call `season_config.create_season()`, which:
+- Copies `config/season_template.yaml` to `config/<season-id>.yaml`
+- Fills in the GC org IDs you provide (Majors + Minors change each season)
+- Creates `seasons/<season-id>/Majors/`, `Minors/`, `Wild/`, `Storm/` folder tree
+- Optionally sets the new season as active immediately
+
+Wild/Storm team lists start empty — add opponents via "Add Team" as games are scheduled.
+After switching seasons, **restart the terminal session or web server** so `SEASON_ID` reloads.
+
 ---
 
 ## Teams Reference (Spring 2026)
 
-> Source of truth: `config/2026-spring.yaml`. Counts: Majors 11, Minors 14, Wild 10, Storm 17.
+> Source of truth: `config/2026-spring.yaml`. Counts: Majors 11, Minors 14, Wild 10, Storm 18.
 
 ### Majors (11 teams)
 Guardians-Esau, Royals-Hall, Diamondbacks-Vandiford, Marlins-McLendon,
@@ -574,12 +647,13 @@ QC Flight Baseball 11U, T24 Garnet 11U, SBA Alabama National 12U,
 TN Nationals Heichelbech 12U, Tega CAY Titans 11U, Weddington Vipers 12U,
 Mara Bulls 8U 8U
 
-### Storm (17 teams, 9U travel)
+### Storm (18 teams, 9U travel)
 ITAA 9U Spartans, MARA 9U Stingers, South Charlotte Challenge 9U Doggett,
 Pineville Blue Sox 9U, LKN Lightning 10U, Park Sharon Nationals 10U,
 Weddington Stormtroopers, Lake Norman Lightning 9U, Dilworth 9U - Navy,
 Crushers White 10U, Weddington 10U Gophers, Titans 9U, Mara Outlaws 9U,
-Eagles 9U, Shelby Storm 9U, Carolina River Rats 9U, LKN Storm 9U
+Eagles 9U, Shelby Storm 9U, Carolina River Rats 9U, LKN Storm 9U,
+Carolina Locos Black 9U
 
 ---
 
