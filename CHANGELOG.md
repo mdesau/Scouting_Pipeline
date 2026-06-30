@@ -14,6 +14,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.0] - 2026-06-30
+
+### Added — Season Management
+
+- **`season_config.py`** — Three new functions for season lifecycle management:
+  - `list_seasons()` — scans `config/*.yaml`, returns id/display_name/is_active for each
+  - `set_active_season()` — writes `active_season.txt`; guards against missing configs
+  - `create_season()` — scaffolds new season from `config/season_template.yaml`: fills in GC org IDs, auto-derives display name, creates `seasons/<id>/` folder tree (Scorebooks, Scouting_Reports, Wild/, Storm/)
+  - `_scaffold_season_dirs()` — private helper that creates the on-disk folder structure
+
+- **`config/season_template.yaml`** — Well-commented scaffold for new seasons. Empty team lists for all 4 divisions; placeholder GC org IDs. Never set as active directly — used by `create_season()`.
+
+- **Terminal menu (`run_menu.py`)** — Season management sub-menu:
+  - `[4] Manage seasons` option in the main menu
+  - `manage_seasons()`: sub-menu with Switch / Create / Back
+  - `_switch_season_wizard()`: lists all seasons, activates chosen, prints restart notice
+  - `_create_season_wizard()`: prompts for season ID, display name, Majors + Minors GC org IDs; confirms summary; calls `create_season()`; prints next-steps
+  - `print_header()`: season name now dynamic (`SEASON_ID`) — no longer hardcoded
+
+- **Web UI (`server.py` + `index.html` + `app.js` + `style.css`)** — Season management in the browser:
+  - `GET /api/seasons` — returns all seasons + active ID
+  - `POST /api/seasons/active` — switches active season; returns `restart_required: true`
+  - `POST /api/seasons` — creates new season (same args as `create_season()`)
+  - Header season dropdown (`#seasonSelect`): switches season with confirmation + restart notice; hidden in view-only mode
+  - New **Seasons tab**: existing seasons list with Activate buttons + Create New Season form (season ID, display name, Majors/Minors GC IDs, set-active checkbox)
+
+### Changed
+- **`run_menu.py` version** bumped to `3.2.0`
+- **New season workflow** in `season_config.py` docstring updated to reflect automated wizard (no more manual file copy)
+
+---
+
 ## [3.1.3] - 2026-06-30
 
 ### Fixed
