@@ -13,7 +13,7 @@
 
 LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
-VENV_DIR="$REPO_ROOT/Dev/venv"
+VENV_DIR="$REPO_ROOT/venv"
 
 cd "$REPO_ROOT"
 

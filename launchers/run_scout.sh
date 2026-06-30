@@ -37,14 +37,14 @@ cd "$REPO_ROOT"
 
 # ── Activate the project virtual environment ──────────────────────────────
 # The venv lives at the repo root (Scout/venv/) — shared across all components.
-VENV_DIR="$REPO_ROOT/Dev/venv"
+VENV_DIR="$REPO_ROOT/venv"
 if [[ -f "$VENV_DIR/bin/activate" ]]; then
     # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
 else
     echo "⚠️  WARNING: venv not found at $VENV_DIR"
     echo "   Recreate it with:"
-    echo "   python3 -m venv Dev/venv && Dev/venv/bin/pip install -r requirements.txt"
+    echo "   python3 -m venv venv && venv/bin/pip install -r requirements.txt"
     echo "   Continuing with system Python — scripts may fail if Playwright/ReportLab missing."
 fi
 

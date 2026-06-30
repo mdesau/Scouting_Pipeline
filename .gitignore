@@ -11,8 +11,6 @@ Minors/
 Wild/
 Storm/
 Coach_Pitch/
-AllStars-9u/
-AllStars-12u/
 
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
@@ -20,22 +18,16 @@ __pycache__/
 *.pyo
 
 # ── Virtual environment ──────────────────────────────────────────────────────
-Dev/venv/
 venv/
 
 # ── Logs (unified under logs/ in v3.0.0+) ───────────────────────────────────
 logs/
-Dev/Hitting_Scout/Logs/
-Dev/Pitching_Savant/Logs/
-Scout_Development/Logs/
 
 # ── Session / credentials (GC auth tokens — never commit these) ─────────────
 sessions/
-Dev/Hitting_Scout/Scripts/gc_session.json
 
 # ── Generated HTML reports ───────────────────────────────────────────────────
 src/web/stat_analysis_report.html
-Dev/Hitting_Scout/Scripts/stat_analysis_report.html
 
 # ── Backup files ─────────────────────────────────────────────────────────────
 *.bak
@@ -43,8 +35,3 @@ Dev/Hitting_Scout/Scripts/stat_analysis_report.html
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
-
-# ── Generated PDFs (except examples) ────────────────────────────────────────
-Scout_Development/*.pdf
-Pitching_Savant/*.pdf
-Dev/Hitting_Scout/*.pdf

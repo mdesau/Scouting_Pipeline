@@ -6,7 +6,7 @@ It covers every design decision, known bug, and operational detail accumulated
 across the full build history of this project.
 
 **Root directory (all paths relative to this):**
-`~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/2026/Spring/`
+`~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/Scout/`
 
 **Best practices prompt:** When starting a new session, the user may paste their
 "Code Mentor" prompt which defines conventions for debugging, git hygiene, error
@@ -17,15 +17,16 @@ handling, and code style. Follow those guidelines throughout.
 ## Development Environment
 
 - **Python 3.9.6** (macOS system Python)
-- **Virtual environment:** `Dev/venv/` — shared across all components; always activate before running scripts
+- **Virtual environment:** `venv/` (repo root) — shared across all components; always activate before running scripts
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in repo root
-- **Git:** Local repo rooted at `Spring/` on `main` branch
+- **Git:** Local repo rooted at `Scout/` on `main` branch
 - **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
 ### Version History
 ```
+v3.1.2  chore: relocate repo to WCWAA/Scout/ + venv at root + AllStars into seasons/
 v3.1.0  feat: web UI — local Flask server + HTML front-end (build/view/add via browser)
 v3.0.0  refactor: restructure to src/ layout + YAML season config + seasons/ data dir
 v2.8.0  feat: add Swing% stat to hitting reports (card footer + summary table)
@@ -585,9 +586,9 @@ Eagles 9U, Shelby Storm 9U, Carolina River Rats 9U, LKN Storm 9U
 ## Prerequisites (First-Time Setup)
 
 ```bash
-cd .../Spring
-python3 -m venv Dev/venv
-source Dev/venv/bin/activate
+cd .../Scout
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
 python3 src/scraping/scrape_gc_playbyplay.py --login   # save GC session

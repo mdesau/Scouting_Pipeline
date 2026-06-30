@@ -14,6 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.2] - 2026-06-29
+
+### Changed
+- **Repository relocated** — moved from `WCWAA/2026/Spring/` to `WCWAA/Scout/` (out of the season-year folder). Completes the rename that was deferred during the v3.0.0 restructure. All code uses relative paths anchored to `__file__`, so no source logic changed; git history, remote, and tags carried over intact.
+- **Virtual environment moved to repo root** — `Dev/venv/` → `venv/`, rebuilt fresh after the move (venvs hard-code absolute paths). All launchers and the outside-repo nightly launchd wrapper (`~/Library/LaunchAgents/run_wcwaa_nightly.sh`) updated to the new path.
+- **`run_menu.py` version** — bumped from a stale `2.1.0` to `3.1.2`.
+
+### Moved
+- **AllStars one-time builds** — `AllStars-9u/` and `AllStars-12u/` relocated into `seasons/2026-spring/AllStars/{9U,12U}/` as team folders (script + reports travel together), keeping these dead one-time builds out of the tracked repo.
+
+### Removed
+- **Empty pre-v3.0.0 shells** — `Dev/Hitting_Scout/`, `Dev/Pitching_Savant/`, and `Scout_Development/` (all gitignored leftovers) deleted, along with a stray `src/Logs/`.
+- **Dead `.gitignore` rules** — pruned ignore entries for the removed `Dev/...`, `Scout_Development/`, and `AllStars-9u|12u/` paths.
+
+---
+
 ## [3.1.1] - 2026-06-29
 
 ### Documentation

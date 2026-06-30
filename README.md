@@ -1,5 +1,5 @@
 # WCWAA Scout Pipeline
-![Version](https://img.shields.io/badge/version-3.1.0-blue)
+![Version](https://img.shields.io/badge/version-3.1.2-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -36,8 +36,8 @@ cd Scouting_Pipeline
 
 ### 3. Create the virtual environment
 ```bash
-python3 -m venv Dev/venv
-source Dev/venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 > **Why a virtual environment?** It isolates this project's dependencies (Flask, Playwright, ReportLab) from your system Python.
@@ -201,8 +201,8 @@ Spring/                          <- repo root
 |-- sessions/                     <- gc_session.json [gitignored]
 |-- logs/                         <- pipeline_summary.log [gitignored]
 |-- seasons/2026-spring/          <- game data + PDFs [gitignored]
-|   |-- Majors/  Minors/  Wild/  Storm/  Coach_Pitch/
-+-- Dev/venv/                     <- shared Python venv [gitignored]
+|   |-- Majors/  Minors/  Wild/  Storm/  Coach_Pitch/  AllStars/
++-- venv/                         <- shared Python venv [gitignored]
 ```
 
 ---
@@ -211,7 +211,7 @@ Spring/                          <- repo root
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| `ImportError: playwright` or `flask` | venv not activated | `source Dev/venv/bin/activate` |
+| `ImportError: playwright` or `flask` | venv not activated | `source venv/bin/activate` |
 | `Session expired` | gc_session.json stale | `python3 src/scraping/scrape_gc_playbyplay.py --login` |
 | `0 PAs` for a team | Folder name ≠ GC inning header | Check exact spelling |
 | `?X X?` in output | Player not in roster | Run `scrape_gc_boxscores.py` |

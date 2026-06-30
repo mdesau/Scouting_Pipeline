@@ -14,7 +14,7 @@
 LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
 LOGS_DIR="$REPO_ROOT/logs"
-VENV_DIR="$REPO_ROOT/Dev/venv"
+VENV_DIR="$REPO_ROOT/venv"
 
 # ── Set up log file for this wrapper ─────────────────────────────────────────
 mkdir -p "$LOGS_DIR"
@@ -36,7 +36,7 @@ if [[ -f "$VENV_DIR/bin/activate" ]]; then
     echo "✅ venv activated: $VENV_DIR"
 else
     echo "❌ ERROR: venv not found at $VENV_DIR"
-    echo "   Recreate with: python3 -m venv Dev/venv && Dev/venv/bin/pip install -r requirements.txt"
+    echo "   Recreate with: python3 -m venv venv && venv/bin/pip install -r requirements.txt"
     exit 1
 fi
 

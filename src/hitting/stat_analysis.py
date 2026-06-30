@@ -25,11 +25,10 @@ Statistical Measures (13):
     P10, P20, P33, P67, P80, P90, IQR (P75 - P25)
 
 Usage:
-    cd Dev/Hitting_Scout/Scripts
-    python3 stat_analysis.py [--min-pa 10] [--output path/to/output.html]
+    python3 src/hitting/stat_analysis.py [--min-pa 10] [--output path/to/output.html]
 
 Output:
-    HTML file at Dev/Hitting_Scout/Scripts/stat_analysis_report.html (default)
+    HTML file at src/web/stat_analysis_report.html (default)
 
 Dependencies:
     - gen_hitting.py (same directory — imported directly)

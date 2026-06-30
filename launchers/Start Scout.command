@@ -3,7 +3,7 @@
 # Start Scout.command — double-click launcher for the WCWAA Scout web UI
 # -----------------------------------------------------------------------------
 # WHAT IT DOES
-#   1. Activates the project virtualenv (Dev/venv).
+#   1. Activates the project virtualenv (venv).
 #   2. Starts the local web server (src/web/server.py).
 #   3. Opens the UI in your default browser.
 #   4. Keeps running until you close the window or press Ctrl+C, which stops
@@ -21,7 +21,7 @@
 # Resolve paths relative to this script so it works no matter where it lives.
 LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
-VENV_DIR="$REPO_ROOT/Dev/venv"
+VENV_DIR="$REPO_ROOT/venv"
 PORT="${SCOUT_WEB_PORT:-5050}"
 URL="http://127.0.0.1:${PORT}"
 
