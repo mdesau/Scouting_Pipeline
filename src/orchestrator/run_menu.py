@@ -25,6 +25,7 @@ MENU OPTIONS
   [1] Single division — all teams in one division
   [2] Single team — drill down: pick division → pick team
   [3] Add a new Wild / Storm opponent to the pipeline
+  [4] Manage seasons — switch active season or create a new one
   [Q] Quit
 
 WHY SUBPROCESS INSTEAD OF IMPORT + CALL?
@@ -72,6 +73,7 @@ for _p in (str(_SRC_DIR), str(_SRC_DIR / "scraping")):
 from season_config import (  # noqa: E402
     SCOUT_ROOT, SEASON_DIR, SEASON_ID,
     build_scraper_divisions, add_team_to_yaml,
+    list_seasons, set_active_season, create_season,
 )
 
 # ── Paths ───────────────────────────────────────────────────────────────────
@@ -97,13 +99,14 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "3.1.2"
+__version__ = "3.2.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
     print()
     print("=" * 58)
-    print("  WCWAA 2026 Spring — Scouting Pipeline")
+    print("  WCWAA Scout — Scouting Pipeline")
+    print(f"  Season : {SEASON_ID}")
     print(f"  v{__version__}")
     print("=" * 58)
     print()
@@ -810,8 +813,196 @@ def add_new_team():
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# MAIN MENU
+# SEASON MANAGEMENT
 # ════════════════════════════════════════════════════════════════════════════
+
+def manage_seasons():
+    """
+    Sub-menu for season management: switch the active season or create a new one.
+
+    Why a sub-menu rather than top-level options?
+    Season management is an occasional admin task (once or twice a year).
+    Keeping it one level deeper prevents it from cluttering the everyday menu
+    that coaches use weekly to build reports.
+    """
+    print("\n── Manage Seasons ───────────────────────────────────────")
+    print(f"  Active season: {SEASON_ID}\n")
+    print("  [1] Switch to a different season")
+    print("  [2] Create a new season")
+    print("  [B] Back to main menu")
+    print()
+
+    choice = ask("Choice: ", default="B")
+
+    if choice == "1":
+        _switch_season_wizard()
+    elif choice == "2":
+        _create_season_wizard()
+    else:
+        return   # Back / anything else → return to main menu
+
+
+def _switch_season_wizard():
+    """
+    Let the user pick a different season to make active.
+
+    After switching, active_season.txt is updated. The current terminal
+    session still has the old SEASON_ID in memory (Python module globals
+    are set at import time), so we print a clear restart notice.
+
+    NOTE: The web server (if running) will also need a restart to pick
+    up the new active season. This is documented in the output.
+    """
+    seasons = list_seasons()
+
+    if len(seasons) <= 1:
+        print("\n  Only one season exists. Use option [2] to create a new one.")
+        return
+
+    print()
+    options = [
+        f"{s['display_name']}  {'← active' if s['is_active'] else ''}"
+        for s in seasons
+    ]
+    chosen_label = pick_from_list("Select a season to activate:", options)
+    if not chosen_label:
+        return
+
+    # Map the chosen label back to the season dict.
+    idx = options.index(chosen_label)
+    chosen = seasons[idx]
+
+    if chosen["is_active"]:
+        print(f"\n  {chosen['display_name']} is already the active season.")
+        return
+
+    set_active_season(chosen["id"])
+    print()
+    print(f"  ✅ Active season updated → {chosen['id']}")
+    print()
+    print("  ⚠️  RESTART REQUIRED to use the new season:")
+    print("     • Terminal: exit and re-run  bash launchers/run_scout.sh")
+    print("     • Web UI: stop the server and re-launch  Start Scout.command")
+    print()
+    print(f"  The pipeline will now target: seasons/{chosen['id']}/")
+
+
+def _create_season_wizard():
+    """
+    Interactive wizard to scaffold a new season config and folder structure.
+
+    Prompts for:
+      1. Season ID     — e.g. "2026-fall"  (becomes the YAML filename)
+      2. Display name  — e.g. "2026 Fall"  (auto-suggested from season ID)
+      3. Majors GC org ID  — from GC admin console / org schedule URL
+      4. Minors GC org ID
+      5. Set as active season now?  (optional — can switch later via [1])
+
+    On success calls season_config.create_season() which:
+      • Writes config/<season_id>.yaml (from template)
+      • Creates the seasons/<season_id>/ folder tree
+      • Optionally updates active_season.txt
+    """
+    print("\n── Create New Season ────────────────────────────────────")
+    print("This wizard scaffolds a new season config and folder structure.")
+    print("You will need the GameChanger org IDs for Majors and Minors.")
+    print("(Find them in the GC admin console or org schedule page URL.)\n")
+
+    # ── Season ID ────────────────────────────────────────────────────────────
+    season_id = ask("Season ID (e.g. 2026-fall): ")
+    if not season_id:
+        print("  No season ID entered — cancelled.")
+        return
+
+    # Basic format check: should look like YYYY-season (e.g. 2026-fall).
+    if not re.match(r"^\d{4}-\w+$", season_id):
+        print(f"  ⚠️  '{season_id}' doesn't look like a valid season ID.")
+        print("     Expected format: YYYY-name  (e.g. 2026-fall, 2027-spring)")
+        confirm = ask("  Continue anyway? [y/N]: ", default="N")
+        if confirm.upper() != "Y":
+            return
+
+    # ── Display name ─────────────────────────────────────────────────────────
+    # Auto-generate a suggestion: "2026-fall" → "2026 Fall"
+    auto_name = " ".join(
+        p if p.isdigit() else p.capitalize()
+        for p in season_id.split("-")
+    )
+    display_name = ask(
+        f'Display name (press ENTER for "{auto_name}"): ',
+        default=auto_name,
+    )
+
+    # ── GC org IDs ───────────────────────────────────────────────────────────
+    print()
+    print("  Enter the GameChanger org IDs for the new season.")
+    print("  These are the IDs for the Majors and Minors league organisations")
+    print("  you create each season in the GC admin console.\n")
+
+    majors_gc_id = ask("  Majors GC org ID: ")
+    if not majors_gc_id:
+        print("  Majors GC org ID is required — cancelled.")
+        return
+
+    minors_gc_id = ask("  Minors GC org ID: ")
+    if not minors_gc_id:
+        print("  Minors GC org ID is required — cancelled.")
+        return
+
+    # ── Set active now? ───────────────────────────────────────────────────────
+    print()
+    set_now = ask("  Set as active season now? [y/N]: ", default="N")
+    set_active = set_now.upper() == "Y"
+
+    # ── Confirm before creating ───────────────────────────────────────────────
+    print()
+    print("  Summary:")
+    print(f"    Season ID    : {season_id}")
+    print(f"    Display name : {display_name}")
+    print(f"    Majors GC ID : {majors_gc_id}")
+    print(f"    Minors GC ID : {minors_gc_id}")
+    print(f"    Set active   : {'Yes' if set_active else 'No (switch later via [4] → [1])'}")
+    print()
+
+    confirm = ask("  Create this season? [Y/n]: ", default="Y")
+    if confirm.upper() != "Y":
+        print("  Cancelled.")
+        return
+
+    # ── Create ────────────────────────────────────────────────────────────────
+    try:
+        yaml_path = create_season(
+            season_id=season_id,
+            majors_gc_id=majors_gc_id,
+            minors_gc_id=minors_gc_id,
+            display_name=display_name,
+            set_active=set_active,
+        )
+    except FileExistsError as e:
+        print(f"\n  ⚠️  {e}")
+        return
+    except FileNotFoundError as e:
+        print(f"\n  ⚠️  {e}")
+        return
+
+    print()
+    print(f"  ✅ Season '{season_id}' created!")
+    print(f"     Config : config/{yaml_path.name}")
+    print(f"     Data   : seasons/{season_id}/")
+    print()
+    print("  Next steps:")
+    print(f"  1. Add Majors + Minors teams to config/{yaml_path.name}")
+    print("     (after the draft — add name/coach per team under divisions.Majors/Minors.teams)")
+    print("  2. Wild/Storm opponents: use option [3] Add Team as games are scheduled.")
+    print("  3. Run scrape_gc_boxscores.py after the first games to build rosters.json.")
+
+    if set_active:
+        print()
+        print("  ⚠️  RESTART REQUIRED — active season was changed:")
+        print("     • Terminal: exit and re-run  bash launchers/run_scout.sh")
+        print("     • Web UI: stop the server and re-launch  Start Scout.command")
+
+
 
 def interactive_menu():
     """
@@ -829,6 +1020,7 @@ def interactive_menu():
     print("  [1] Single division — all teams")
     print("  [2] Single team")
     print("  [3] Add a new Wild / Storm opponent")
+    print("  [4] Manage seasons — switch or create")
     print("  [Q] Quit")
     print()
 
@@ -876,8 +1068,12 @@ def interactive_menu():
     elif choice == "3":
         add_new_team()
 
+    # ── [4] Manage seasons ───────────────────────────────────────────────────
+    elif choice == "4":
+        manage_seasons()
+
     else:
-        print(f"  Unrecognised choice: '{choice}'. Please run again and enter 0–3 or Q.")
+        print(f"  Unrecognised choice: '{choice}'. Please run again and enter 0–4 or Q.")
         sys.exit(1)
 
 
