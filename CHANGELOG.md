@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+---
+
+## [3.1.3] - 2026-06-30
+
 ### Fixed
 - **Newly added Wild/Storm team missing from web UI dropdown** (Web UI) — `api_divisions()` was serving a startup-time snapshot of division data; now reads YAML fresh on every request so teams added via "Add Team" appear immediately without a server restart. (BUG-17)
 
