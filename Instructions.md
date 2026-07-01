@@ -18,8 +18,8 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field | Value |
 |---|---|
-| **Version** | 3.3.0 |
-| **Last commit** | `41929f2 / docs: rename Weekly Usage section to User Options + bump badge to 3.3.0` |
+| **Version** | 3.3.1 |
+| **Last commit** | `f358235 / fix: BUG-19 stale server detection + X-Scout-Version header (v3.3.1)` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
 
@@ -50,6 +50,7 @@ At session end, update this **Current State** table with the latest version and 
 
 ### Version History
 ```
+v3.3.1  fix: BUG-19 stale server detection + X-Scout-Version response header
 v3.3.0  feat: per-tab season selectors in web UI (BUG-18) + "All seasons" View Reports filter
 v3.2.1  docs: Instructions.md refactor
 v3.2.0  feat: season management — list/create/switch seasons (terminal + web UI)
