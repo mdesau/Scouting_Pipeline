@@ -1,5 +1,5 @@
 # WCWAA Scout Pipeline
-![Version](https://img.shields.io/badge/version-3.2.0-blue)
+![Version](https://img.shields.io/badge/version-3.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -60,7 +60,7 @@ python3 src/scraping/scrape_gc_playbyplay.py --login
 
 ---
 
-## Weekly Usage (After Each Game Week)
+## User Options
 
 ### Option A — Web UI (Easiest)
 
