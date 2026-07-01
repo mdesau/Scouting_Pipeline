@@ -19,7 +19,7 @@ handling, and code style. Follow those guidelines throughout.
 | Field | Value |
 |---|---|
 | **Version** | 3.3.2 |
-| **Last commit** | `cea8841 / docs: drop ~Line columns from function maps, add group subheaders` |
+| **Last commit** | `6e8beb2 / fix: BUG-20 — report PDFs 404 in web UI (season id dropped from /report path) (v3.3.2)` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
 
