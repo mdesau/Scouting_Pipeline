@@ -19,7 +19,7 @@ handling, and code style. Follow those guidelines throughout.
 | Field | Value |
 |---|---|
 | **Version** | 3.3.1 |
-| **Last commit** | `f358235 / fix: BUG-19 stale server detection + X-Scout-Version header (v3.3.1)` |
+| **Last commit** | `0c70721 / docs: accuracy pass — fix repo root, venv path, Storm count, line counts, X-Scout-Version (v3.3.1)` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
 
