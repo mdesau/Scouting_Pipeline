@@ -7,6 +7,53 @@
 
 ---
 
+## BUG-20 · [STATUS: RV]
+
+**Title:** "Not Found" when opening any report PDF from the web UI — season segment dropped from path
+
+**Severity:** High
+**Date Reported:** 2026-07-01
+**Release Found:** v3.3.1
+**Release Fixed:** v3.3.2
+
+### Observable Problem
+In the web UI's View Reports tab, clicking any Hitting or Pitching report opens a new tab that
+shows a Flask "Not Found" (404) page instead of the PDF. The address bar shows a URL like
+`http://127.0.0.1:5050/report/Majors/Reports/Scouting_Reports/Braves_Rue-Scout-Hitting_2026.pdf`.
+
+### Steps to Reproduce
+1. Start the server (`Start Scout.command`)
+2. Open http://127.0.0.1:5050 → View Reports tab
+3. Click any team's "Hitting" or "Pitching" pill
+4. Expected: the PDF opens in a new tab — Actual: 404 "Not Found"
+
+### Fix Explanation *(Exec Level — No Code)*
+Reports are stored per season under `seasons/<season-id>/<Division>/…`. The page builds the list
+of report links using a path that started at the *season folder* — so the season id (e.g.
+`2026-spring`) was left out of the link. But the part of the server that actually delivers a PDF
+starts looking from the *seasons* folder, one level higher, and so it needs the season id in the
+path. Because the two halves disagreed by exactly one folder level, every report link pointed at a
+location that did not exist, producing a 404. The link builder now includes the season id, so the
+delivered path lines up with where the files actually live.
+
+### Fix Details *(Technical)*
+Root cause: an asymmetry introduced during the v3.3.0 per-season report work.
+- `api_reports()` built each report's relative path with `pdf.relative_to(season_dir)` where
+  `season_dir = seasons/<sid>/` — dropping the `<sid>` segment.
+- `serve_report()` resolves `/report/<path>` with `(seasons_root / relpath)` where
+  `seasons_root = seasons/` — so it *requires* the `<sid>` segment.
+
+Fix (`src/web/server.py`, `api_reports()`): changed the relative base to the seasons root —
+`rel = str(pdf.relative_to(seasons_root))` — so emitted paths now include the season id
+(e.g. `2026-spring/Majors/Reports/Scouting_Reports/…pdf`), matching what `serve_report()` expects.
+The path-traversal guard in `serve_report()` was already correct and needed no change. Verified
+end-to-end: `GET /report/2026-spring/Majors/…-Hitting_2026.pdf` → HTTP 200, PDF bytes returned.
+
+### Workaround
+None in the UI. (Files could be opened directly from the Google Drive folder as a manual bypass.)
+
+---
+
 ## BUG-19 · [STATUS: RV]
 
 **Title:** Season dropdowns empty + header shows "loading…" — stale server process

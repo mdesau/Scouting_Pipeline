@@ -14,6 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3.2] - 2026-07-01
+
+### Fixed
+- **"Not Found" when opening any report PDF from the web UI (BUG-20)** — `api_reports()` built
+  each report link relative to the season folder (`seasons/<id>/`), dropping the season-id
+  segment, while `serve_report()` resolves `/report/<path>` relative to the `seasons/` root and
+  requires it. The mismatch made every report link 404. Fixed by making `api_reports()` build
+  paths relative to the `seasons/` root (`pdf.relative_to(seasons_root)`), so links now include
+  the season id (e.g. `2026-spring/Majors/Reports/…pdf`). Verified end-to-end (HTTP 200).
+- `SERVER_VERSION` bumped to `3.3.2`.
+
+---
+
 ## [3.3.1] - 2026-07-01
 
 ### Fixed

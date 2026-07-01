@@ -96,7 +96,7 @@ DEBUG = os.environ.get("SCOUT_WEB_DEBUG", "0") == "1"
 # The web UI reads this header during boot to detect stale server processes
 # (a server started before a code update that added new API endpoints).
 # Bump this whenever a new API endpoint is added. See BUG-19.
-SERVER_VERSION = "3.3.1"
+SERVER_VERSION = "3.3.2"
 
 # Ordered list of divisions to surface in the UI. Mirrors the pipeline's order.
 DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
@@ -260,8 +260,11 @@ def api_reports():
                     continue
                 stem = m.group("stem")
                 kind = m.group("kind").lower()
-                # Path relative to season_dir so /report/<path> can serve it.
-                rel = str(pdf.relative_to(season_dir))
+                # Path relative to the seasons/ ROOT (includes the season id),
+                # because serve_report() resolves /report/<path> against
+                # seasons/ — not a single season dir. Using season_dir here
+                # dropped the season segment and caused 404s (BUG-20).
+                rel = str(pdf.relative_to(seasons_root))
                 entry = teams.setdefault(stem, {"name": _pretty_stem(stem),
                                                 "hitting": None,
                                                 "pitching": None,

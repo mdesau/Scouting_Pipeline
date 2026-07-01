@@ -18,7 +18,7 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field | Value |
 |---|---|
-| **Version** | 3.3.1 |
+| **Version** | 3.3.2 |
 | **Last commit** | `cea8841 / docs: drop ~Line columns from function maps, add group subheaders` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
@@ -50,6 +50,7 @@ At session end, update this **Current State** table with the latest version and 
 
 ### Version History
 ```
+v3.3.2  fix: BUG-20 — report PDFs 404 in web UI (season id dropped from /report path)
 v3.3.1  fix: BUG-19 stale server detection + X-Scout-Version response header
 v3.3.0  feat: per-tab season selectors in web UI (BUG-18) + "All seasons" View Reports filter
 v3.2.1  docs: Instructions.md refactor
@@ -450,7 +451,7 @@ Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subproces
 
 **Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` via `_PITCHING_SCRIPT = _SRC_DIR / "pitching" / "gen_pitching.py"` after gen_hitting.py.
 
-### server.py (Web UI -- v3.3.1)
+### server.py (Web UI -- v3.3.2)
 Local Flask server that backs the HTML front-end. Reuses `get_team_list()`, `_parse_gc_url()`,
 `_slug_to_folder_name()` from run_menu.py and `add_team_to_yaml()`, `list_seasons()`, `set_active_season()`,
 `create_season()` from season_config (DRY).
