@@ -7,6 +7,65 @@
 
 ---
 
+## BUG-19 · [STATUS: RV]
+
+**Title:** Season dropdowns empty + header shows "loading…" — stale server process
+
+**Severity:** High
+**Date Reported:** 2026-07-01
+**Release Found:** v3.3.0
+**Release Fixed:** v3.3.1
+
+### Observable Problem
+After opening the web UI, the Season dropdowns on the Build and Add Team tabs are completely
+empty, the View Reports tab shows only "All seasons" with no individual seasons listed, and the
+header subtitle stays "loading…" indefinitely instead of showing the active season name.
+The status indicator shows "Server online" (the server is reachable), yet no season data loads.
+
+### Steps to Reproduce
+1. Start the server once with an older build of `server.py` (pre-v3.2.0)
+2. Update `server.py` to v3.2.0 or later (e.g. via `git pull`)
+3. Do NOT restart the server — leave the old process running
+4. Open or refresh http://127.0.0.1:5050
+5. Expected: Season dropdowns populated with "2026 Spring ✓" — Actual: all season selects empty, header shows "loading…"
+
+### Fix Explanation *(Exec Level — No Code)*
+Python loads `server.py` once when the server process starts. If the code on disk is later
+updated (through a git pull or any file save), the already-running process continues using the
+old code it loaded at startup. In this case the process was running a pre-v3.2.0 version of
+`server.py` that did not have the `/api/seasons` endpoint at all. When the browser asked for
+season data it received a 404 error, which the front-end was silently swallowing, leaving the
+dropdowns empty with no explanation.
+
+**Immediate fix:** Kill the stale process (PID identified via `lsof -i :5050`) and relaunch
+via `Start Scout.command`.
+
+**Long-term fix (shipped in v3.3.1):**
+1. `server.py` now stamps a `X-Scout-Version` header on every response so version drift is
+   detectable at any time.
+2. `app.js` now explicitly checks the HTTP status of the `/api/seasons` call. If the server
+   returns anything other than 200 (e.g. a 404 from a stale process), a purple
+   "⚠️ Server restart required" banner appears and the header subtitle changes to
+   "⚠ Restart server" instead of staying on "loading…".
+
+### Fix Details *(Technical)*
+- **`server.py`**: Added `SERVER_VERSION = "3.3.0"` constant. Added `@app.after_request`
+  hook `_add_version_header()` that injects `X-Scout-Version: {SERVER_VERSION}` into every
+  Flask response.
+- **`app.js`**: `loadSeasons()` now checks `res.ok` before calling `res.json()`. If `res.ok`
+  is false (any non-2xx, including 404 from a stale server), updates `#seasonLabel` to
+  "⚠ Restart server" and un-hides `#staleBanner`. Added `const staleBanner = el("staleBanner")`
+  to the element cache.
+- **`index.html`**: Added `#staleBanner` div (initially `.hidden`) between `#offlineBanner`
+  and `<nav>`. Styled purple/violet to visually distinguish from the amber offline banner.
+- **`style.css`**: Added `.stale-banner` and `.stale-banner code` rules.
+
+### Workaround
+Kill the Flask process manually (`kill <PID>`, PID found via `lsof -i :5050 -n -P`) and
+relaunch via `Start Scout.command`.
+
+---
+
 ## BUG-18 · [STATUS: RV]
 
 **Title:** Season selector missing from Build, View Reports, and Add Team tab panels

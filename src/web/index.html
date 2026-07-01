@@ -38,6 +38,14 @@
     You can still open any PDF below from Google Drive.
   </div>
 
+  <!-- Shown when the server is running but is a stale process (BUG-19).
+       /api/seasons returns 404 because it was started before v3.2.0 code. -->
+  <div id="staleBanner" class="stale-banner hidden">
+    <strong>&#9888;&#65039; Server restart required.</strong> The running server is
+    outdated — season dropdowns will be empty until you stop and relaunch
+    <code>Start Scout.command</code> to pick up the latest code.
+  </div>
+
   <nav class="tabs">
     <button class="tab active" data-tab="build">Build Reports</button>
     <button class="tab" data-tab="reports">View Reports</button>

@@ -12,6 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+## [3.3.1] - 2026-07-01
+
+### Fixed
+- **Season dropdowns empty + header stuck on "loading…" (BUG-19)** — stale server process
+  (started before v3.2.0 code) did not have the `/api/seasons` endpoint; `loadSeasons()` was
+  silently swallowing the 404 response, leaving all season selects empty with no feedback.
+
+### Added
+- **`X-Scout-Version` response header** (`server.py`) — every Flask response now carries
+  `X-Scout-Version: 3.3.1` via an `@app.after_request` hook. Makes server version drift
+  detectable without inspecting the running process.
+- **Stale-server banner** (`app.js` + `index.html` + `style.css`) — `loadSeasons()` now
+  checks `res.ok`. If `/api/seasons` returns anything other than 200 (e.g. 404 from an old
+  process), a purple "⚠️ Server restart required" banner appears and the header subtitle
+  changes to "⚠ Restart server" so the cause is immediately obvious.
+
 ---
 
 ## [3.3.0] - 2026-06-30

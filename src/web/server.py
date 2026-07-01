@@ -92,6 +92,12 @@ HOST = os.environ.get("SCOUT_WEB_HOST", "127.0.0.1")  # loopback only by default
 PORT = int(os.environ.get("SCOUT_WEB_PORT", "5050"))
 DEBUG = os.environ.get("SCOUT_WEB_DEBUG", "0") == "1"
 
+# Version string stamped on every response as X-Scout-Version.
+# The web UI reads this header during boot to detect stale server processes
+# (a server started before a code update that added new API endpoints).
+# Bump this whenever a new API endpoint is added. See BUG-19.
+SERVER_VERSION = "3.3.1"
+
 # Ordered list of divisions to surface in the UI. Mirrors the pipeline's order.
 DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
 
@@ -107,6 +113,20 @@ _run_lock = threading.Lock()
 # Flask serves index.html + css/ + js/ straight out of this folder.
 _WEB_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder=None)
+
+
+@app.after_request
+def _add_version_header(response):
+    """Stamp every response with the server version.
+
+    WHY: Python loads server.py once at startup. If the source file is updated
+    (e.g. after a git pull) the running process is stale — it will lack any
+    new API endpoints added in the update. The X-Scout-Version header lets
+    the browser-side code detect this mismatch and show a restart prompt
+    instead of silently leaving season dropdowns empty. See BUG-19.
+    """
+    response.headers["X-Scout-Version"] = SERVER_VERSION
+    return response
 
 
 # ════════════════════════════════════════════════════════════════════════════
