@@ -18,8 +18,8 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field | Value |
 |---|---|
-| **Version** | 3.2.1 |
-| **Last commit** | `70e7835` — `feat(config): add Carolina Locos Black 9U to Storm (2026-spring)` |
+| **Version** | 3.3.0 |
+| **Last commit** | `41929f2 / docs: rename Weekly Usage section to User Options + bump badge to 3.3.0` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
 
@@ -50,6 +50,8 @@ At session end, update this **Current State** table with the latest version and 
 
 ### Version History
 ```
+v3.3.0  feat: per-tab season selectors in web UI (BUG-18) + "All seasons" View Reports filter
+v3.2.1  docs: Instructions.md refactor
 v3.2.0  feat: season management — list/create/switch seasons (terminal + web UI)
 v3.1.3  fix: BUG-17 — newly added team missing from web UI dropdown + alphabetical sort
 v3.1.2  chore: relocate repo to WCWAA/Scout/ + venv at root + AllStars into seasons/
