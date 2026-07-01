@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
 
+---
+
 ## [3.3.1] - 2026-07-01
 
 ### Fixed
@@ -27,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks `res.ok`. If `/api/seasons` returns anything other than 200 (e.g. 404 from an old
   process), a purple "⚠️ Server restart required" banner appears and the header subtitle
   changes to "⚠ Restart server" so the cause is immediately obvious.
+
+### Documentation
+- **Instructions.md + README.md accuracy pass** — repo root corrected `Spring/` → `Scout/`
+  (relocated in v3.1.2); removed stale `Dev/venv/` (venv is at repo root); added `AllStars/`
+  to the seasons tree; Storm count corrected 17 → 18 in both Divisions tables; refreshed
+  script line counts (server.py 521→586, app.js 441→500, index.html 169→179, style.css
+  213→215); README version badge 3.3.0 → 3.3.1; added `[4] Manage seasons` + Seasons tab to
+  README; documented the `X-Scout-Version` header in the server.py map; To Do #5 retargeted
+  v3.3.0 → v3.4.0.
 
 ---
 

@@ -1,5 +1,5 @@
 # WCWAA Scout Pipeline
-![Version](https://img.shields.io/badge/version-3.3.0-blue)
+![Version](https://img.shields.io/badge/version-3.3.1-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -15,7 +15,7 @@ Pulls live play-by-play data from [GameChanger](https://web.gc.com), computes ba
 | **Majors** | 11U in-house | 11 teams | Full league |
 | **Minors** | 9U in-house | 14 teams | Full league |
 | **Wild** | 11U travel | 10 opponents | Opponent reports only |
-| **Storm** | 9U travel | 17 opponents | Opponent reports only |
+| **Storm** | 9U travel | 18 opponents | Opponent reports only |
 
 ---
 
@@ -71,6 +71,7 @@ From the app you can:
 - **Build Reports** — pick a division → team → click Build; the pipeline log streams live on the page
 - **View Reports** — browse every generated PDF and open it in one click
 - **Add Team** — register a new Wild / Storm opponent from a GameChanger URL
+- **Seasons** — create a new season or switch the active season
 
 > Close the Terminal window the launcher opened (or press Ctrl+C in it) to stop the server.
 > Reports can only be **built** while the server is running on this Mac; the PDFs themselves
@@ -87,6 +88,7 @@ Choose from:
 - `[1]` Single division
 - `[2]` Single team
 - `[3]` Add a new Wild / Storm opponent
+- `[4]` Manage seasons — create or switch the active season
 
 Or skip the menu with flags:
 ```bash
@@ -180,7 +182,7 @@ python3 src/web/server.py
 ## Project Structure
 
 ```
-Spring/                          <- repo root
+Scout/                           <- repo root
 |-- README.md
 |-- Instructions.md              <- detailed AI session context file
 |-- CHANGELOG.md                 <- unified version history

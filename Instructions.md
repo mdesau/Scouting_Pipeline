@@ -84,7 +84,7 @@ v0.1.0  initial commit
 | 2 | Build a user-friendly HTML front end ("HTML-based app") | ✅ Done | v3.1.0 | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
 | 3 | Season management — create/switch seasons without manual YAML editing | ✅ Done | v3.2.0 | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker |
 | 4 | Per-tab season selectors in web UI (BUG-18) | ✅ Done | v3.3.0 | Build/View/Add Team each have their own season dropdown; View Reports has an "All seasons" option |
-| 5 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.3.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
+| 5 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.4.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
 | 6 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
 
 ---
@@ -107,11 +107,11 @@ Both components share the same virtual environment, game file data, and scraping
 | Majors | 11U in-house | 11 teams | Full league — reports on all opponents |
 | Minors | 9U in-house | 14 teams | Full league |
 | Wild | 11U travel | 10 opponent teams | Reports on travel opponents only |
-| Storm | 9U travel | 17 opponent teams | Reports on travel opponents only |
+| Storm | 9U travel | 18 opponent teams | Reports on travel opponents only |
 
 ---
 
-## Scripts Overview (line counts as of v3.2.0, June 30 2026)
+## Scripts Overview (line counts as of v3.3.1, July 1 2026)
 
 | Script | Lines | Component | Role |
 |---|---|---|---|
@@ -119,14 +119,14 @@ Both components share the same virtual environment, game file data, and scraping
 | `src/pitching/gen_pitching.py` | ~1301 | Pitching | Stat engine + PDF generator |
 | `src/orchestrator/run_menu.py` | ~1143 | Orchestrator | Pipeline orchestrator (4-step: scrape → rosters → hitting → pitching) + add-team wizard + season management |
 | `src/scraping/scrape_gc_boxscores.py` | ~790 | Scraping | Playwright: GC box scores → rosters |
-| `src/hitting/stat_analysis.py` | ~605 | Hitting | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, To Do #4) |
+| `src/hitting/stat_analysis.py` | ~604 | Hitting | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, To Do #4) |
 | `src/scraping/scrape_gc_playbyplay.py` | ~588 | Scraping | Playwright: GC schedule → .txt game files |
 | `src/season_config.py` | ~618 | Config | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()`, season lifecycle (`list_seasons`, `create_season`, `set_active_season`) |
-| `src/web/server.py` | ~521 | Web | Flask server backing the HTML front-end (build/view/add/seasons) |
+| `src/web/server.py` | ~586 | Web | Flask server backing the HTML front-end (build/view/add/seasons) |
 | `src/scraping/parse_gc_text.py` | ~270 | Parser | Raw GC text → WCWAA format (utility) |
 | `src/scraping/diag_schedule.py` | ~144 | Scraping | Schedule diagnostics (utility) |
 
-> **Web front-end assets** (not Python): `src/web/index.html` (~169 lines), `src/web/css/style.css` (~213 lines), `src/web/js/app.js` (~441 lines).
+> **Web front-end assets** (not Python): `src/web/index.html` (~179 lines), `src/web/css/style.css` (~215 lines), `src/web/js/app.js` (~500 lines).
 >
 > **Legacy scripts** (`pilot_card.py`, `patch_march_initials.py`, `scrape_storm.py`) were retired in the v3.0.0 restructure and removed from the repo in v3.1.0. Sample files live in `examples/`.
 
@@ -147,7 +147,7 @@ Both components share the same virtual environment, game file data, and scraping
 ## Directory Structure
 
 ```
-Spring/                              <- git repo root (v3.1.0)
+Scout/                               <- git repo root
 |-- .git/
 |-- .gitignore
 |-- README.md                        <- project overview
@@ -205,15 +205,15 @@ Spring/                              <- git repo root (v3.1.0)
 |       |-- Minors/Reports/           <- same structure
 |       |-- Wild/[TeamName]/           <- Games/, roster.txt, *-Scout-*.pdf
 |       |-- Storm/[TeamName]/          <- same structure
+|       |-- AllStars/                  <- one-time AllStars builds (9U, 12U)
 |       +-- Coach_Pitch/
 |
-+-- Dev/
-    +-- venv/                         <- shared Python venv [gitignored]
++-- venv/                            <- shared Python venv [gitignored]
 ```
 
-> **Note:** The repo root is still physically named `Spring/` on disk; all code uses
-> relative paths anchored to `__file__` (via `season_config.py`), so the folder can be
-> renamed freely without touching any script.
+> **Note:** All code uses relative paths anchored to `__file__` (via `season_config.py`),
+> so the repo folder can be renamed or relocated freely without touching any script
+> (as was done in v3.1.2 when it moved from `WCWAA/2026/Spring/` to `WCWAA/Scout/`).
 
 ---
 
@@ -420,7 +420,7 @@ Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subproces
 
 **Step 4 integration:** `run_pipeline()` calls `gen_pitching.py` via `_PITCHING_SCRIPT = _SRC_DIR / "pitching" / "gen_pitching.py"` after gen_hitting.py.
 
-### server.py (Web UI -- v3.2.0)
+### server.py (Web UI -- v3.3.1)
 Local Flask server that backs the HTML front-end. Reuses `get_team_list()`, `_parse_gc_url()`,
 `_slug_to_folder_name()` from run_menu.py and `add_team_to_yaml()`, `list_seasons()`, `set_active_season()`,
 `create_season()` from season_config (DRY).
@@ -438,6 +438,12 @@ terminal menu + nightly cron), streaming live output to the page via Server-Sent
 | `GET /api/seasons` | Returns all seasons + active ID (`list_seasons()` fresh each call) |
 | `POST /api/seasons/active` | Switches active season; returns `restart_required: true` |
 | `POST /api/seasons` | Creates a new season from wizard data (`create_season()`) |
+
+> **Version header (v3.3.1, BUG-19):** `SERVER_VERSION` + an `@app.after_request` hook
+> (`_add_version_header()`) stamp `X-Scout-Version` on every response. The front-end also
+> checks `res.ok` on `/api/seasons`; a stale process (missing the endpoint) triggers a
+> "Server restart required" banner instead of silently empty season dropdowns. Bump
+> `SERVER_VERSION` whenever a new API endpoint is added.
 
 **Config flags (env):** `SCOUT_WEB_HOST` (default `127.0.0.1`), `SCOUT_WEB_PORT` (default `5050`),
 `SCOUT_WEB_DEBUG` (`0`/`1`). Set `SCOUT_WEB_HOST=0.0.0.0` to reach the build UI from another
