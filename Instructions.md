@@ -284,113 +284,138 @@ python3 src/pitching/gen_pitching.py --division Majors        # Step 4
 
 ## Function Map -- Hitting Component
 
+> Function maps list **name + purpose** only — no line numbers (they drift on every edit).
+> Use your editor's "Go to Symbol" (⇧⌘O in VS Code) to jump to any function by name.
+
 ### scrape_gc_playbyplay.py (Step 1 -- Playwright scraper)
 Navigates GC schedule pages, finds FINAL games, downloads play-by-play text, converts via `parse_gc_text.py`, saves `.txt` game files.
 
-| Function | ~Line | Purpose |
-|---|---|---|
-| `run()` | ~511 | CLI entry point -- parses `--division`, `--team`, `--login`, `--check`, `--force`, `--verbose`; loops divisions |
-| `scrape_org_division()` | ~361 | Org-level scraper (Majors/Minors): loads org schedule, finds FINAL games |
-| `scrape_team_division()` | ~431 | Team-level scraper (Wild/Storm): loads per-team schedule page |
-| `extract_plays_raw()` | ~336 | Navigates to `/plays` URL, extracts raw page text via Playwright |
-| `is_covered()` | ~355 | Checks whether a game file already exists on disk (skip logic) |
-| `get_schedule()` | ~321 | Runs `SCHEDULE_JS` in browser, returns parsed schedule array |
-| `setup_logging()` | ~87 | Configures file + console logging with `--verbose` support |
-| `fmt_date()` | ~307 | Normalizes GC date strings to `MonDD` format for filenames |
-| `safe()` | ~316 | Sanitizes team name for use in filenames |
-| `SCHEDULE_JS` | ~130 | JS injected into browser to extract game cards from GC's React DOM |
-| `DIVISIONS` dict | built at import | `build_scraper_divisions()` from `season_config` (loaded from `config/<season>.yaml`) -- **do NOT edit here; edit the YAML or use the add-team wizard** |
+| Function | Purpose |
+|---|---|
+| **Entry** | |
+| `run()` | CLI entry point -- parses `--division`, `--team`, `--login`, `--check`, `--force`, `--verbose`; loops divisions |
+| **Scrapers** | |
+| `scrape_org_division()` | Org-level scraper (Majors/Minors): loads org schedule, finds FINAL games |
+| `scrape_team_division()` | Team-level scraper (Wild/Storm): loads per-team schedule page |
+| **Extraction** | |
+| `extract_plays_raw()` | Navigates to `/plays` URL, extracts raw page text via Playwright |
+| `get_schedule()` | Runs `SCHEDULE_JS` in browser, returns parsed schedule array |
+| `is_covered()` | Checks whether a game file already exists on disk (skip logic) |
+| `SCHEDULE_JS` | JS injected into browser to extract game cards from GC's React DOM |
+| **Helpers** | |
+| `setup_logging()` | Configures file + console logging with `--verbose` support |
+| `fmt_date()` | Normalizes GC date strings to `MonDD` format for filenames |
+| `safe()` | Sanitizes team name for use in filenames |
+| **Config** | |
+| `DIVISIONS` dict | `build_scraper_divisions()` from `season_config` (loaded from `config/<season>.yaml`) -- **do NOT edit here; edit the YAML or use the add-team wizard** |
 
 **Dependencies:** `parse_gc_text.parse_gc_raw()`, `season_config.build_scraper_divisions()`, `sessions/gc_session.json`
 
 ### scrape_gc_boxscores.py (Step 2 -- Playwright scraper)
 Navigates GC `/box-score` pages, extracts player names + jersey numbers + AB/BB/SO, builds rosters.json (Majors/Minors) and roster.txt (Wild/Storm), writes box_verify.json.
 
-| Function | ~Line | Purpose |
-|---|---|---|
-| `run()` | ~798 | CLI entry point -- parses `--division`, `--team`, `--force`, `--verbose` |
-| `scrape_division()` | ~515 | Org-level scraper (Majors/Minors) |
-| `scrape_team_division()` | ~649 | Team-level scraper (Wild/Storm) |
-| `_accum_player()` | ~385 | Core per-player accumulator: detects collisions, promotes to 5-char keys |
-| `_prepare_for_save()` | ~491 | Strips transient fields before writing to disk |
-| `merge_player()` | ~324 | Merges new box score data into existing roster entry |
-| `_first_name_from()` | ~355 | Extracts first name from GC display string |
-| `_disambig_key()` | ~376 | Builds 5-char disambiguation key (e.g. `B A` -> `Bri A`) |
-| `display_name()` | ~305 | Formats `"FirstName L. #jersey"` display string |
-| `normalize_team_name()` | ~288 | Applies `TEAM_NAME_ALIASES` to fix GC name differences |
-| `setup_logging()` | ~125 | Configures logging |
-| `DIVISIONS` dict | built at import | `build_scraper_divisions()` from `season_config` (same source as scrape_gc_playbyplay.py -- always in sync) |
-| `TEAM_NAME_ALIASES` | ~60 | Maps GC box score team name variants -> canonical keys |
+| Function | Purpose |
+|---|---|
+| **Entry** | |
+| `run()` | CLI entry point -- parses `--division`, `--team`, `--force`, `--verbose` |
+| **Scrapers** | |
+| `scrape_division()` | Org-level scraper (Majors/Minors) |
+| `scrape_team_division()` | Team-level scraper (Wild/Storm) |
+| **Player accounting** | |
+| `_accum_player()` | Core per-player accumulator: detects collisions, promotes to 5-char keys |
+| `merge_player()` | Merges new box score data into existing roster entry |
+| `_first_name_from()` | Extracts first name from GC display string |
+| `_disambig_key()` | Builds 5-char disambiguation key (e.g. `B A` -> `Bri A`) |
+| `display_name()` | Formats `"FirstName L. #jersey"` display string |
+| `_prepare_for_save()` | Strips transient fields before writing to disk |
+| **Normalization** | |
+| `normalize_team_name()` | Applies `TEAM_NAME_ALIASES` to fix GC name differences |
+| `TEAM_NAME_ALIASES` | Maps GC box score team name variants -> canonical keys |
+| **Helpers & Config** | |
+| `setup_logging()` | Configures logging |
+| `DIVISIONS` dict | `build_scraper_divisions()` from `season_config` (same source as scrape_gc_playbyplay.py -- always in sync) |
 
 **Known limitation:** Minors `/box-score` pages redirect to `/info` -- jersey numbers permanently unavailable.
 
 ### gen_hitting.py (Step 3 -- Hitting stat engine + PDF generator)
 Reads game `.txt` files, parses every plate appearance, computes batting stats + archetypes, generates multi-page PDF scouting reports via ReportLab.
 
-| Function | ~Line | Purpose |
-|---|---|---|
-| `main()` | ~2031 | CLI entry point -- parses `--division`, `--team`, `--verbose` |
-| `run_league()` | ~1729 | Division runner for Majors/Minors |
-| `run_wild()` | ~1863 | Travel division runner (Wild/Storm): two-pass with LG RANK |
-| `build_league_context()` | ~1675 | Pre-scans all scorebooks; returns league-wide percentile data |
-| `get_wild_opponents()` | ~1625 | Discovers Wild/Storm opponent folders on disk |
-| `load_wild_roster()` | ~1639 | Reads `roster.txt` for a travel opponent |
-| `generate_pdf()` | ~1408 | ReportLab PDF assembly: team card + player cards + summary/notes |
-| `draw_card()` | ~1299 | Renders one player or team card: spray chart, stat bars, archetype, 4-stat footer (Sw%, SM%, CStr%, FPT%) |
-| `draw_field_spray_chart()` | ~1171 | Heat-map spray chart with BIP dots |
-| `draw_stat_box()` | ~1272 | Renders a single stat label + value box |
-| `draw_bar()` | ~1279 | Renders a horizontal percentage bar |
-| `draw_header()` | ~1100 | Draws PDF page header |
-| `mark_reviewed()` | ~1071 | Renames processed game file to `-Reviewed.txt` |
-| `generate_notes()` | ~997 | Full narrative scouting note for a batter |
-| `generate_notes_short()` | ~1042 | Compact note for summary page |
-| `get_pitching_approach()` | ~989 | Archetype -> pitching recommendation lookup |
-| `get_archetype()` | ~865 | Applies Approach x Result label using percentiles |
-| `_roster_percentiles()` | ~848 | Computes league-wide percentile thresholds |
-| `_rank_stat()` | ~807 | Dense rank helper for LG RANK row |
-| `compute_team_totals()` | ~728 | Aggregates all batters -> single team-level stat dict |
-| `compute_stats()` | ~614 | Aggregates PA list -> per-batter stat dict |
-| `verify_game()` | ~582 | Runs all verification layers on a parsed game |
-| `check_batting_order()` | ~523 | Verification layer 3 |
-| `check_inning_continuity()` | ~493 | Verification layer 1 |
-| `parse_game_for_team()` | ~430 | Core parser: reads .txt file, extracts PAs per batter |
-| `parse_pitch_seq()` | ~389 | Parses pitch sequence string into swing/take/foul counts |
-| `parse_outcome()` | ~340 | Maps play description -> outcome code |
-| `parse_ball_type()` | ~327 | Classifies BIP as ground ball, fly ball, or line drive |
-| `extract_zone()` | ~322 | Extracts fielding zone for spray chart |
-| `verify_box_score()` | ~262 | Verification layer 4: cross-checks vs box_verify.json |
-| `_disambiguate_pas()` | ~213 | Splits shared-initials PAs using `_collision_map` |
-| `load_box_verify()` | ~202 | Loads box_verify.json |
-| `load_box_rosters()` | ~159 | Loads rosters.json |
-| `setup_logging()` | ~43 | Configures logging |
-| `DIVISIONS` dict | built at import | `build_hitting_divisions()` from `season_config` (folder paths + roster file locations, loaded from YAML) |
-| `INNING_RE` | ~420 | Regex for `===Top/Bottom N - TeamName===` headers |
-| `PITCHING_APPROACH` | ~952 | Archetype -> pitching recommendation lookup dict |
+| Function | Purpose |
+|---|---|
+| **Entry & Division Runners** | |
+| `main()` | CLI entry point -- parses `--division`, `--team`, `--verbose` |
+| `run_league()` | Division runner for Majors/Minors |
+| `run_wild()` | Travel division runner (Wild/Storm): two-pass with LG RANK |
+| `build_league_context()` | Pre-scans all scorebooks; returns league-wide percentile data |
+| `get_wild_opponents()` | Discovers Wild/Storm opponent folders on disk |
+| `load_wild_roster()` | Reads `roster.txt` for a travel opponent |
+| **PDF Rendering** | |
+| `generate_pdf()` | ReportLab PDF assembly: team card + player cards + summary/notes |
+| `draw_card()` | Renders one player or team card: spray chart, stat bars, archetype, 4-stat footer (Sw%, SM%, CStr%, FPT%) |
+| `draw_field_spray_chart()` | Heat-map spray chart with BIP dots |
+| `draw_stat_box()` | Renders a single stat label + value box |
+| `draw_bar()` | Renders a horizontal percentage bar |
+| `draw_header()` | Draws PDF page header |
+| `mark_reviewed()` | Renames processed game file to `-Reviewed.txt` |
+| **Notes & Archetypes** | |
+| `generate_notes()` | Full narrative scouting note for a batter |
+| `generate_notes_short()` | Compact note for summary page |
+| `get_pitching_approach()` | Archetype -> pitching recommendation lookup |
+| `get_archetype()` | Applies Approach x Result label using percentiles |
+| `_roster_percentiles()` | Computes league-wide percentile thresholds |
+| `_rank_stat()` | Dense rank helper for LG RANK row |
+| `PITCHING_APPROACH` | Archetype -> pitching recommendation lookup dict |
+| **Stats** | |
+| `compute_team_totals()` | Aggregates all batters -> single team-level stat dict |
+| `compute_stats()` | Aggregates PA list -> per-batter stat dict |
+| **Verification** | |
+| `verify_game()` | Runs all verification layers on a parsed game |
+| `check_batting_order()` | Verification layer 3 |
+| `check_inning_continuity()` | Verification layer 1 |
+| `verify_box_score()` | Verification layer 4: cross-checks vs box_verify.json |
+| **Parsing** | |
+| `parse_game_for_team()` | Core parser: reads .txt file, extracts PAs per batter |
+| `parse_pitch_seq()` | Parses pitch sequence string into swing/take/foul counts |
+| `parse_outcome()` | Maps play description -> outcome code |
+| `parse_ball_type()` | Classifies BIP as ground ball, fly ball, or line drive |
+| `extract_zone()` | Extracts fielding zone for spray chart |
+| `INNING_RE` | Regex for `===Top/Bottom N - TeamName===` headers |
+| **Rosters & I/O** | |
+| `_disambiguate_pas()` | Splits shared-initials PAs using `_collision_map` |
+| `load_box_verify()` | Loads box_verify.json |
+| `load_box_rosters()` | Loads rosters.json |
+| **Setup & Config** | |
+| `setup_logging()` | Configures logging |
+| `DIVISIONS` dict | `build_hitting_divisions()` from `season_config` (folder paths + roster file locations, loaded from YAML) |
 
 ### parse_gc_text.py (Utility)
 Converts raw GC page text into WCWAA-structured `.txt` game file format. Called by `scrape_gc_playbyplay.py` -- never run directly.
 
-| Function | ~Line | Purpose |
-|---|---|---|
-| `parse_gc_raw()` | ~80 | Main entry: raw text string -> formatted game file string |
-| `GC_NAME_FIXES` | ~20 | Dict of known GC data errors to auto-correct |
-| `OUTCOME_TYPES` | ~35 | Outcome string -> code mapping (must sync with gen_hitting.py) |
+| Function | Purpose |
+|---|---|
+| `parse_gc_raw()` | Main entry: raw text string -> formatted game file string |
+| `GC_NAME_FIXES` | Dict of known GC data errors to auto-correct |
+| `OUTCOME_TYPES` | Outcome string -> code mapping (must sync with gen_hitting.py) |
 
 ### season_config.py (Central Config Loader)
 Gateway module — every script imports from here. Reads `active_season.txt` → loads `config/<season>.yaml` → exposes all season data as module-level constants and helper functions. Also manages the season lifecycle (create, list, switch).
 
-| Function / Constant | ~Line | Purpose |
-|---|---|---|
-| `SCOUT_ROOT` | ~150 | Absolute path to repo root (derived from `__file__`) |
-| `SEASON_ID` | ~153 | Active season ID (`"2026-spring"`) — read from `active_season.txt` at import |
-| `SEASON_DIR` | ~155 | `seasons/<season_id>/` data directory |
-| `build_scraper_divisions()` | ~200 | Builds `DIVISIONS` dict for scraping scripts (GC org ID, team slugs, team IDs) |
-| `build_hitting_divisions()` | ~265 | Builds `DIVISIONS` dict for hitting/pitching scripts (folder paths, roster files) |
-| `add_team_to_yaml()` | ~330 | Adds a new Wild/Storm team to the active season YAML (idempotent) |
-| `list_seasons()` | ~370 | Scans `config/*.yaml` (excluding template); returns `[{id, display_name, is_active}]` |
-| `set_active_season()` | ~410 | Writes a new season ID to `active_season.txt`; guards for missing config |
-| `create_season()` | ~440 | Scaffolds a new season YAML from `season_template.yaml` (fills GC IDs, display name); calls `_scaffold_season_dirs()` |
-| `_scaffold_season_dirs()` | ~560 | Private helper — creates on-disk folder tree for a new season (`seasons/<id>/Majors/`, `Minors/`, `Wild/`, `Storm/`) |
+| Function / Constant | Purpose |
+|---|---|
+| **Path Constants** | |
+| `SCOUT_ROOT` | Absolute path to repo root (derived from `__file__`) |
+| `SEASON_ID` | Active season ID (`"2026-spring"`) — read from `active_season.txt` at import |
+| `SEASON_DIR` | `seasons/<season_id>/` data directory |
+| **DIVISIONS Builders** | |
+| `build_scraper_divisions()` | Builds `DIVISIONS` dict for scraping scripts (GC org ID, team slugs, team IDs) |
+| `build_hitting_divisions()` | Builds `DIVISIONS` dict for hitting/pitching scripts (folder paths, roster files) |
+| **Team Management** | |
+| `add_team_to_yaml()` | Adds a new Wild/Storm team to the active season YAML (idempotent) |
+| **Season Lifecycle** | |
+| `list_seasons()` | Scans `config/*.yaml` (excluding template); returns `[{id, display_name, is_active}]` |
+| `set_active_season()` | Writes a new season ID to `active_season.txt`; guards for missing config |
+| `create_season()` | Scaffolds a new season YAML from `season_template.yaml` (fills GC IDs, display name); calls `_scaffold_season_dirs()` |
+| `_scaffold_season_dirs()` | Private helper — creates on-disk folder tree for a new season (`seasons/<id>/Majors/`, `Minors/`, `Wild/`, `Storm/`) |
 
 > **Important:** `SEASON_ID` and `SEASON_DIR` are module-level constants resolved at import time.
 > Calling `set_active_season()` updates `active_season.txt` on disk, but the **running process still
@@ -399,21 +424,26 @@ Gateway module — every script imports from here. Reads `active_season.txt` →
 ### run_menu.py (Orchestrator)
 Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subprocesses.
 
-| Function | ~Line | Purpose |
-|---|---|---|
-| `main()` | ~1091 | CLI entry point -- parses `--all`, `--division`, `--team` |
-| `interactive_menu()` | ~1019 | Menu: [0] Full, [1] Division, [2] Team, [3] Add team, [4] Manage seasons |
-| `manage_seasons()` | ~963 | Sub-menu: [1] Switch season, [2] Create season, [B] Back |
-| `_switch_season_wizard()` | ~920 | Lists all seasons → user picks one → calls `set_active_season()` → prints restart notice |
-| `_create_season_wizard()` | ~840 | Interactive wizard: season ID, display name, Majors/Minors GC org IDs → `create_season()` → prints next-steps |
-| `add_new_team()` | ~752 | Wizard: paste GC URL → `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/` |
-| `_slug_to_folder_name()` | ~713 | Converts GC slug to folder name |
-| `_parse_gc_url()` | ~689 | Extracts `team_id` and `slug` from a GC schedule URL |
-| `_run()` | ~662 | Subprocess wrapper with exit-code handling |
-| `run_pipeline()` | ~251 | Runs steps 1->2->3->4 as subprocesses for given scope |
-| `get_team_list()` | ~218 | Wild/Storm: reads DIVISIONS tuples (sorted alphabetically); Majors/Minors: reads rosters.json keys |
-| `print_header()` | ~85 | Prints the menu banner; season name is dynamic from `SEASON_ID` (not hardcoded) |
-| `check_session()` | ~147 | Warns if `sessions/gc_session.json` is missing |
+| Function | Purpose |
+|---|---|
+| **Entry & Menu** | |
+| `main()` | CLI entry point -- parses `--all`, `--division`, `--team` |
+| `interactive_menu()` | Menu: [0] Full, [1] Division, [2] Team, [3] Add team, [4] Manage seasons |
+| **Season Management** | |
+| `manage_seasons()` | Sub-menu: [1] Switch season, [2] Create season, [B] Back |
+| `_switch_season_wizard()` | Lists all seasons → user picks one → calls `set_active_season()` → prints restart notice |
+| `_create_season_wizard()` | Interactive wizard: season ID, display name, Majors/Minors GC org IDs → `create_season()` → prints next-steps |
+| **Add Team** | |
+| `add_new_team()` | Wizard: paste GC URL → `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/` |
+| `_slug_to_folder_name()` | Converts GC slug to folder name |
+| `_parse_gc_url()` | Extracts `team_id` and `slug` from a GC schedule URL |
+| **Pipeline** | |
+| `_run()` | Subprocess wrapper with exit-code handling |
+| `run_pipeline()` | Runs steps 1->2->3->4 as subprocesses for given scope |
+| `get_team_list()` | Wild/Storm: reads DIVISIONS tuples (sorted alphabetically); Majors/Minors: reads rosters.json keys |
+| **UI Helpers** | |
+| `print_header()` | Prints the menu banner; season name is dynamic from `SEASON_ID` (not hardcoded) |
+| `check_session()` | Warns if `sessions/gc_session.json` is missing |
 
 > **Team additions** now write to `config/<season>.yaml` via `season_config.add_team_to_yaml()`
 > (the old `_insert_team_into_file()` text-replacement on Python source was removed in v3.0.0).
@@ -459,37 +489,38 @@ Reads game `.txt` files from the opponent's perspective (who was pitching), comp
 
 **Config source:** `DIVISIONS` is built from `season_config.build_hitting_divisions()` (team IDs, slugs, and folder paths all come from `config/<season>.yaml`). Uses the shared venv. No inter-script imports — it has its own local `parse_outcome()`/`parse_ball_type()`/`parse_pitch_seq()`.
 
-| Function | ~Line | Purpose |
-|---|---|---|
-| `setup_logging()` | ~103 | Configures file + console logging |
-| **Parsing** | | |
-| `parse_outcome()` | ~189 | Maps play description -> outcome code (mirrors gen_hitting.py) |
-| `parse_ball_type()` | ~235 | Classifies BIP as GB, FB, or LD |
-| `parse_pitch_seq()` | ~254 | Parses pitch sequence -> swing/take/foul/ball/strike counts |
-| `parse_game_for_pitching_team()` | ~293 | Core parser: reads .txt file, extracts PAs attributed to each pitcher. Uses carry-forward logic for pitcher tracking + pre-scan to skip games not involving the team |
-| **Stats** | | |
-| `compute_pitcher_stats()` | ~444 | Aggregates all PAs for one pitcher -> 13-stat dict (ERA-proxy, WHIP, K/9, BB/9, K%, BB%, K/BB, BABIP, HR/9, FPSH%, GB%, FB+LD%, C%) |
-| `compute_percentile_rank()` | ~586 | Ranks a value against all values in the division; supports `low_is_good` flip |
-| `compute_all_percentiles()` | ~626 | Builds percentile rows for every pitcher across all 13 stats |
-| **PDF Rendering** | | |
-| `pct_to_color()` | ~719 | Maps percentile (0-100) to red->yellow->green color |
-| `draw_gradient_bar()` | ~728 | Draws the colored Savant-style slider bar |
-| `draw_bubble()` | ~736 | Draws the percentile bubble on the slider |
-| `draw_axis_labels()` | ~748 | Draws "Poor" / "Great" axis labels |
-| `draw_stat_row()` | ~761 | Renders one stat row: label, value, slider bar, percentile bubble |
-| `draw_pitcher_icon()` | ~798 | Draws the Savant pitcher silhouette PNG in card header |
-| `draw_pitcher_card()` | ~828 | Renders a complete pitcher card (header + 13 stat rows) |
-| `card_origin()` | ~875 | Computes x,y position for 4-cards-per-page layout |
-| `generate_pitching_pdf()` | ~884 | Assembles full PDF: pages of 4 cards each |
-| **File I/O** | | |
-| `find_game_files()` | ~912 | Finds .txt and -Reviewed.txt game files in a directory |
-| `load_rosters_json()` | ~932 | Loads rosters.json for Majors/Minors display names |
-| `load_roster_txt()` | ~940 | Loads roster.txt for Wild/Storm display names |
-| `dedup_pitcher_names()` | ~964 | Merges initials-only entries into full-name counterparts (e.g. "K D" -> "Kilean D"); discards unresolvable orphan initials |
-| **Division Runners** | | |
-| `run_league_division()` | ~1018 | Runs Majors or Minors: two-pass (collect all pitchers -> compute percentiles -> generate per-team PDFs) |
-| `run_travel_division()` | ~1141 | Runs Wild or Storm: auto-discovers team folders, applies dedup, same two-pass flow |
-| `main()` | ~1282 | CLI entry point -- parses `--division`, `--team`, `--verbose` |
+| Function | Purpose |
+|---|---|
+| **Setup** | |
+| `setup_logging()` | Configures file + console logging |
+| **Parsing** | |
+| `parse_outcome()` | Maps play description -> outcome code (mirrors gen_hitting.py) |
+| `parse_ball_type()` | Classifies BIP as GB, FB, or LD |
+| `parse_pitch_seq()` | Parses pitch sequence -> swing/take/foul/ball/strike counts |
+| `parse_game_for_pitching_team()` | Core parser: reads .txt file, extracts PAs attributed to each pitcher. Uses carry-forward logic for pitcher tracking + pre-scan to skip games not involving the team |
+| **Stats** | |
+| `compute_pitcher_stats()` | Aggregates all PAs for one pitcher -> 13-stat dict (ERA-proxy, WHIP, K/9, BB/9, K%, BB%, K/BB, BABIP, HR/9, FPSH%, GB%, FB+LD%, C%) |
+| `compute_percentile_rank()` | Ranks a value against all values in the division; supports `low_is_good` flip |
+| `compute_all_percentiles()` | Builds percentile rows for every pitcher across all 13 stats |
+| **PDF Rendering** | |
+| `pct_to_color()` | Maps percentile (0-100) to red->yellow->green color |
+| `draw_gradient_bar()` | Draws the colored Savant-style slider bar |
+| `draw_bubble()` | Draws the percentile bubble on the slider |
+| `draw_axis_labels()` | Draws "Poor" / "Great" axis labels |
+| `draw_stat_row()` | Renders one stat row: label, value, slider bar, percentile bubble |
+| `draw_pitcher_icon()` | Draws the Savant pitcher silhouette PNG in card header |
+| `draw_pitcher_card()` | Renders a complete pitcher card (header + 13 stat rows) |
+| `card_origin()` | Computes x,y position for 4-cards-per-page layout |
+| `generate_pitching_pdf()` | Assembles full PDF: pages of 4 cards each |
+| **File I/O** | |
+| `find_game_files()` | Finds .txt and -Reviewed.txt game files in a directory |
+| `load_rosters_json()` | Loads rosters.json for Majors/Minors display names |
+| `load_roster_txt()` | Loads roster.txt for Wild/Storm display names |
+| `dedup_pitcher_names()` | Merges initials-only entries into full-name counterparts (e.g. "K D" -> "Kilean D"); discards unresolvable orphan initials |
+| **Division Runners** | |
+| `run_league_division()` | Runs Majors or Minors: two-pass (collect all pitchers -> compute percentiles -> generate per-team PDFs) |
+| `run_travel_division()` | Runs Wild or Storm: auto-discovers team folders, applies dedup, same two-pass flow |
+| `main()` | CLI entry point -- parses `--division`, `--team`, `--verbose` |
 
 ### Pitching Stats Computed (13 stats, 2 flipped)
 
