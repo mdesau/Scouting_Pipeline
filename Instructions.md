@@ -86,7 +86,6 @@ v0.1.0  initial commit
 | 3 | Season management — create/switch seasons without manual YAML editing | ✅ Done | v3.2.0 | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker |
 | 4 | Per-tab season selectors in web UI (BUG-18) | ✅ Done | v3.3.0 | Build/View/Add Team each have their own season dropdown; View Reports has an "All seasons" option |
 | 5 | Leverage stat_analysis.py work to build dynamic archetypes | 🔲 Not Started | v3.4.0 | Replace static archetype cutoffs with percentile-driven thresholds from distribution data |
-| 6 | Plan migration or clone to GameChanger board path | 🔲 Not Started | TBD | Evaluate whether pipeline can run without GDrive dependency (local path portability) |
 
 ---
 
