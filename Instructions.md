@@ -19,7 +19,7 @@ handling, and code style. Follow those guidelines throughout.
 | Field | Value |
 |---|---|
 | **Version** | 3.4.0 |
-| **Last commit** | `feat: Create / Modify Season + Tournament Teams (Seasons tab redesign) (v3.4.0)` |
+| **Last commit** | `1feb29d / feat: Create / Modify Season + Tournament Teams (Seasons tab redesign) (v3.4.0)` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
 
