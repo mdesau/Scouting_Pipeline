@@ -208,6 +208,52 @@ button.activate-btn:hover { color: var(--text); border-color: var(--accent); }
 }
 .row-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
 
+/* ── Create / Modify Season form ─────────────────────────────────────────── */
+/* Optional-field grouping + tournament-team dropdown multi-select. */
+.field-optional {
+  font-size: 11px; color: var(--muted); font-weight: 600;
+  background: rgba(147,163,179,0.12); border: 1px solid var(--line);
+  border-radius: 20px; padding: 1px 8px; margin-left: 6px;
+}
+.field-group {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px; background: rgba(0,0,0,0.12);
+}
+.field-group > .grp-title {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--accent); margin: 0 0 10px; font-weight: 700;
+}
+
+/* Compact dropdown multi-select (collapsed by default to save space) */
+.ms { position: relative; max-width: 340px; }
+.ms-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 11px; font-size: 14px; cursor: pointer; text-align: left;
+}
+.ms-toggle:hover:not(:disabled) { border-color: var(--accent); }
+.ms-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.ms-toggle .caret { color: var(--muted); font-size: 11px; }
+.ms-toggle .ms-summary.placeholder { color: var(--muted); }
+.ms-menu {
+  position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-height: 260px; overflow: auto;
+}
+.ms-opt {
+  display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 6px;
+  font-size: 14px; color: var(--text); cursor: pointer;
+}
+.ms-opt:hover { background: var(--panel-2); }
+.ms-opt input { width: 15px; height: 15px; cursor: pointer; }
+.ms-opt .tt-new { color: #c9a3ff; font-size: 11px; font-weight: 700; margin-left: auto; }
+.ms-add {
+  display: flex; gap: 8px; padding: 8px 6px 4px;
+  border-top: 1px solid var(--line); margin-top: 4px;
+}
+.ms-add input { flex: 1; min-width: 0; }
+.ms-add button { white-space: nowrap; }
+
 /* ── Phone tweaks ────────────────────────────────────────────────────────── */@media (max-width: 600px) {
   .row { flex-direction: column; align-items: stretch; }
   select, input { min-width: 0; width: 100%; }

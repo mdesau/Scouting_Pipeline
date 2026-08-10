@@ -18,8 +18,8 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field | Value |
 |---|---|
-| **Version** | 3.3.2 |
-| **Last commit** | `6e8beb2 / fix: BUG-20 — report PDFs 404 in web UI (season id dropped from /report path) (v3.3.2)` |
+| **Version** | 3.4.0 |
+| **Last commit** | `feat: Create / Modify Season + Tournament Teams (Seasons tab redesign) (v3.4.0)` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
 
@@ -50,6 +50,7 @@ At session end, update this **Current State** table with the latest version and 
 
 ### Version History
 ```
+v3.4.0  feat: Create / Modify Season UI + optional Majors/Minors + Tournament Teams (per-season travel divisions)
 v3.3.2  fix: BUG-20 — report PDFs 404 in web UI (season id dropped from /report path)
 v3.3.1  fix: BUG-19 stale server detection + X-Scout-Version response header
 v3.3.0  feat: per-tab season selectors in web UI (BUG-18) + "All seasons" View Reports filter

@@ -14,6 +14,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.4.0] - 2026-08-10
+
+### Added — Create / Modify Season + Tournament Teams (Seasons tab redesign)
+- **`season_config.py`** — new season-editing + tournament-team functions:
+  - `update_season()` — edit an existing season's display name / Majors / Minors org IDs
+    (empty string clears a value; `None` leaves it unchanged).
+  - `add_tournament_team()` — add a per-season **travel** division alongside
+    Majors/Minors/Wild/Storm (creates `seasons/<id>/<Name>/` + YAML entry; idempotent;
+    validates the name and rejects reserved/league names).
+  - `list_tournament_teams()` — list a season's travel divisions with `active`,
+    `team_count`, and `builtin` (Wild/Storm) flags.
+  - `set_tournament_team_active()` — non-destructively toggle whether a tournament team
+    is included in builds this season (data is preserved either way).
+  - `get_season_detail()` — return editable season data for the Modify form.
+  - `create_season()` — Majors/Minors org IDs are now **optional** (default `""`);
+    added `tournament_teams=[...]` to scaffold extra travel divisions at creation.
+  - `build_scraper_divisions()` / `build_hitting_divisions()` now **skip** travel
+    divisions flagged `active: false` (backward compatible — missing flag = active).
+- **`server.py`** (SERVER_VERSION → 3.4.0) — new/updated endpoints:
+  - `POST /api/seasons` — org IDs optional; accepts `tournament_teams` list.
+  - `GET /api/seasons/<id>` — editable season detail for the Modify form.
+  - `POST /api/seasons/<id>` — update season core fields + reconcile tournament teams.
+  - `POST /api/seasons/<id>/tournament_teams` — add one tournament team.
+- **`run_menu.py`** (v3.4.0) — terminal Create-Season wizard: Majors/Minors org IDs are
+  now optional (press ENTER to skip and add later); summary shows "(not set — add later)".
+- **Web UI** (`index.html` + `app.js` + `style.css`) — "Create a new season" card
+  replaced with **"Create / Modify Season"**:
+  - Season is a picker ("➕ Add New Season…" or an existing season, which loads its
+    saved values for editing).
+  - Majors and Minors GC org IDs are labeled **OPTIONAL**.
+  - New **Tournament Teams** compact dropdown multi-select (select which apply this
+    season) with an inline **Add** for creating a new tournament-team division.
+- **`examples/demo-seasons-page.html`** — static, self-contained mock of the new page
+  (dropdown multi-select + live folder-structure preview) for design review.
+
+---
+
 ## [3.3.2] - 2026-07-01
 
 ### Fixed

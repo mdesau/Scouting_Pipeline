@@ -66,8 +66,8 @@ function setStatus(online) {
   // Disable build/add/season controls when the engine is unreachable.
   ["buildBtn", "addBtn", "buildSeason", "buildDivision", "buildTeam",
    "addSeason", "addUrl", "addDivision", "addFolder",
-   "createSeasonBtn", "newSeasonId", "newSeasonDisplay",
-   "newMajorsId", "newMinorsId", "newSetActive"]
+   "seasonEditSel", "seSeasonId", "seDisplay", "seMajors", "seMinors",
+   "seSetActive", "saveSeasonBtn", "ttToggle", "newTT", "addTTBtn"]
     .forEach((id) => { const n = el(id); if (n) n.disabled = !online; });
 }
 
@@ -275,6 +275,7 @@ async function loadSeasons() {
     const data = await res.json();
     populateTabSeasonSelects(data);
     renderSeasonsList(data);
+    populateSeasonEditSelect(data);
     // Header sub-line shows active season name for quick reference
     const active = (data.seasons || []).find((s) => s.is_active);
     if (active) el("seasonLabel").textContent = "Season: " + active.display_name;
@@ -404,82 +405,222 @@ async function _activateSeason(seasonId) {
 // Refresh seasons list button
 el("refreshSeasons").addEventListener("click", loadSeasons);
 
-// Auto-fill display name from season ID as the user types
-el("newSeasonId").addEventListener("input", () => {
-  const id = el("newSeasonId").value.trim();
+// ── Create / Modify Season ────────────────────────────────────────────────────
+// Working copy of the season currently in the form.
+//   mode:  "new"  → creating a season (Season ID editable, set-active allowed)
+//          "edit" → modifying an existing season (Season ID locked)
+//   tts:   [{name, active, builtin, isNew}]  tournament-team multi-select state
+let seEdit = { mode: "new", tts: [] };
+
+/** Populate the "Season" picker in the Create/Modify card from /api/seasons. */
+function populateSeasonEditSelect(data) {
+  const sel = el("seasonEditSel");
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="__new__">➕ Add New Season…</option>';
+  (data.seasons || []).forEach((s) => {
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.display_name + (s.is_active ? " ✓" : "");
+    sel.appendChild(o);
+  });
+  // Preserve the current selection across refreshes when possible.
+  sel.value = [...sel.options].some((o) => o.value === prev) ? prev : "__new__";
+  if (sel.value === "__new__") seLoadNew();
+}
+
+/** Reset the form for creating a brand-new season. */
+function seLoadNew() {
+  seEdit = { mode: "new", tts: [] };
+  el("seSeasonId").value = "";
+  el("seDisplay").value  = "";
+  el("seMajors").value   = "";
+  el("seMinors").value   = "";
+  el("seSeasonId").disabled = false;
+  delete el("seDisplay").dataset.manualEdit;
+  el("seSetActiveWrap").style.display = "";
+  el("seSetActive").checked = false;
+  el("ttNewNote").style.display = "";           // "Wild/Storm auto-added" hint
+  el("saveSeasonBtn").textContent = "💾 Create Season";
+  el("seResult").textContent = "";
+  renderTTOptions();
+}
+
+/** Load an existing season's saved values into the form (Modify mode). */
+async function seLoadDetail(seasonId) {
+  el("seResult").className = "add-result";
+  el("seResult").textContent = "Loading…";
+  try {
+    const res  = await fetch(`/api/seasons/${encodeURIComponent(seasonId)}`, { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "load failed");
+
+    seEdit = {
+      mode: "edit",
+      tts: (data.tournament_teams || []).map((t) => ({
+        name: t.name, active: !!t.active, builtin: !!t.builtin, isNew: false,
+      })),
+    };
+    el("seSeasonId").value = data.id;
+    el("seDisplay").value  = data.display_name || "";
+    el("seMajors").value   = data.majors_gc_id || "";
+    el("seMinors").value   = data.minors_gc_id || "";
+    el("seSeasonId").disabled = true;            // ID is the season's identity
+    el("seSetActiveWrap").style.display = "none"; // switch active via the list above
+    el("ttNewNote").style.display = "none";
+    el("saveSeasonBtn").textContent = "💾 Save Changes";
+    el("seResult").textContent = "";
+    renderTTOptions();
+  } catch (e) {
+    el("seResult").className = "add-result err";
+    el("seResult").textContent = "❌ Could not load season: " + e.message;
+  }
+}
+
+el("seasonEditSel").addEventListener("change", (e) => {
+  if (e.target.value === "__new__") seLoadNew();
+  else seLoadDetail(e.target.value);
+});
+
+// Auto-fill display name from Season ID while typing (new mode only).
+el("seSeasonId").addEventListener("input", () => {
+  if (seEdit.mode !== "new") return;
+  const id = el("seSeasonId").value.trim();
   if (!id) return;
   const suggested = id.split("-")
     .map((p) => (p.match(/^\d+$/) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
     .join(" ");
-  // Only auto-fill if the user hasn't manually edited the display name
-  if (!el("newSeasonDisplay").dataset.manualEdit) {
-    el("newSeasonDisplay").value = suggested;
-  }
+  if (!el("seDisplay").dataset.manualEdit) el("seDisplay").value = suggested;
 });
-el("newSeasonDisplay").addEventListener("input", () => {
-  // Mark as manually edited so auto-fill stops overwriting it
-  el("newSeasonDisplay").dataset.manualEdit = "1";
+el("seDisplay").addEventListener("input", () => { el("seDisplay").dataset.manualEdit = "1"; });
+
+// ── Tournament-teams dropdown multi-select ────────────────────────────────────
+function renderTTOptions() {
+  const box = el("ttOpts");
+  box.innerHTML = "";
+  if (seEdit.tts.length === 0) {
+    box.innerHTML = '<div class="ms-opt muted" style="cursor:default;">No tournament teams yet — add one below.</div>';
+  }
+  seEdit.tts.forEach((t, i) => {
+    const row = document.createElement("label");
+    row.className = "ms-opt";
+    row.innerHTML =
+      `<input type="checkbox" ${t.active ? "checked" : ""} data-i="${i}"/>` +
+      `<span>${t.name}</span>` +
+      (t.isNew ? '<span class="tt-new">NEW</span>' : "");
+    row.querySelector("input").addEventListener("change", (e) => {
+      seEdit.tts[i].active = e.target.checked;
+      renderTTSummary();
+    });
+    box.appendChild(row);
+  });
+  renderTTSummary();
+}
+
+function renderTTSummary() {
+  const on = seEdit.tts.filter((t) => t.active).map((t) => t.name);
+  const sum = el("ttSummary");
+  if (on.length === 0) {
+    sum.textContent = "Select tournament teams…";
+    sum.classList.add("placeholder");
+  } else {
+    sum.textContent = on.join(", ") + `  (${on.length})`;
+    sum.classList.remove("placeholder");
+  }
+}
+
+function addTTLocal() {
+  const input = el("newTT");
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  if (seEdit.tts.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+    input.value = ""; return;   // already present — ignore duplicates
+  }
+  seEdit.tts.push({ name, active: true, builtin: false, isNew: true });
+  input.value = "";
+  renderTTOptions();
+}
+
+el("ttToggle").addEventListener("click", (e) => {
+  e.stopPropagation();
+  el("ttMenu").classList.toggle("hidden");
+});
+el("addTTBtn").addEventListener("click", addTTLocal);
+el("newTT").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); addTTLocal(); }
+});
+// Close the dropdown when clicking outside it.
+document.addEventListener("click", (e) => {
+  const ms = el("ttMs");
+  if (ms && !ms.contains(e.target)) el("ttMenu").classList.add("hidden");
 });
 
-/**
- * Create a new season by calling POST /api/seasons.
- * Validates inputs, submits, shows next-step instructions on success.
- */
-el("createSeasonBtn").addEventListener("click", async () => {
-  const out = el("createSeasonResult");
+/** Save the form — creates a new season or updates the selected one. */
+el("saveSeasonBtn").addEventListener("click", async () => {
+  const out = el("seResult");
   out.className = "add-result";
 
-  const seasonId    = el("newSeasonId").value.trim();
-  const displayName = el("newSeasonDisplay").value.trim();
-  const majorsId    = el("newMajorsId").value.trim();
-  const minorsId    = el("newMinorsId").value.trim();
-  const setActive   = el("newSetActive").checked;
+  const displayName = el("seDisplay").value.trim();
+  const majorsId    = el("seMajors").value.trim();
+  const minorsId    = el("seMinors").value.trim();
 
-  if (!seasonId)  { out.className = "add-result err"; out.textContent = "❌ Season ID is required."; return; }
-  if (!majorsId)  { out.className = "add-result err"; out.textContent = "❌ Majors GC org ID is required."; return; }
-  if (!minorsId)  { out.className = "add-result err"; out.textContent = "❌ Minors GC org ID is required."; return; }
-
-  out.textContent = "Creating…";
   try {
-    const res  = await fetch("/api/seasons", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        season_id:    seasonId,
-        display_name: displayName || undefined,
-        majors_gc_id: majorsId,
-        minors_gc_id: minorsId,
-        set_active:   setActive,
-      }),
-    });
-    const data = await res.json();
+    if (seEdit.mode === "new") {
+      const seasonId = el("seSeasonId").value.trim();
+      if (!seasonId) { out.className = "add-result err"; out.textContent = "❌ Season ID is required."; return; }
+      out.textContent = "Creating…";
+      const res  = await fetch("/api/seasons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          season_id:    seasonId,
+          display_name: displayName || undefined,
+          majors_gc_id: majorsId,
+          minors_gc_id: minorsId,
+          tournament_teams: seEdit.tts.filter((t) => t.active).map((t) => t.name),
+          set_active:   el("seSetActive").checked,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) { out.className = "add-result err"; out.textContent = "❌ " + (data.error || "Could not create season."); return; }
 
-    if (data.ok) {
       out.className = "add-result ok";
       let html = `✅ Season <strong>${seasonId}</strong> created.<br>` +
-        `<span class="muted">Config: config/${data.yaml} &nbsp;|&nbsp; Data: seasons/${seasonId}/</span><br><br>` +
-        `<strong>Next steps:</strong><br>` +
-        `1. Add Majors + Minors teams to <code>config/${data.yaml}</code> after the draft.<br>` +
-        `2. Wild/Storm opponents: use "Add Team" tab as games are scheduled.<br>` +
-        `3. Run scrape_gc_boxscores.py after the first games to build rosters.`;
+        `<span class="muted">Config: config/${data.yaml} &nbsp;|&nbsp; Data: seasons/${seasonId}/</span>`;
       if (data.restart_required) {
-        html += `<div class="restart-banner">` +
-          `⚠️ <strong>Restart required:</strong> stop the server and re-launch ` +
-          `<code>Start Scout.command</code> to start using this season.` +
-          `</div>`;
+        html += `<div class="restart-banner">⚠️ <strong>Restart required:</strong> stop the server and ` +
+          `re-launch <code>Start Scout.command</code> to start using this season.</div>`;
       }
       out.innerHTML = html;
-      // Clear form + reset manual-edit flag
-      ["newSeasonId", "newSeasonDisplay", "newMajorsId", "newMinorsId"].forEach((id) => {
-        el(id).value = "";
-        delete el(id).dataset.manualEdit;
-      });
-      el("newSetActive").checked = false;
-      // Refresh seasons list to show the new entry
       loadSeasons();
+      // Re-select the freshly created season so the user can keep editing it.
+      setTimeout(() => { el("seasonEditSel").value = seasonId; seLoadDetail(seasonId); }, 300);
+
     } else {
-      out.className = "add-result err";
-      out.textContent = "❌ " + (data.error || "Could not create season.");
+      const seasonId = el("seSeasonId").value.trim();
+      out.textContent = "Saving…";
+      const res  = await fetch(`/api/seasons/${encodeURIComponent(seasonId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          display_name: displayName,
+          majors_gc_id: majorsId,
+          minors_gc_id: minorsId,
+          tournament_teams: seEdit.tts.map((t) => ({ name: t.name, active: t.active })),
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) { out.className = "add-result err"; out.textContent = "❌ " + (data.error || "Could not save changes."); return; }
+
+      out.className = "add-result ok";
+      let html = `✅ Saved changes to <strong>${seasonId}</strong>.`;
+      if (data.restart_required) {
+        html += `<div class="restart-banner">⚠️ <strong>Restart required:</strong> this is the active ` +
+          `season — restart the server for changes to take effect.</div>`;
+      }
+      out.innerHTML = html;
+      loadSeasons();
+      seLoadDetail(seasonId);   // re-load to reflect any newly created folders
     }
   } catch (_e) {
     out.className = "add-result err";

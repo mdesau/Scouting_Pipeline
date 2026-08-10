@@ -141,34 +141,75 @@
         <div id="seasonSwitchResult" class="add-result"></div>
       </div>
 
-      <!-- Create new season -->
+      <!-- Create / Modify season -->
       <div class="card">
-        <h2>Create a new season</h2>
-        <p class="hint">Scaffolds a new season config and folder structure from the template.
-          You will need the GameChanger org IDs for Majors and Minors — find them in the
-          GC admin console after creating the new org for the season.</p>
+        <h2>Create / Modify Season</h2>
+        <p class="hint">Pick an existing season to edit it, or add a new one. Majors and Minors
+          are optional — save with only the info you have so far.</p>
         <div class="form">
-          <label>Season ID
-            <span class="muted">(e.g. 2026-fall — becomes the config filename)</span>
-            <input id="newSeasonId" type="text" placeholder="2026-fall" />
+          <!-- Season picker: Add New OR an existing season (loads its values) -->
+          <label>Season
+            <select id="seasonEditSel">
+              <option value="__new__">➕ Add New Season…</option>
+            </select>
           </label>
-          <label>Display name
-            <span class="muted">(auto-filled from Season ID; edit if needed)</span>
-            <input id="newSeasonDisplay" type="text" placeholder="2026 Fall" />
-          </label>
-          <label>Majors GC org ID
-            <input id="newMajorsId" type="text" placeholder="GameChanger org ID" />
-          </label>
-          <label>Minors GC org ID
-            <input id="newMinorsId" type="text" placeholder="GameChanger org ID" />
-          </label>
-          <label class="row-label">
-            <input id="newSetActive" type="checkbox" />
+
+          <div class="row">
+            <label>Season ID <span class="muted">(config filename, e.g. 2026-fall)</span>
+              <input id="seSeasonId" type="text" placeholder="2026-fall" />
+            </label>
+            <label>Display name <span class="muted">(auto-filled; edit if needed)</span>
+              <input id="seDisplay" type="text" placeholder="2026 Fall" />
+            </label>
+          </div>
+
+          <!-- Majors optional -->
+          <div class="field-group">
+            <p class="grp-title">Majors <span class="field-optional">OPTIONAL</span></p>
+            <label>GameChanger org ID <span class="muted">(leave blank if you don't have it yet)</span>
+              <input id="seMajors" type="text" placeholder="e.g. 1CMI2BBazG8C" />
+            </label>
+          </div>
+
+          <!-- Minors optional -->
+          <div class="field-group">
+            <p class="grp-title">Minors <span class="field-optional">OPTIONAL</span></p>
+            <label>GameChanger org ID <span class="muted">(leave blank if you don't have it yet)</span>
+              <input id="seMinors" type="text" placeholder="e.g. GdcFopba2PbE" />
+            </label>
+          </div>
+
+          <!-- Tournament Teams: compact dropdown multi-select + add new -->
+          <div class="field-group">
+            <p class="grp-title">Tournament Teams</p>
+            <p class="hint" style="margin:0 0 10px;">Travel/tournament divisions for this season
+              (Wild, Storm, …). Each becomes its own folder alongside Majors &amp; Minors and holds
+              its own opponents. Select the ones you're playing this season, or add a new one.</p>
+            <div class="ms" id="ttMs">
+              <button type="button" class="ms-toggle" id="ttToggle">
+                <span class="ms-summary placeholder" id="ttSummary">Select tournament teams…</span>
+                <span class="caret">▼</span>
+              </button>
+              <div class="ms-menu hidden" id="ttMenu">
+                <div id="ttOpts"></div>
+                <div class="ms-add">
+                  <input id="newTT" type="text" placeholder="Add new… e.g. Mavs" />
+                  <button type="button" class="ghost" id="addTTBtn">➕ Add</button>
+                </div>
+              </div>
+            </div>
+            <!-- Note shown only in "Add New Season" mode -->
+            <p class="hint" id="ttNewNote" style="margin:10px 0 0;">Wild and Storm are created
+              automatically for a new season — add any extra tournament teams here.</p>
+          </div>
+
+          <label class="row-label" id="seSetActiveWrap">
+            <input id="seSetActive" type="checkbox" />
             Set as active season immediately
           </label>
-          <button id="createSeasonBtn" class="primary">+ Create season</button>
+          <button id="saveSeasonBtn" class="primary">💾 Save Season</button>
         </div>
-        <div id="createSeasonResult" class="add-result"></div>
+        <div id="seResult" class="add-result"></div>
       </div>
     </section>
 

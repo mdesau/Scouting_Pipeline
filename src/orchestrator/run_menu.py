@@ -99,7 +99,7 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "3.2.0"
+__version__ = "3.4.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
@@ -894,8 +894,8 @@ def _create_season_wizard():
     Prompts for:
       1. Season ID     — e.g. "2026-fall"  (becomes the YAML filename)
       2. Display name  — e.g. "2026 Fall"  (auto-suggested from season ID)
-      3. Majors GC org ID  — from GC admin console / org schedule URL
-      4. Minors GC org ID
+      3. Majors GC org ID  — OPTIONAL (add later via Modify Season in the web UI)
+      4. Minors GC org ID  — OPTIONAL
       5. Set as active season now?  (optional — can switch later via [1])
 
     On success calls season_config.create_season() which:
@@ -905,8 +905,8 @@ def _create_season_wizard():
     """
     print("\n── Create New Season ────────────────────────────────────")
     print("This wizard scaffolds a new season config and folder structure.")
-    print("You will need the GameChanger org IDs for Majors and Minors.")
-    print("(Find them in the GC admin console or org schedule page URL.)\n")
+    print("The GameChanger org IDs for Majors and Minors are OPTIONAL — you can")
+    print("create the season now and fill them in later (Modify Season in the web UI).\n")
 
     # ── Season ID ────────────────────────────────────────────────────────────
     season_id = ask("Season ID (e.g. 2026-fall): ")
@@ -933,21 +933,13 @@ def _create_season_wizard():
         default=auto_name,
     )
 
-    # ── GC org IDs ───────────────────────────────────────────────────────────
+    # ── GC org IDs (optional) ────────────────────────────────────────────────
     print()
-    print("  Enter the GameChanger org IDs for the new season.")
-    print("  These are the IDs for the Majors and Minors league organisations")
-    print("  you create each season in the GC admin console.\n")
+    print("  GameChanger org IDs for the new season (Majors/Minors league orgs).")
+    print("  Optional — press ENTER to skip either and add it later.\n")
 
-    majors_gc_id = ask("  Majors GC org ID: ")
-    if not majors_gc_id:
-        print("  Majors GC org ID is required — cancelled.")
-        return
-
-    minors_gc_id = ask("  Minors GC org ID: ")
-    if not minors_gc_id:
-        print("  Minors GC org ID is required — cancelled.")
-        return
+    majors_gc_id = ask("  Majors GC org ID (ENTER to skip): ")
+    minors_gc_id = ask("  Minors GC org ID (ENTER to skip): ")
 
     # ── Set active now? ───────────────────────────────────────────────────────
     print()
@@ -959,8 +951,8 @@ def _create_season_wizard():
     print("  Summary:")
     print(f"    Season ID    : {season_id}")
     print(f"    Display name : {display_name}")
-    print(f"    Majors GC ID : {majors_gc_id}")
-    print(f"    Minors GC ID : {minors_gc_id}")
+    print(f"    Majors GC ID : {majors_gc_id or '(not set — add later)'}")
+    print(f"    Minors GC ID : {minors_gc_id or '(not set — add later)'}")
     print(f"    Set active   : {'Yes' if set_active else 'No (switch later via [4] → [1])'}")
     print()
 

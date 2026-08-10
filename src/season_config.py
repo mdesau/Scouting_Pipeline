@@ -59,6 +59,7 @@ Version: Part of Scout Pipeline v3.2.0+
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -205,6 +206,10 @@ def build_scraper_divisions(season_id: str = None) -> dict:
     divs = {}
 
     for div_name, div_cfg in cfg["divisions"].items():
+        # Tournament-team (travel) divisions can be toggled off for a season
+        # without deleting their data. A missing/true `active` flag = included.
+        if div_cfg["type"] != "league" and not div_cfg.get("active", True):
+            continue
         if div_cfg["type"] == "league":
             # Majors / Minors — org-based scraping
             org_id = div_cfg["gc_org_id"]
@@ -284,6 +289,10 @@ def build_hitting_divisions(season_id: str = None) -> dict:
     divs = {}
 
     for div_name, div_cfg in cfg["divisions"].items():
+        # Skip tournament-team divisions toggled off for this season (see
+        # build_scraper_divisions for rationale). League divisions are always on.
+        if div_cfg["type"] != "league" and not div_cfg.get("active", True):
+            continue
         if div_cfg["type"] == "league":
             teams = [(t["name"], t["coach"]) for t in div_cfg["teams"]]
             divs[div_name] = {
@@ -449,9 +458,10 @@ def set_active_season(season_id: str) -> None:
 
 def create_season(
     season_id: str,
-    majors_gc_id: str,
-    minors_gc_id: str,
+    majors_gc_id: str = "",
+    minors_gc_id: str = "",
     display_name: str = None,
+    tournament_teams: list = None,
     set_active: bool = False,
 ) -> "Path":
     """
@@ -482,13 +492,17 @@ def create_season(
     Args:
         season_id:     Unique identifier, e.g. "2026-fall". Used as the
                        YAML filename and folder name under seasons/.
-        majors_gc_id:  GameChanger org ID for Majors. Find it in the GC
-                       admin console or the org's schedule URL.
-        minors_gc_id:  GameChanger org ID for Minors.
+        majors_gc_id:  GameChanger org ID for Majors. OPTIONAL — pass "" if
+                       you don't have it yet; you can fill it in later via
+                       update_season(). Find it in the GC admin console.
+        minors_gc_id:  GameChanger org ID for Minors. OPTIONAL (same as above).
         display_name:  Human-readable label (e.g. "2026 Fall"). Auto-derived
                        from season_id if not provided:
                          "2026-fall" → "2026 Fall"
                          "2026-spring" → "2026 Spring"
+        tournament_teams: Optional list of extra tournament-team names to
+                       create as travel divisions alongside Wild/Storm
+                       (e.g. ["Mavs"]). Each gets its own folder + YAML entry.
         set_active:    If True, also updates active_season.txt so this
                        season becomes the active one immediately.
 
@@ -534,6 +548,12 @@ def create_season(
     cfg["display_name"] = display_name
     cfg["divisions"]["Majors"]["gc_org_id"] = majors_gc_id
     cfg["divisions"]["Minors"]["gc_org_id"] = minors_gc_id
+
+    # Add any extra tournament-team (travel) divisions requested at creation.
+    for name in (tournament_teams or []):
+        name = (name or "").strip()
+        if name and name not in cfg["divisions"]:
+            cfg["divisions"][name] = _new_travel_division(name)
 
     # Generate the CSV path using the display name to follow the project
     # convention (e.g. "2026 Fall Draft Results.xlsx - Majors.csv").
@@ -582,6 +602,224 @@ def _scaffold_season_dirs(season_dir: "Path", cfg: dict) -> None:
         else:
             # Travel: base folder only; Games/ subfolders come later per team.
             (season_dir / div_cfg["output_base"]).mkdir(parents=True, exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Season Editing + Tournament Teams (v3.4.0+)
+# ---------------------------------------------------------------------------
+# A "tournament team" is a per-season travel division that sits alongside
+# Majors/Minors/Wild/Storm on disk (seasons/<id>/<Name>/) and holds its own
+# opponents. It reuses the existing "travel" division machinery, so no changes
+# to the scraper/hitting builders are needed beyond the `active` skip flag.
+
+# Regex for a safe tournament-team name (also the folder + YAML key).
+_TT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _'&.\-]{0,48}$")
+
+# Division names that are structural, not user-managed tournament teams.
+_RESERVED_DIVISIONS = {"Majors", "Minors"}
+
+
+def _new_travel_division(name: str) -> dict:
+    """Return a fresh travel-division config dict for a tournament team."""
+    return {
+        "type": "travel",
+        "output_base": name,
+        "label_suffix": name,
+        "fixed_thresholds": {"slg_top33": 0.45, "c_bot33": 0.5, "bb_top33": 0.2},
+        "teams": [],
+        "tournament_team": True,   # flags a user-added division (vs Wild/Storm)
+        "active": True,            # toggled by set_tournament_team_active()
+    }
+
+
+def _load_cfg(season_id: str) -> tuple:
+    """Load a season YAML for writing. Returns (yaml_path, cfg)."""
+    yaml_path = _CONFIG_DIR / f"{season_id}.yaml"
+    if not yaml_path.exists():
+        raise FileNotFoundError(f"Season config not found: {yaml_path}")
+    with open(yaml_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    return yaml_path, cfg
+
+
+def _save_cfg(yaml_path: "Path", cfg: dict) -> None:
+    """Write a season config dict back to disk (same format as create_season)."""
+    with open(yaml_path, "w", encoding="utf-8") as f:
+        yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True,
+                  sort_keys=False)
+
+
+def update_season(
+    season_id: str,
+    display_name: str = None,
+    majors_gc_id: str = None,
+    minors_gc_id: str = None,
+) -> "Path":
+    """
+    Update editable fields of an existing season (the "Modify" flow).
+
+    Only non-None arguments are applied, so callers can update one field at a
+    time. Empty strings ARE applied (e.g. to clear a not-yet-known org ID).
+
+    Args:
+        season_id:     Season to modify. Its config YAML must already exist.
+        display_name:  New display name, or None to leave unchanged.
+        majors_gc_id:  New Majors org ID, or None to leave unchanged.
+        minors_gc_id:  New Minors org ID, or None to leave unchanged.
+
+    Returns:
+        Path to the updated season YAML.
+
+    Raises:
+        FileNotFoundError: If the season config does not exist.
+    """
+    yaml_path, cfg = _load_cfg(season_id)
+
+    if display_name is not None:
+        cfg["display_name"] = display_name
+    if majors_gc_id is not None and "Majors" in cfg.get("divisions", {}):
+        cfg["divisions"]["Majors"]["gc_org_id"] = majors_gc_id
+    if minors_gc_id is not None and "Minors" in cfg.get("divisions", {}):
+        cfg["divisions"]["Minors"]["gc_org_id"] = minors_gc_id
+
+    _save_cfg(yaml_path, cfg)
+    return yaml_path
+
+
+def add_tournament_team(season_id: str, name: str) -> bool:
+    """
+    Add a tournament-team (travel) division to a season + create its folder.
+
+    Idempotent: if a division with this name already exists it is left as-is
+    and True is returned. Creates seasons/<season_id>/<name>/ on disk.
+
+    Args:
+        season_id: Season to add the tournament team to.
+        name:      Tournament team name (also the folder name + YAML key).
+
+    Returns:
+        True on success (added or already present).
+
+    Raises:
+        FileNotFoundError: If the season config does not exist.
+        ValueError:        If the name is empty/invalid or collides with a
+                           reserved league division (Majors/Minors).
+    """
+    name = (name or "").strip()
+    if not _TT_NAME_RE.match(name):
+        raise ValueError(
+            f"Invalid tournament team name: {name!r}. Use letters, numbers, "
+            f"spaces, and - _ ' & . only."
+        )
+    if name in _RESERVED_DIVISIONS:
+        raise ValueError(f"'{name}' is a reserved division name.")
+
+    yaml_path, cfg = _load_cfg(season_id)
+    divisions = cfg.setdefault("divisions", {})
+
+    if name not in divisions:
+        divisions[name] = _new_travel_division(name)
+        _save_cfg(yaml_path, cfg)
+
+    # Create the on-disk folder (idempotent) so the scraper can drop games in.
+    (get_season_dir(season_id) / name).mkdir(parents=True, exist_ok=True)
+    return True
+
+
+def list_tournament_teams(season_id: str = None) -> list:
+    """
+    Return all tournament-team (travel) divisions for a season.
+
+    Includes the built-in Wild/Storm travel divisions plus any user-added
+    tournament teams. Each entry carries enough info for the UI multi-select.
+
+    Args:
+        season_id: If None, uses the active season.
+
+    Returns:
+        List of dicts sorted by name, each:
+          {"name": str, "active": bool, "team_count": int, "builtin": bool}
+        `builtin` is True for Wild/Storm (present in the season template) and
+        False for user-added tournament teams.
+    """
+    if season_id is None:
+        season_id = get_active_season_id()
+    _, cfg = _load_cfg(season_id)
+
+    out = []
+    for div_name, div_cfg in cfg.get("divisions", {}).items():
+        if div_cfg.get("type") == "league":
+            continue
+        out.append({
+            "name": div_name,
+            "active": bool(div_cfg.get("active", True)),
+            "team_count": len(div_cfg.get("teams", []) or []),
+            "builtin": not bool(div_cfg.get("tournament_team", False)),
+        })
+    return sorted(out, key=lambda d: d["name"].lower())
+
+
+def set_tournament_team_active(season_id: str, name: str, active: bool) -> bool:
+    """
+    Toggle whether a tournament-team division is included in builds this season.
+
+    Non-destructive: the division and any accumulated opponent data are kept;
+    only the `active` flag changes. Inactive divisions are skipped by
+    build_scraper_divisions() / build_hitting_divisions().
+
+    Args:
+        season_id: Season to modify.
+        name:      Tournament team (travel division) name.
+        active:    True to include in builds, False to exclude.
+
+    Returns:
+        True on success, False if the named travel division was not found.
+
+    Raises:
+        FileNotFoundError: If the season config does not exist.
+    """
+    yaml_path, cfg = _load_cfg(season_id)
+    div_cfg = cfg.get("divisions", {}).get(name)
+    if not div_cfg or div_cfg.get("type") == "league":
+        return False
+    div_cfg["active"] = bool(active)
+    _save_cfg(yaml_path, cfg)
+    return True
+
+
+def get_season_detail(season_id: str) -> dict:
+    """
+    Return the editable data for a season, for the "Modify Season" form.
+
+    Args:
+        season_id: Season to load.
+
+    Returns:
+        {
+            "id": str,
+            "display_name": str,
+            "majors_gc_id": str,
+            "minors_gc_id": str,
+            "tournament_teams": [ {name, active, team_count, builtin}, ... ],
+        }
+
+    Raises:
+        FileNotFoundError: If the season config does not exist.
+    """
+    _, cfg = _load_cfg(season_id)
+    divisions = cfg.get("divisions", {})
+
+    def _org(div):
+        d = divisions.get(div)
+        return str(d.get("gc_org_id", "") or "") if d else ""
+
+    return {
+        "id": str(cfg.get("season_id", season_id)),
+        "display_name": str(cfg.get("display_name", season_id)),
+        "majors_gc_id": _org("Majors"),
+        "minors_gc_id": _org("Minors"),
+        "tournament_teams": list_tournament_teams(season_id),
+    }
 
 
 # ---------------------------------------------------------------------------

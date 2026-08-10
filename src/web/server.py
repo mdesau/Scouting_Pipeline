@@ -80,6 +80,8 @@ from season_config import (  # noqa: E402
     SCOUT_ROOT, SEASON_DIR, SEASON_ID,
     build_scraper_divisions, add_team_to_yaml,
     list_seasons, set_active_season, create_season,
+    update_season, get_season_detail,
+    add_tournament_team, list_tournament_teams, set_tournament_team_active,
 )
 # Reuse the menu's helpers verbatim (DRY): team listing, URL parsing, folder
 # naming. These are pure functions with no interactive side effects.
@@ -96,7 +98,7 @@ DEBUG = os.environ.get("SCOUT_WEB_DEBUG", "0") == "1"
 # The web UI reads this header during boot to detect stale server processes
 # (a server started before a code update that added new API endpoints).
 # Bump this whenever a new API endpoint is added. See BUG-19.
-SERVER_VERSION = "3.3.2"
+SERVER_VERSION = "3.4.0"
 
 # Ordered list of divisions to surface in the UI. Mirrors the pipeline's order.
 DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
@@ -412,16 +414,20 @@ def api_create_season():
 
     Body (JSON):
         {
-            "season_id":    "2026-fall",        required
-            "majors_gc_id": "abc123",           required
-            "minors_gc_id": "def456",           required
-            "display_name": "2026 Fall",        optional (auto-derived if omitted)
-            "set_active":   false               optional (default false)
+            "season_id":        "2026-fall",     required
+            "majors_gc_id":     "abc123",        optional (fill in later)
+            "minors_gc_id":     "def456",        optional (fill in later)
+            "display_name":     "2026 Fall",     optional (auto-derived)
+            "tournament_teams": ["Mavs"],        optional extra travel divisions
+            "set_active":       false            optional (default false)
         }
+
+    Majors/Minors org IDs are OPTIONAL — you can create a season with only the
+    info you have so far and add the rest via the Modify Season flow later.
 
     On success:
         • Writes config/<season_id>.yaml from the season template
-        • Creates seasons/<season_id>/ folder tree
+        • Creates seasons/<season_id>/ folder tree (incl. any tournament teams)
         • Optionally updates active_season.txt (if set_active=true)
 
     Returns 409 if the season already exists, 500 if template is missing.
@@ -432,13 +438,12 @@ def api_create_season():
     minors_gc_id = (data.get("minors_gc_id") or "").strip()
     display_name = (data.get("display_name") or "").strip() or None
     set_active   = bool(data.get("set_active", False))
+    tournament_teams = data.get("tournament_teams") or []
+    if not isinstance(tournament_teams, list):
+        tournament_teams = []
 
     if not season_id:
         return jsonify({"ok": False, "error": "season_id is required."}), 400
-    if not majors_gc_id:
-        return jsonify({"ok": False, "error": "majors_gc_id is required."}), 400
-    if not minors_gc_id:
-        return jsonify({"ok": False, "error": "minors_gc_id is required."}), 400
 
     try:
         yaml_path = create_season(
@@ -446,11 +451,12 @@ def api_create_season():
             majors_gc_id=majors_gc_id,
             minors_gc_id=minors_gc_id,
             display_name=display_name,
+            tournament_teams=[str(t).strip() for t in tournament_teams if str(t).strip()],
             set_active=set_active,
         )
     except FileExistsError as e:
         return jsonify({"ok": False, "error": str(e)}), 409
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
     return jsonify({
@@ -465,6 +471,121 @@ def api_create_season():
             "Use the season dropdown to switch to this season, then restart the server."
         ),
     })
+
+
+@app.route("/api/seasons/<season_id>", methods=["GET"])
+def api_season_detail(season_id):
+    """
+    Return the editable data for one season (for the Modify Season form).
+
+    Response shape (see season_config.get_season_detail):
+        {
+            "ok": true,
+            "id": "2026-fall", "display_name": "2026 Fall",
+            "majors_gc_id": "...", "minors_gc_id": "...",
+            "tournament_teams": [ {name, active, team_count, builtin}, ... ]
+        }
+    """
+    try:
+        detail = get_season_detail(season_id.strip())
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+    detail["ok"] = True
+    return jsonify(detail)
+
+
+@app.route("/api/seasons/<season_id>", methods=["POST"])
+def api_update_season(season_id):
+    """
+    Update an existing season (Modify flow) and reconcile its tournament teams.
+
+    Body (JSON) — all fields optional:
+        {
+            "display_name":     "2026 Fall",
+            "majors_gc_id":     "abc123",           "" clears it
+            "minors_gc_id":     "def456",
+            "tournament_teams": [ {"name": "Mavs", "active": true}, ... ]
+        }
+
+    Tournament-team reconciliation is non-destructive: teams in the list that
+    don't exist yet are created (folder + YAML); each is set active/inactive
+    per its flag. Nothing is ever deleted here.
+    """
+    season_id = season_id.strip()
+    data = request.get_json(silent=True) or {}
+
+    # Core fields — only apply keys the client actually sent (None = leave as-is).
+    display_name = data.get("display_name")
+    majors_gc_id = data.get("majors_gc_id")
+    minors_gc_id = data.get("minors_gc_id")
+
+    try:
+        update_season(
+            season_id,
+            display_name=None if display_name is None else str(display_name).strip(),
+            majors_gc_id=None if majors_gc_id is None else str(majors_gc_id).strip(),
+            minors_gc_id=None if minors_gc_id is None else str(minors_gc_id).strip(),
+        )
+
+        for tt in (data.get("tournament_teams") or []):
+            name = str((tt or {}).get("name", "")).strip()
+            if not name:
+                continue
+            active = bool(tt.get("active", True))
+            # add_tournament_team is idempotent (creates only if missing).
+            add_tournament_team(season_id, name)
+            set_tournament_team_active(season_id, name, active)
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Failed to update season: {e}"}), 500
+
+    return jsonify({
+        "ok": True,
+        "season_id": season_id,
+        "restart_required": (season_id == SEASON_ID),
+        "note": (
+            "Changes saved. Restart the server to pick them up for the active season."
+            if season_id == SEASON_ID else
+            "Changes saved."
+        ),
+    })
+
+
+@app.route("/api/seasons/<season_id>/tournament_teams", methods=["POST"])
+def api_add_tournament_team(season_id):
+    """
+    Create one tournament-team (travel) division + its folder in a season.
+
+    Body (JSON): {"name": "Mavs"}
+
+    Idempotent — adding an existing team just ensures its folder exists.
+    Returns the refreshed tournament-team list so the UI can re-render.
+    """
+    season_id = season_id.strip()
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("name", "")).strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name is required."}), 400
+
+    try:
+        add_tournament_team(season_id, name)
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Failed to add tournament team: {e}"}), 500
+
+    return jsonify({
+        "ok": True,
+        "season_id": season_id,
+        "name": name,
+        "tournament_teams": list_tournament_teams(season_id),
+    })
+
 
 
 @app.route("/api/run")
