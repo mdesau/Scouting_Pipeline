@@ -1,0 +1,62 @@
+season_id: 2026-Fall
+display_name: 2026 Fall
+divisions:
+  Majors:
+    type: league
+    age: 11U
+    gc_org_id: tJkIoODIMpip
+    scorebooks: Majors/Reports/Scorebooks
+    output: Majors/Reports/Scouting_Reports
+    roster_json: Majors/Reports/rosters.json
+    verify_json: Majors/Reports/box_verify.json
+    csv: Majors/Reports/2026 Fall Draft Results.xlsx - Majors.csv
+    label_suffix: Majors
+    csv_overrides: {}
+    roster_additions: {}
+    teams: []
+  Minors:
+    type: league
+    age: 9U
+    gc_org_id: aGeTxcjpQ6Y2
+    scorebooks: Minors/Reports/Scorebooks
+    output: Minors/Reports/Scouting_Reports
+    roster_json: Minors/Reports/rosters.json
+    verify_json: Minors/Reports/box_verify.json
+    csv: Minors/Reports/2026 Fall Draft Results.xlsx - Minors.csv
+    label_suffix: Minors
+    csv_overrides: {}
+    roster_additions: {}
+    teams: []
+  Wild:
+    type: travel
+    age: 11U
+    output_base: Wild
+    label_suffix: Weddington Wild
+    fixed_thresholds:
+      slg_top33: 0.45
+      c_bot33: 0.5
+      bb_top33: 0.2
+    teams: []
+    active: true
+  Storm:
+    type: travel
+    age: 9U
+    output_base: Storm
+    label_suffix: Weddington Storm
+    fixed_thresholds:
+      slg_top33: 0.45
+      c_bot33: 0.5
+      bb_top33: 0.2
+    teams: []
+    active: false
+  Mavs:
+    type: travel
+    output_base: Mavs
+    label_suffix: Mavs
+    fixed_thresholds:
+      slg_top33: 0.45
+      c_bot33: 0.5
+      bb_top33: 0.2
+    teams: []
+    tournament_team: true
+    active: true
