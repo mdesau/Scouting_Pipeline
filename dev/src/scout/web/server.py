@@ -64,28 +64,18 @@ from flask import (
 )
 
 # ---------------------------------------------------------------------------
-# PATH BOOTSTRAP — locate season_config.py + run_menu.py helpers in src/
+# Package imports — all pipeline code lives in the scout package, installed
+# editable (`pip install -e .`), so it resolves from anywhere without sys.path.
 # ---------------------------------------------------------------------------
-# This file lives at src/web/server.py.
-#   season_config.py  → src/             (one level up)
-#   run_menu.py       → src/orchestrator/
-# Adding both to sys.path lets us import the shared, already-tested helpers
-# instead of duplicating any logic here.
-_SRC_DIR = Path(__file__).resolve().parent.parent          # → Scout/src/
-for _p in (str(_SRC_DIR), str(_SRC_DIR / "orchestrator")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-from season_config import (  # noqa: E402
-    SCOUT_ROOT, SEASON_DIR, SEASON_ID,
+from scout.season_config import (
+    SCOUT_ROOT, SEASON_DIR, SEASON_ID, SEASONS_ROOT,
     build_scraper_divisions, add_team_to_yaml,
     list_seasons, set_active_season, create_season,
     update_season, get_season_detail,
     add_tournament_team, list_tournament_teams, set_tournament_team_active,
 )
-# Reuse the menu's helpers verbatim (DRY): team listing, URL parsing, folder
-# naming. These are pure functions with no interactive side effects.
-from run_menu import (  # noqa: E402
+# Reuse the menu's helpers verbatim (DRY): team listing, URL parsing, folder naming.
+from scout.orchestrator.run_menu import (
     get_team_list, _parse_gc_url, _slug_to_folder_name,
 )
 
@@ -98,13 +88,13 @@ DEBUG = os.environ.get("SCOUT_WEB_DEBUG", "0") == "1"
 # The web UI reads this header during boot to detect stale server processes
 # (a server started before a code update that added new API endpoints).
 # Bump this whenever a new API endpoint is added. See BUG-19.
-SERVER_VERSION = "3.4.0"
+SERVER_VERSION = "4.0.0"
 
 # Ordered list of divisions to surface in the UI. Mirrors the pipeline's order.
 DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
 
-# Path to run_menu.py — the single entry point we shell out to for every build.
-RUN_MENU = _SRC_DIR / "orchestrator" / "run_menu.py"
+# The pipeline entry point we shell out to for every build (run as a module).
+_RUN_MENU_MODULE = "scout.orchestrator.run_menu"
 
 # ── Run lock ────────────────────────────────────────────────────────────────
 # Only one build may run at a time. A second request while a build is active
@@ -234,7 +224,7 @@ def api_reports():
     """
     season_filter = (request.args.get("season") or "").strip()
     pat = re.compile(r"^(?P<stem>.+)-Scout-(?P<kind>Hitting|Pitching)_\d{4}\.pdf$")
-    seasons_root = SCOUT_ROOT / "seasons"
+    seasons_root = SEASONS_ROOT
 
     # Build the list of (season_id, season_dir) pairs to scan.
     if season_filter:
@@ -297,7 +287,7 @@ def serve_report(relpath):
     Paths are now relative to the seasons/ root (not a single season), so they
     work correctly for both single-season and all-seasons report views.
     """
-    seasons_root = (SCOUT_ROOT / "seasons").resolve()
+    seasons_root = SEASONS_ROOT.resolve()
     target = (seasons_root / relpath).resolve()
     if seasons_root not in target.parents or not target.is_file():
         abort(404)
@@ -339,7 +329,7 @@ def api_add_team():
         return jsonify({"ok": False, "error": f"Failed to update season config: {e}"}), 500
 
     # Create the Games/ folder the scraper will drop game files into.
-    target_season_dir = SCOUT_ROOT / "seasons" / season
+    target_season_dir = SEASONS_ROOT / season
     games_dir = target_season_dir / division / folder_name / "Games"
     games_dir.mkdir(parents=True, exist_ok=True)
 
@@ -622,7 +612,7 @@ def api_run():
             # build's output would arrive in one dump at the end instead of
             # streaming line-by-line to the live log. PYTHONUNBUFFERED is set too
             # as a belt-and-suspenders guard for any grandchild processes.
-            cmd = [sys.executable, "-u", str(RUN_MENU)]
+            cmd = [sys.executable, "-u", "-m", _RUN_MENU_MODULE]
             if division:
                 cmd += ["--division", division]
             if team:

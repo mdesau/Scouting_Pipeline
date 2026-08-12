@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 # WHAT IT DOES
 #   1. Activates the project virtualenv (venv).
-#   2. Starts the local web server (src/web/server.py).
+#   2. Starts the local web server (scout.web.server).
 #   3. Opens the UI in your default browser.
 #   4. Keeps running until you close the window or press Ctrl+C, which stops
 #      the server (reports can only be built while this window is open).
@@ -46,7 +46,10 @@ fi
 # Done in a backgrounded subshell so it does not block server startup.
 ( sleep 1.5; open "$URL" ) &
 
+# Ensure the scout package is importable (one-time editable install on fresh venv).
+python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"
+
 # Start the server in the foreground. Closing this window / Ctrl+C stops it.
 echo "Opening $URL …"
 echo "(Close this window or press Ctrl+C to stop the server.)"
-python3 src/web/server.py
+python -m scout.web.server

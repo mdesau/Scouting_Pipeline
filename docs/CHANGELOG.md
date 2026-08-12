@@ -5,12 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`), Orchestrator (`run_menu.py`), Web UI (`src/web/server.py`)
+**Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`), Orchestrator (`run_menu.py`), Web UI (`scout/web/server.py`)
 
 ---
 
 ## [Unreleased]
 <!-- Daily/nightly work-in-progress goes here. Move to a versioned section when tagging. -->
+
+---
+
+## [4.0.0] - 2026-08-10
+
+### Changed — Repository restructure to a src-layout installable package (BREAKING)
+Directory/layout + run-command changes only; no behavioral changes to the pipeline.
+
+- **New layout** (per `docs/Principles and Practices.md` §1):
+  - Python source → importable package at **`dev/src/scout/`** (`season_config.py` +
+    `hitting/ pitching/ scraping/ orchestrator/ web/`, each now a subpackage with
+    `__init__.py`).
+  - Docs → **`docs/`** (`CHANGELOG.md`, `BUGS.md`, `Principles and Practices.md`).
+  - `Instructions.md` → **`AGENTS.md`** at the repo root (cross-tool standard).
+  - Real/generated data → **`data/real/`** (gitignored): `seasons/`, `logs/`,
+    `sessions/`, `stat_analysis_report.html`.
+  - Sample data → **`data/samples/`** (committed): `example_game_file.txt`,
+    `example_scouting_report.pdf`.
+  - Design mockups → **`dev/tmp/`** (gitignored throwaway).
+  - `config/` (season YAMLs + `active_season.txt`) and `launchers/` stay at the root.
+- **Packaging** — added **`pyproject.toml`**; the package is installed editable
+  (`pip install -e .`). All `sys.path` insertion hacks removed; every module now uses
+  proper `from scout.… import …` imports.
+- **Run commands changed:**
+  - Web UI: `python -m scout.web.server` (was `python3 src/web/server.py`)
+  - Menu: `python -m scout.orchestrator.run_menu` (was `python3 src/orchestrator/run_menu.py`)
+  - `run_menu` shells each step out as `python -m scout.<pkg>.<module>`.
+  - Launchers self-heal a missing editable install (`pip install -e .`).
+- **Path anchors** repointed: `season_config.SCOUT_ROOT` now resolves via `parents[3]`;
+  seasons/logs/sessions live under `data/real/`. New `SEASONS_ROOT` export.
+- **Version** bumped to 4.0.0 across `scout` package, `run_menu`, and `server`.
+- **Action required (manual):** update the external nightly launcher
+  `~/Library/LaunchAgents/run_wcwaa_nightly.sh` to call
+  `python -m scout.orchestrator.run_menu --all` (after `source venv/bin/activate`),
+  and run `pip install -e .` once in the venv.
+
+---
 
 ---
 

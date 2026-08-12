@@ -23,10 +23,13 @@ else
     echo "⚠️  WARNING: venv not found at $VENV_DIR"
 fi
 
+# Ensure the scout package is importable (one-time editable install).
+python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"
+
 if [[ $# -eq 0 ]]; then
     for div in Majors Minors Wild Storm; do
-        python3 src/pitching/gen_pitching.py --division "$div"
+        python -m scout.pitching.gen_pitching --division "$div"
     done
 else
-    python3 src/pitching/gen_pitching.py "$@"
+    python -m scout.pitching.gen_pitching "$@"
 fi

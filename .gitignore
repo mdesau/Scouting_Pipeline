@@ -2,10 +2,14 @@
 # WCWAA Scout Pipeline — Git Ignore
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Season data (game files, PDFs, rosters — all gitignored, lives in seasons/) ─
-seasons/
+# ── Real data (game files, PDFs, rosters, logs, GC session tokens) ──────────
+# Everything under data/real/ is machine-local and never committed.
+data/real/
 
-# ── Legacy data folders (pre-v3.0.0 locations — kept for migration period) ──
+# ── Scratch / throwaway (mockups, proofs of concept) ─────────────────────
+dev/tmp/
+
+# ── Legacy data folders (pre-v3.0.0 locations) ─────────────────────────
 Majors/
 Minors/
 Wild/
@@ -16,9 +20,13 @@ Coach_Pitch/
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+build/
+dist/
 
 # ── Virtual environment ──────────────────────────────────────────────────────
 venv/
+.venv/
 
 # ── Logs (unified under logs/ in v3.0.0+) ───────────────────────────────────
 logs/

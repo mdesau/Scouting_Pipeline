@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-SESSION_FILE = Path(__file__).parent / "gc_session.json"
+from scout.season_config import SESSION_FILE
 GC_BASE_URL  = "https://web.gc.com"
 MINORS_ORG   = "GdcFopba2PbE"
 

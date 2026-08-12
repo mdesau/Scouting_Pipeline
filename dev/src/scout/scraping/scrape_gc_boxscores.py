@@ -45,14 +45,9 @@ except ImportError:
     raise
 
 # ---------------------------------------------------------------------------
-# PATH BOOTSTRAP — locate season_config.py in src/
+# Package import — season_config is part of the scout package.
 # ---------------------------------------------------------------------------
-import sys as _sys
-_SRC_DIR = Path(__file__).resolve().parent.parent   # → Scout/src/
-if str(_SRC_DIR) not in _sys.path:
-    _sys.path.insert(0, str(_SRC_DIR))
-
-from season_config import SCOUT_ROOT, SEASON_DIR, build_scraper_divisions  # noqa: E402
+from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, SESSION_FILE, build_scraper_divisions
 
 # ─────────────────────────────────────────────────────────────
 # DEBUG CONFIGURATION
@@ -67,8 +62,7 @@ DEBUG_TEAM_NAMES    = False   # Log team name before/after normalization
 # ─────────────────────────────────────────────────────────────
 
 SCRIPTS_DIR  = Path(__file__).parent
-SESSION_FILE = SCOUT_ROOT / "sessions" / "gc_session.json"
-LOGS_DIR     = SCOUT_ROOT / "logs"
+# SESSION_FILE (GC auth) and LOGS_DIR are imported from season_config above.
 
 GC_BASE_URL = "https://web.gc.com"
 

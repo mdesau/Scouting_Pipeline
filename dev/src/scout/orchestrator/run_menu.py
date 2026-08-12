@@ -50,6 +50,7 @@ HOW "ADD NEW TEAM" WORKS
      (folder name MUST match GC's inning header spelling exactly).
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -60,33 +61,26 @@ from datetime import datetime
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# PATH BOOTSTRAP — locate season_config.py in src/
+# Package imports — every pipeline module lives under the scout package.
 # ---------------------------------------------------------------------------
-# This script lives at src/orchestrator/run_menu.py.
-# season_config.py lives at src/season_config.py (one level up).
-# src/scraping/ is also added so the DIVISIONS import resolves cleanly.
-_SRC_DIR = Path(__file__).resolve().parent.parent   # → Scout/src/
-for _p in (str(_SRC_DIR), str(_SRC_DIR / "scraping")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-from season_config import (  # noqa: E402
-    SCOUT_ROOT, SEASON_DIR, SEASON_ID,
+from scout.season_config import (
+    SCOUT_ROOT, SEASON_DIR, SEASON_ID, LOGS_DIR, SESSION_FILE,
     build_scraper_divisions, add_team_to_yaml,
     list_seasons, set_active_season, create_season,
 )
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 SCRIPTS_DIR = Path(__file__).parent
-# SEASON_DIR is the active season's data root (e.g. Scout/seasons/2026-spring/)
-SESSION_FILE = SCOUT_ROOT / "sessions" / "gc_session.json"
+# SEASON_DIR is the active season's data root (e.g. seasons/2026-spring/).
+# SESSION_FILE (GC auth) and LOGS_DIR come from season_config (single source).
 MAJORS_ROSTER = SEASON_DIR / "Majors" / "Reports" / "rosters.json"
 MINORS_ROSTER = SEASON_DIR / "Minors" / "Reports" / "rosters.json"
 
-# Script paths for each pipeline step (all now live under src/)
-_SCRAPING_DIR     = _SRC_DIR / "scraping"
-_HITTING_DIR      = _SRC_DIR / "hitting"
-_PITCHING_SCRIPT  = _SRC_DIR / "pitching" / "gen_pitching.py"
+# Each pipeline step is run as a module: `python -m scout.<pkg>.<module>`.
+_MOD_PLAYBYPLAY = "scout.scraping.scrape_gc_playbyplay"
+_MOD_BOXSCORES  = "scout.scraping.scrape_gc_boxscores"
+_MOD_HITTING    = "scout.hitting.gen_hitting"
+_MOD_PITCHING   = "scout.pitching.gen_pitching"
 
 # ── DIVISIONS from season_config (DRY — single source of truth) ─────────────
 # Previously imported from scrape_gc_playbyplay.py. Now loaded from YAML via
@@ -99,7 +93,7 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "3.4.0"
+__version__ = "4.0.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
@@ -127,7 +121,7 @@ def check_session():
         print("⚠️  WARNING: gc_session.json not found.")
         print("   The scraper needs a saved GameChanger login session.")
         print("   Run this first, then re-launch:")
-        print("     python3 scrape_gc_playbyplay.py --login")
+        print("     python -m scout.scraping.scrape_gc_playbyplay --login")
         print()
 
 
@@ -253,7 +247,7 @@ def run_pipeline(division=None, team=None, headless=False):
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
     print(f"▶ Step 1/4  Scrape new games  [{scope}]")
     print("─" * 58)
-    _run([sys.executable, str(_SCRAPING_DIR / "scrape_gc_playbyplay.py")] + div_args + team_args, fatal=not headless)
+    _run([sys.executable, "-m", _MOD_PLAYBYPLAY] + div_args + team_args, fatal=not headless)
 
     # Step 2: Update rosters
     # --team is now supported by scrape_gc_boxscores.py for Wild/Storm team-based divisions.
@@ -263,7 +257,7 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
     print(f"▶ Step 2/4  Update rosters    [{scope}]")
     print("─" * 58)
-    _run([sys.executable, str(_SCRAPING_DIR / "scrape_gc_boxscores.py")] + div_args + team_args, fatal=not headless)
+    _run([sys.executable, "-m", _MOD_BOXSCORES] + div_args + team_args, fatal=not headless)
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).
@@ -274,26 +268,26 @@ def run_pipeline(division=None, team=None, headless=False):
     print("─" * 58)
 
     if division:
-        _run([sys.executable, str(_HITTING_DIR / "gen_hitting.py"), "--division", division] + team_args)
+        _run([sys.executable, "-m", _MOD_HITTING, "--division", division] + team_args)
     else:
         # No division filter → run all four divisions
         for div in ["Majors", "Minors", "Wild", "Storm"]:
             print(f"  → {div}")
-            _run([sys.executable, str(_HITTING_DIR / "gen_hitting.py"), "--division", div])
+            _run([sys.executable, "-m", _MOD_HITTING, "--division", div])
 
     # Step 4: Generate Pitching Savant PDFs
-    if _PITCHING_SCRIPT.exists():
+    if importlib.util.find_spec(_MOD_PITCHING):
         print()
         print("─" * 58)
         print(f"▶ Step 4/4  Pitching PDFs    [{scope}]")
         print("─" * 58)
 
         if division:
-            _run([sys.executable, str(_PITCHING_SCRIPT), "--division", division] + team_args)
+            _run([sys.executable, "-m", _MOD_PITCHING, "--division", division] + team_args)
         else:
             for div in ["Majors", "Minors", "Wild", "Storm"]:
                 print(f"  → {div}")
-                _run([sys.executable, str(_PITCHING_SCRIPT), "--division", div])
+                _run([sys.executable, "-m", _MOD_PITCHING, "--division", div])
 
     print()
     print("=" * 58)
@@ -313,7 +307,7 @@ def run_pipeline(division=None, team=None, headless=False):
 # PIPELINE SUMMARY LOG
 # ════════════════════════════════════════════════════════════════════════════
 
-SUMMARY_LOG = SCOUT_ROOT / "logs" / "pipeline_summary.log"
+SUMMARY_LOG = LOGS_DIR / "pipeline_summary.log"
 
 
 def _load_previous_summary():
@@ -355,7 +349,7 @@ def _load_previous_summary():
 
 def _find_latest_log(prefix, after_time=0):
     """Find the most recent log file matching a prefix in logs/, modified after after_time."""
-    logs_dir = SCOUT_ROOT / "logs"
+    logs_dir = LOGS_DIR
     candidates = [f for f in logs_dir.glob(f"{prefix}_*.log") if f.stat().st_mtime >= after_time]
     candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     return candidates[0] if candidates else None
@@ -496,8 +490,8 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
     step1_log = _find_latest_log("scrape_gc_playbyplay", start_time)
     step2_log = _find_latest_log("scrape_gc_boxscores", start_time)
 
-    hitting_logs_dir  = SCOUT_ROOT / "logs"
-    pitching_logs_dir = SCOUT_ROOT / "logs"
+    hitting_logs_dir  = LOGS_DIR
+    pitching_logs_dir = LOGS_DIR
 
     step3_logs = sorted(
         [f for f in hitting_logs_dir.glob("gen_hitting_*.log") if f.stat().st_mtime >= start_time],

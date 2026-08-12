@@ -1,0 +1,40 @@
+# ============================================================================
+# WCWAA Scout Pipeline — packaging + project metadata
+# ----------------------------------------------------------------------------
+# src-layout: the importable package lives at dev/src/scout/. Install it in
+# editable mode from the repo root so `import scout` resolves from anywhere
+# (terminal, launchers, nightly job) without sys.path hacks:
+#
+#     python -m venv venv && source venv/bin/activate
+#     pip install -e .
+#
+# Run commands (after the editable install):
+#     python -m scout.web.server            # local web UI
+#     python -m scout.orchestrator.run_menu # interactive pipeline menu
+# ============================================================================
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wcwaa-scout"
+version = "4.0.0"
+description = "WCWAA youth-baseball scouting pipeline (hitting + pitching reports)."
+requires-python = ">=3.9"
+# Direct dependencies only (per Principles doc §1 — avoid pinning transitive
+# deps here). The frozen full environment stays in requirements.txt.
+dependencies = [
+    "Flask",
+    "playwright",
+    "reportlab",
+    "PyYAML",
+    "numpy",
+]
+
+[tool.setuptools.packages.find]
+where = ["dev/src"]
+
+# Bundle the web front-end assets with the package (index.html, css/, js/).
+[tool.setuptools.package-data]
+"scout.web" = ["*.html", "css/*.css", "js/*.js"]

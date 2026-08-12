@@ -3,7 +3,7 @@
 
 LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
-LOGS_DIR="$REPO_ROOT/logs"
+LOGS_DIR="$REPO_ROOT/data/real/logs"
 VENV_DIR="$REPO_ROOT/venv"
 
 mkdir -p "$LOGS_DIR"
@@ -24,7 +24,8 @@ else
 fi
 
 cd "$REPO_ROOT"
-python3 src/pitching/gen_pitching.py --division all
+python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"
+python -m scout.pitching.gen_pitching --division all
 EXIT_CODE=$?
 echo "========================================================"
 echo "  ✅ Pitching Savant nightly complete: $(date)"

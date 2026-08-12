@@ -6,7 +6,7 @@ Convert raw GameChanger get_page_text output → WCWAA play-by-play format.
 Usage:
     python3 parse_gc_text.py <raw_text_file> <output_file>
 Import:
-    from parse_gc_text import parse_gc_raw
+    from scout.scraping.parse_gc_text import parse_gc_raw
     text = parse_gc_raw(raw_text, game_url, game_date)
 """
 

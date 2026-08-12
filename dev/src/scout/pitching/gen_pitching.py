@@ -61,21 +61,9 @@ DEBUG_STAT_CALC         = False  # Log intermediate stat calculations
 DEBUG_PERCENTILES       = False  # Log percentile rank computation
 
 # ===========================================================================
-# PATH BOOTSTRAP — locate season_config + gen_hitting in src/
+# Package import — season_config is part of the scout package.
 # ===========================================================================
-# This script lives at src/pitching/gen_pitching.py.
-# season_config.py is at src/season_config.py.
-# gen_hitting.py is at src/hitting/gen_hitting.py.
-# We add both src/ and src/hitting/ to sys.path so imports resolve cleanly.
-_SRC_DIR = Path(__file__).resolve().parent.parent           # → Scout/src/
-_HITTING_DIR = _SRC_DIR / "hitting"                         # → Scout/src/hitting/
-for _p in (str(_SRC_DIR), str(_HITTING_DIR)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-from season_config import SCOUT_ROOT, SEASON_DIR, build_hitting_divisions  # noqa: E402
-
-LOGS_DIR = SCOUT_ROOT / "logs"
+from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions
 
 # DIVISIONS provides folder paths for all four divisions.
 # Use the hitting shape since gen_pitching needs scorebooks/wild_base paths.

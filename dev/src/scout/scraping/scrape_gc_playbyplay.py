@@ -56,16 +56,9 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # This script lives at src/scraping/scrape_gc_playbyplay.py.
 # season_config.py lives at src/season_config.py (one level up).
-# We add src/ and src/scraping/ to sys.path so we can import both.
-import sys as _sys
-_SRC_DIR = Path(__file__).resolve().parent.parent   # → Scout/src/
-if str(_SRC_DIR) not in _sys.path:
-    _sys.path.insert(0, str(_SRC_DIR))
-if str(_SRC_DIR / "scraping") not in _sys.path:
-    _sys.path.insert(0, str(_SRC_DIR / "scraping"))
-
-from season_config import SCOUT_ROOT, SEASON_DIR, build_scraper_divisions  # noqa: E402
-from parse_gc_text import parse_gc_raw  # noqa: E402
+# season_config + parse_gc_text are part of the scout package.
+from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, SESSION_FILE, build_scraper_divisions
+from scout.scraping.parse_gc_text import parse_gc_raw
 
 # ─────────────────────────────────────────────────────────────
 # DEBUG CONFIGURATION
@@ -85,9 +78,7 @@ DEBUG_SCHEDULE_RAW = False   # Dump full SCHEDULE_JS return (every game card's r
 DEBUG_PAGE_TEXT    = False   # Dump raw page text from each /plays page before parsing
 
 GC_BASE_URL  = "https://web.gc.com"
-# Session file lives in sessions/ at repo root (gitignored — contains auth tokens)
-SESSION_FILE = SCOUT_ROOT / "sessions" / "gc_session.json"
-LOGS_DIR     = SCOUT_ROOT / "logs"
+# SESSION_FILE (GC auth) and LOGS_DIR are imported from season_config above.
 
 # ─────────────────────────────────────────────────────────────
 # LOGGING

@@ -38,7 +38,13 @@ No Python source files need editing.
 
 EXPORTS
 -------
-SCOUT_ROOT      : Path  — repo root (Scout/ directory)
+SCOUT_ROOT      : Path  — repo root (code; Scout/ directory)
+DATA_ROOT       : Path  — data root holding season reports (GDrive by default;
+                          override with the SCOUT_DATA_ROOT env var)
+SEASONS_ROOT    : Path  — DATA_ROOT/seasons (all season data dirs)
+LOGS_DIR        : Path  — local dated run logs (SCOUT_ROOT/data/real/logs)
+SESSIONS_DIR    : Path  — local GC auth session dir
+SESSION_FILE    : Path  — local GC auth token (sessions/gc_session.json)
 SEASON_ID       : str   — active season identifier
 SEASON_DIR      : Path  — seasons/<season_id>/
 get_season_dir()           : Path  — same as SEASON_DIR (callable for testing)
@@ -68,11 +74,32 @@ import yaml
 # ---------------------------------------------------------------------------
 # Path Bootstrap
 # ---------------------------------------------------------------------------
-# This file lives at src/season_config.py.
-# SCOUT_ROOT is two levels up: src/ → Scout/
-SCOUT_ROOT = Path(__file__).resolve().parent.parent   # → Scout/
-_CONFIG_DIR = SCOUT_ROOT / "config"
-_SEASONS_DIR = SCOUT_ROOT / "seasons"
+# This file lives at dev/src/scout/season_config.py.
+# parents: [0]=scout  [1]=src  [2]=dev  [3]=repo root (Scout/)
+SCOUT_ROOT = Path(__file__).resolve().parents[3]   # → repo root (code)
+_CONFIG_DIR = SCOUT_ROOT / "config"                # tracked config (stays with code)
+
+# ── Data root (season reports/output) ───────────────────────────────────────
+# Decoupled from the code root so the repo can live anywhere (e.g.
+# ~/Documents/VSCode/Personal/Scout) while the generated season reports keep
+# living on Google Drive (so they sync + are viewable on any device).
+# Override with the SCOUT_DATA_ROOT env var; the default is the GDrive copy.
+_DEFAULT_DATA_ROOT = (
+    "/Users/mesau/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/"
+    "My Drive/Baseball/WCWAA/Scout/data/real"
+)
+DATA_ROOT = Path(os.environ.get("SCOUT_DATA_ROOT", _DEFAULT_DATA_ROOT)).expanduser()
+_SEASONS_DIR = DATA_ROOT / "seasons"
+SEASONS_ROOT = _SEASONS_DIR                        # public: root holding all seasons
+
+# ── Local runtime dirs (stay alongside the code, not on GDrive) ─────────────
+# Logs and the GameChanger auth session are machine-local; they live in the
+# gitignored data/real/ tree inside the code repo.
+_LOCAL_DATA_DIR = SCOUT_ROOT / "data" / "real"
+LOGS_DIR = _LOCAL_DATA_DIR / "logs"                # public: dated run logs
+SESSIONS_DIR = _LOCAL_DATA_DIR / "sessions"        # public: GC auth session dir
+SESSION_FILE = SESSIONS_DIR / "gc_session.json"    # public: GC auth token file
+
 _ACTIVE_SEASON_FILE = _CONFIG_DIR / "active_season.txt"
 
 
@@ -827,6 +854,10 @@ def get_season_detail(season_id: str) -> dict:
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     print(f"SCOUT_ROOT : {SCOUT_ROOT}")
+    print(f"DATA_ROOT  : {DATA_ROOT}")
+    print(f"SEASONS_ROOT: {SEASONS_ROOT}")
+    print(f"LOGS_DIR   : {LOGS_DIR}")
+    print(f"SESSION_FILE: {SESSION_FILE}")
     print(f"SEASON_ID  : {SEASON_ID}")
     print(f"SEASON_DIR : {SEASON_DIR}")
     print()

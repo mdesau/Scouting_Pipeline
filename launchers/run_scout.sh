@@ -12,7 +12,7 @@
 #   bash launchers/run_scout.sh --division Majors --team "Cubs-Holtzer"
 #
 # First time / session expired:
-#   python3 src/scraping/scrape_gc_playbyplay.py --login
+#   python -m scout.scraping.scrape_gc_playbyplay --login
 #
 # WHAT THIS SCRIPT DOES
 # ─────────────────────
@@ -48,5 +48,8 @@ else
     echo "   Continuing with system Python — scripts may fail if Playwright/ReportLab missing."
 fi
 
-# ── Hand off to the Python menu / pipeline runner ─────────────────────────
-python3 src/orchestrator/run_menu.py "$@"
+# ── Ensure the scout package is importable (one-time editable install) ────
+python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"
+
+# ── Hand off to the Python menu / pipeline runner ─────────────────────
+python -m scout.orchestrator.run_menu "$@"

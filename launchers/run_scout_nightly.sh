@@ -13,7 +13,7 @@
 # ── Resolve paths ────────────────────────────────────────────────────────────
 LAUNCHERS_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$LAUNCHERS_DIR/.." && pwd)"
-LOGS_DIR="$REPO_ROOT/logs"
+LOGS_DIR="$REPO_ROOT/data/real/logs"
 VENV_DIR="$REPO_ROOT/venv"
 
 # ── Set up log file for this wrapper ─────────────────────────────────────────
@@ -42,7 +42,8 @@ fi
 
 # ── Run the pipeline ──────────────────────────────────────────────────────────
 cd "$REPO_ROOT"
-python3 src/orchestrator/run_menu.py --all
+python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"
+python -m scout.orchestrator.run_menu --all
 PIPELINE_EXIT=$?
 if [[ $PIPELINE_EXIT -ne 0 ]]; then
     echo ""

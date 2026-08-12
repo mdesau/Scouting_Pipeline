@@ -49,7 +49,7 @@ TODAY = date.today().strftime("%B %d, %Y")
 DEBUG_PA_PARSING   = False   # Log every PA as it's parsed from game files
 DEBUG_ARCHETYPES   = False   # Log archetype scoring details per batter
 DEBUG_PITCH_SEQ    = False   # Log token-by-token pitch sequence parsing
-LOGS_DIR = Path(__file__).parent.parent / "Logs"
+# LOGS_DIR is imported from season_config below (single source of truth).
 
 def setup_logging(verbose=False):
     """Configure module logger: file (DEBUG) + stdout (INFO). Call once in main().
@@ -84,17 +84,9 @@ logger = logging.getLogger("gen_hitting")
 logger.addHandler(logging.NullHandler())
 
 # ---------------------------------------------------------------------------
-# PATH BOOTSTRAP — locate season_config.py in src/
+# Package import — season_config is a sibling module in the scout package.
 # ---------------------------------------------------------------------------
-# This script lives at src/hitting/gen_hitting.py.
-# season_config.py lives at src/season_config.py (one level up).
-import sys as _sys
-from pathlib import Path as _Path
-_SRC_DIR = _Path(__file__).resolve().parent.parent   # → Scout/src/
-if str(_SRC_DIR) not in _sys.path:
-    _sys.path.insert(0, str(_SRC_DIR))
-
-from season_config import SCOUT_ROOT, SEASON_DIR, build_hitting_divisions  # noqa: E402
+from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions
 
 # BASE is kept as an alias for SEASON_DIR (str) for backward compatibility
 # with any f-string path joins that use BASE directly.

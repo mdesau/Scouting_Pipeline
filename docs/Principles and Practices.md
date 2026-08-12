@@ -4,80 +4,70 @@ For context we have applied the following
 practices and principles to get to this point and plan to keep the same moving forward. 
 
 
-# Code Mentor: Foundational Best Practices Prompt
-
-**Role:** You are an expert code mentor and developer who writes clean, maintainable, production-ready code while teaching best practices to developers of all levels—especially those who are just starting out.
-
-**Goal:** Guide me through building a well-structured, professional codebase that follows industry best practices, is easy to maintain and test, and serves as a learning tool for myself and others who may work with this code.
-
 ---
 
-After recognizing and reviewing these Guidelines and Principles, and before taking any actions, ask me about my project specifics and goals in a manner that helps integrate these best practices and principles. Use the PROJECT SPECIFICS below as your checklist of what to cover — I can fill it in myself, or you can interview me field by field.
+## 📑 Table of Contents
 
-## 📋 PROJECT SPECIFICS
-*(Fill this in before we start, or let me walk you through it. If any field is unknown, say so and I'll help you decide.)*
-
-**Programming Language:**  
-`(e.g., Python 3.11+, Node.js 20 / TypeScript)`
-
-**Project Purpose/Intent:**  
-`(One or two sentences: what does this build, and why?)`
-
-**Specific Requirements or Constraints:**  
-- `(APIs/SDKs and versions, rate limits, output formats, target OS, performance limits, etc.)`
-
-**Target Users:**  
-`(Who runs/maintains this? Note their skill level so I can pitch explanations appropriately.)`
-
-**Collaboration Context:**  
-`(Solo, or a team? Shared repo? Handing off between sessions or people? This tunes the git workflow and handoff notes.)`
+- [🏗️ Project Principles and Guidelines](#-project-principles-and-guidelines)
+  - [1. Project Directory Structure & Environment Isolation](#1-project-directory-structure--environment-isolation)
+  - [2. Code Documentation & Learning](#2-code-documentation--learning)
+  - [3. DRY Principle (Don't Repeat Yourself)](#3-dry-principle-dont-repeat-yourself)
+  - [4. API & External Runtime Best Practices](#4-api--external-runtime-best-practices)
+  - [5. Security Best Practices](#5-security-best-practices)
+  - [6. Testability & Quality](#6-testability--quality)
+  - [7. Readability & Maintainability](#7-readability--maintainability)
+  - [8. Debugging Infrastructure](#8-debugging-infrastructure)
+  - [9. Git & Version Control](#9-git--version-control)
+  - [10. Versioning Strategy (Semantic Versioning)](#10-versioning-strategy-semantic-versioning)
+  - [11. Change Tracking](#11-change-tracking)
+  - [12. Issue Tracking — BUGS.md](#12-issue-tracking--bugsmd-bugs-caveats--feature-requests)
+  - [13. Project Memory & AI Assistant Instructions (AGENTS.md)](#13-project-memory--ai-assistant-instructions-agentsmd)
+  - [14. Session Handoff & Onboarding](#14-session-handoff--onboarding)
+- [🎓 Mentorship Approach](#-mentorship-approach)
+- [📦 Initial Project Setup Checklist](#-initial-project-setup-checklist)
+- [🚀 Let's Begin](#-lets-begin)
 
 ---
 
 ## 🏗️ PROJECT PRINCIPLES AND GUIDELINES
 
-### 1. Code Documentation & Learning
-- **Add comprehensive comments/remarks** at key points throughout the code to:
-  - Explain *why* decisions were made (not just *what* the code does)
-  - Define function purposes, parameters, and return values
-  - Clarify complex logic or business rules
-  - Help users understand the code enough to explain it to customers or stakeholders
-- **Use docstrings** (or equivalent in your language) for all functions, classes, and modules
-- **Include a detailed workflow summary** at the top of each file explaining the script's overall flow
+### 1. Project Directory Structure & Environment Isolation
 
-### 2. DRY Principle (Don't Repeat Yourself)
-- **Leverage classes and modules** to encapsulate reusable logic
-- **Extract repeated code** into well-named functions
-- **Create utility/helper modules** for common operations
-- **Teach me:** Explain when to use classes vs functions, and why we're choosing one approach over another
+**Directory layout** — a consistent starting layout so every project is navigable on sight, before a single line of code is written:
 
-### 3. API & External Runtime Best Practices
-- **Always consult official documentation BEFORE writing code** — not after errors surface
-  - Identify which interfaces, methods, and types you need
-  - Look them up in the official docs (e.g., Microsoft Learn, MDN, SDK references)
-  - Verify exact type names, method signatures, and return types
-  - Only then write code against verified APIs
-- **Never validate code against your own assumptions**
-  - Local type definitions (`.d.ts`), mock objects, and wrapper classes are *conveniences* — they are NOT the source of truth
-  - If you didn't author the API, verify it before you code against it
-- **Never assume API capabilities exist without verification**
-  - If a method or property "seems like it should exist," confirm it does before using it
-  - Check for deprecated methods, renamed types, and version-specific differences
-- **Implement proper error handling** for API calls (rate limits, timeouts, authentication failures, missing methods)
-- **Version-pin API dependencies** where possible
-- **Document which doc pages were referenced** in code comments when working with non-trivial APIs
+```text
+project-name/                     (e.g., oppenheimer/)
+├── dev/
+│   ├── src/
+│   │   └── project_name/         # importable package, not loose files — avoids import-path bugs
+│   │       ├── __init__.py
+│   │       └── ...                # break into component/feature subfolders once it grows
+│   ├── tests/                    # mirrors src/ layout (test_parser.py ↔ parser.py)
+│   └── tmp/                      # scratch, mockups, throwaway proofs — fully .gitignored
+├── docs/
+│   ├── CHANGELOG.md
+│   ├── BUGS.md
+│   └── Principles and Practices.md
+├── data/
+│   ├── real/                     # .gitignored — real/sensitive data never committed
+│   └── samples/                  # committed — fake data mirroring the real schema
+├── AGENTS.md                     # project root — required for AI-tool auto-detection
+├── README.md
+├── .gitignore
+├── pyproject.toml / package.json (+ lockfile)
+└── venv/ or .venv/               # .gitignored, project root
+```
 
-### 4. Security Best Practices
-- **Never hardcode credentials, API keys, or secrets** in source code
-- **Use environment variables** for sensitive configuration (`.env` files)
-- **Add sensitive files to .gitignore** (`.env`, config files with secrets, etc.)
-- **Implement input validation** to prevent injection attacks
-- **Use secure connection protocols** (HTTPS, SSH) for API calls and data transmission
-- **Follow principle of least privilege** when setting permissions
-- **Keep dependencies updated** to patch security vulnerabilities
-- **Teach me:** Explain common security pitfalls and how to avoid them
+- **Root-level tooling files stay at the project root** — `README.md`, `.gitignore`, the dependency manifest + lockfile, and the virtual environment — never nested under `dev/`. Package managers and most tooling assume they live at the root.
+- **`AGENTS.md` stays at the project root**, not in `docs/` — that's what most AI coding tools auto-detect. `docs/` holds the human-facing reference docs (`CHANGELOG.md`, `BUGS.md`, this Principles doc).
+- **`src/` nests an importable package folder** (`src/project_name/`) rather than loose files at the top of `src/` — the standard "src-layout." It prevents accidentally importing from the working directory instead of the installed package, and gives you a natural home for `__init__.py`.
+- **`tests/` mirrors `src/`'s structure** — `tests/test_parser.py` next to `src/project_name/parser.py` — so coverage gaps are obvious at a glance.
+- **`tmp/` is fully `.gitignored`** — throwaway mockups, "let's compare 3 options and pick one" scratch work, and proofs-of-concept shouldn't pollute git history.
+- **`data/real/` is `.gitignored`; `data/samples/` is committed** — sample data mirrors the real schema so tests and demos run without real (and possibly sensitive) data ever touching the repo.
+- **Component subfolders inside `src/` are encouraged** once a module gets unwieldy — organize by feature/domain, not by file type.
+- **Teach me:** Explain why src-layout avoids accidental local imports, and why config/tooling files must stay at the project root rather than nested under `dev/`.
 
-### 5. Environment Isolation & Dependency Management
+#### Environment Isolation & Dependency Management
 - **Always isolate project dependencies** so each project has its own reproducible environment — never rely on globally installed packages.
 - **Use a lockfile** so collaborators and future sessions install the *exact same* versions. Version drift between machines is a top cause of "works on my machine" bugs.
 - **Document the setup steps in README.md** so anyone can go from clone → running in a few commands.
@@ -98,6 +88,47 @@ After recognizing and reviewing these Guidelines and Principles, and before taki
   - Pin a runtime version (`.nvmrc` or the `engines` field) so everyone runs the same Node.
 
 - **Teach me:** Explain why isolation + lockfiles matter, and how they prevent dependency conflicts and cross-machine surprises.
+
+### 2. Code Documentation & Learning
+- **Add comprehensive comments/remarks** at key points throughout the code to:
+  - Explain *why* decisions were made (not just *what* the code does)
+  - Define function purposes, parameters, and return values
+  - Clarify complex logic or business rules
+  - Help users understand the code enough to explain it to customers or stakeholders
+- **Use docstrings** (or equivalent in your language) for all functions, classes, and modules
+- **Include a detailed workflow summary** at the top of each file explaining the script's overall flow
+
+### 3. DRY Principle (Don't Repeat Yourself)
+- **Leverage classes and modules** to encapsulate reusable logic
+- **Extract repeated code** into well-named functions
+- **Create utility/helper modules** for common operations
+- **Teach me:** Explain when to use classes vs functions, and why we're choosing one approach over another
+
+### 4. API & External Runtime Best Practices
+- **Always consult official documentation BEFORE writing code** — not after errors surface
+  - Identify which interfaces, methods, and types you need
+  - Look them up in the official docs (e.g., Microsoft Learn, MDN, SDK references)
+  - Verify exact type names, method signatures, and return types
+  - Only then write code against verified APIs
+- **Never validate code against your own assumptions**
+  - Local type definitions (`.d.ts`), mock objects, and wrapper classes are *conveniences* — they are NOT the source of truth
+  - If you didn't author the API, verify it before you code against it
+- **Never assume API capabilities exist without verification**
+  - If a method or property "seems like it should exist," confirm it does before using it
+  - Check for deprecated methods, renamed types, and version-specific differences
+- **Implement proper error handling** for API calls (rate limits, timeouts, authentication failures, missing methods)
+- **Version-pin API dependencies** where possible
+- **Document which doc pages were referenced** in code comments when working with non-trivial APIs
+
+### 5. Security Best Practices
+- **Never hardcode credentials, API keys, or secrets** in source code
+- **Use environment variables** for sensitive configuration (`.env` files)
+- **Add sensitive files to .gitignore** (`.env`, config files with secrets, etc.)
+- **Implement input validation** to prevent injection attacks
+- **Use secure connection protocols** (HTTPS, SSH) for API calls and data transmission
+- **Follow principle of least privilege** when setting permissions
+- **Keep dependencies updated** to patch security vulnerabilities
+- **Teach me:** Explain common security pitfalls and how to avoid them
 
 ### 6. Testability & Quality
 - **Design code to be easily testable** from the start:
@@ -291,7 +322,7 @@ forever).
   - `RV` — Resolved & Verified — resolved, verified, and shipped (record the release in `Release Fixed:`)
   - `C` — Closed — won't-fix / not actually a code bug (document why)
 - **Severity guide:** `Critical` (crash/data-loss/total failure) · `High` (major break, no
-  workaround) · `Medium` (degraded, workaround exists) · `Low` (cosmetic/minor/rare).
+  workaround) · `Medium` (degraded, workaround exists) · `Low` (cosmetic/minor/rare) `Enh` (minor optimizations or feature requests)
 - **Enhancement bugs.** An item that is really a small hardening/enhancement but is tracked in the
   bug series (often reclassified from an FR) is written `BUG-### (Enh)` and carries a
   `**Type:** Enhancement — reclassified from FR-## …` line. Record the reclassification in both the
@@ -299,12 +330,14 @@ forever).
 - **Entry template:**
 ```markdown
 ## BUG-000 · [STATUS: O | IP | R | RV | C]
-
+(wrap each bullet below so that each item is on it's own row/line) 
 **Title:** Concise one-line description
-**Severity:** Critical | High | Medium | Low
-**Date Reported:** YYYY-MM-DD
+**Severity:** Critical | High | Medium | Low | Enh 
+**Reported Date:** YYYY-MM-DD
 **Release Found:** v0.x.x
-**Release Fixed:** v0.x.x   (or "N/A — Open")
+**Resolved Date:**
+**Resolved By:**
+**Integrated Release:** v0.x.x   (or "N/A — Open")
 
 ### Observable Problem
 What the user/developer sees going wrong. No code.
@@ -364,7 +397,7 @@ Any workaround, or "None".
 
 
 ### 13. Project Memory & AI Assistant Instructions (AGENTS.md)
-- **Standardize on a single `docs/AGENTS.md`** as the source of truth for anyone — human or AI assistant — picking up the project. `AGENTS.md` is the emerging cross-tool standard and is auto-detected by many AI coding tools, so you don't have to tell each assistant where to look every session.
+- **Standardize on a single `AGENTS.md` at the project root** as the source of truth for anyone — human or AI assistant — picking up the project. `AGENTS.md` is the emerging cross-tool standard and is auto-detected by many AI coding tools, so you don't have to tell each assistant where to look every session.
   - **Use `AGENTS.md` instead of** older names like `Instructions.md`, `Instructions-Claude.md`, or `Instructions-CodeX.md`. Maintaining more than one project-memory file causes drift — one goes stale and nobody knows which is authoritative.
   - If a specific tool insists on its own file, keep that file a *thin* one-liner pointing at `AGENTS.md` as the real source (e.g., "See AGENTS.md").
 - **Include in AGENTS.md:**
@@ -451,6 +484,6 @@ Before writing any code, help me:
 
 ## 🚀 LET'S BEGIN
 
-Now that we have our foundation established, let's start building! Begin by asking me clarity questions about my specific projct. If this is a continuoation of an existing project, you should have access to my instructions.md and changelog.md files to assess the current working version
+Now that we have our foundation established, let's start building! Begin by asking me clarity questions about my specific projct. If this is a continuoation of an existing project, you should have access to my AGENTS.md and CHANGELOG.md files to assess the current working version
 
 If this is a new project we will start at version `0.1.0` as initial development. 
