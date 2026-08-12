@@ -5,8 +5,13 @@ Load it at the start of every new AI coding session (GitHub Copilot, Claude, etc
 It covers every design decision, known bug, and operational detail accumulated
 across the full build history of this project.
 
-**Root directory (all paths relative to this):**
-`~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/Scout/`
+**Code root (all repo-relative paths below are relative to this):**
+`~/Documents/VSCode/Personal/Scout/`
+
+**Data root (season reports — kept on Google Drive so they sync + view anywhere):**
+`~/Library/CloudStorage/GoogleDrive-mdesau@gmail.com/My Drive/Baseball/WCWAA/Scout/data/real/`
+Override with the `SCOUT_DATA_ROOT` env var. Only `seasons/` lives here; logs +
+the GameChanger session stay local under the code root at `data/real/{logs,sessions}`.
 
 **Best practices prompt:** When starting a new session, the user may paste their
 "Code Mentor" prompt which defines conventions for debugging, git hygiene, error
@@ -19,9 +24,11 @@ handling, and code style. Follow those guidelines throughout.
 | Field | Value |
 |---|---|
 | **Version** | 3.4.0 |
-| **Last commit** | `1feb29d / feat: Create / Modify Season + Tournament Teams (Seasons tab redesign) (v3.4.0)` |
+| **Last commit** | `9a19072 / refactor: dev/src/scout package layout + decouple data root (SCOUT_DATA_ROOT)` |
 | **Branch** | `main` |
 | **Uncommitted** | None — working tree clean |
+| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08) |
+| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`) |
 
 ### Session Handoff Protocol
 
@@ -42,9 +49,10 @@ At session end, update this **Current State** table with the latest version and 
 
 - **Python 3.9.6** (macOS system Python)
 - **Virtual environment:** `venv/` (repo root) — shared across all components; always activate before running scripts
+- **Package install:** `pip install -e .` (via `pyproject.toml`) exposes the `scout` package; run entry points as `python -m scout.<pkg>.<module>`
 - **Key packages:** Playwright 1.58.0, Chromium 145, ReportLab 4.4.10
 - **Frozen deps:** `requirements.txt` in repo root
-- **Git:** Local repo rooted at `Scout/` on `main` branch
+- **Git:** Local repo at `~/Documents/VSCode/Personal/Scout/` on `main` branch. Season data lives separately on Google Drive (see Data root above).
 - **GitHub remote:** `https://github.com/mdesau/Scouting_Pipeline` (private)
   - PAT stored in `.git/config` remote URL — rotate at github.com/settings/tokens if needed
 
@@ -138,7 +146,7 @@ Both components share the same virtual environment, game file data, and scraping
 | `launchers/Start Scout.command` | **Double-click launcher** for the web UI: activates venv, starts `src/web/server.py`, opens browser at http://127.0.0.1:5050 |
 | `launchers/run_scout.sh` | Manual launcher: activates venv, calls `run_menu.py` (interactive menu or `--division`/`--team` passthrough) |
 | `launchers/run_scout_nightly.sh` | Headless launcher for manual testing; calls `run_menu.py --all` |
-| `~/Library/LaunchAgents/run_wcwaa_nightly.sh` | **Actual nightly launcher** (local disk): called by launchd plist, calls `run_menu.py --all` directly. Lives outside repo so launchd can execute it even if GDrive is slow to mount. |
+| `~/Library/LaunchAgents/run_wcwaa_nightly.sh` | **Actual nightly launcher** (local disk): called by the launchd plist; `cd`s into the code root and runs `python -m scout.orchestrator.run_menu --all`. Lives outside the repo so launchd can execute it regardless of repo location — **update its `SCOUT=` path if the repo moves.** |
 | `launchers/run_pitching.sh` | Standalone manual launcher for pitching PDFs only |
 | `launchers/run_pitching_nightly.sh` | Standalone headless launcher for pitching PDFs only |
 | `launchers/com.wcwaa.scout_pipeline.plist` | launchd schedule config (symlinked to `~/Library/LaunchAgents/`) |
@@ -148,73 +156,76 @@ Both components share the same virtual environment, game file data, and scraping
 ## Directory Structure
 
 ```
-Scout/                               <- git repo root
+Scout/                               <- git repo root (~/Documents/VSCode/Personal/Scout)
 |-- .git/
 |-- .gitignore
 |-- README.md                        <- project overview
-|-- Instructions.md                  <- this file
-|-- CHANGELOG.md                     <- unified version history
-|-- BUGS.md                          <- unified bug tracker
+|-- AGENTS.md                        <- this file
+|-- pyproject.toml                   <- editable-install config (pip install -e .) -> `scout` package
 |-- requirements.txt                 <- pip freeze (Flask, Playwright, ReportLab, PyYAML)
 |
 |-- config/                          <- season configuration (the only place teams live)
 |   |-- 2026-spring.yaml             <- single source of truth: GC IDs, slugs, coaches, paths
+|   |-- 2026-Fall.yaml
 |   |-- season_template.yaml         <- scaffold for new seasons (used by create_season())
-|   +-- active_season.txt            <- one line: "2026-spring" (switch seasons here)
+|   +-- active_season.txt            <- one line: e.g. "2026-Fall" (switch seasons here)
 |
-|-- src/                             <- all Python source
-|   |-- season_config.py             <- central loader: SCOUT_ROOT, SEASON_DIR,
-|   |                                    build_scraper_divisions(), build_hitting_divisions(),
-|   |                                    add_team_to_yaml(), list_seasons(), create_season(),
-|   |                                    set_active_season(). Every script imports from here.
-|   |-- hitting/
-|   |   |-- gen_hitting.py            <- Step 3: stat engine + hitting PDFs
-|   |   |-- stat_analysis.py          <- distribution/percentile analysis -> HTML report
-|   |   +-- archetype_reference.txt   <- archetype system design notes
-|   |-- pitching/
-|   |   |-- gen_pitching.py           <- Step 4: stat engine + pitching PDFs
-|   |   +-- pitcher_icon.png          <- Savant-style pitcher silhouette
-|   |-- scraping/
-|   |   |-- scrape_gc_playbyplay.py   <- Step 1: GC schedule -> .txt game files
-|   |   |-- scrape_gc_boxscores.py    <- Step 2: GC box scores -> rosters
-|   |   |-- parse_gc_text.py          <- utility: raw GC text -> WCWAA format
-|   |   +-- diag_schedule.py          <- utility: schedule diagnostics
-|   |-- orchestrator/
-|   |   +-- run_menu.py               <- pipeline orchestrator (Steps 1-4) + add-team + season management
-|   +-- web/                          <- HTML front-end (v3.1.0)
-|       |-- server.py                 <- Flask server (build/view/add endpoints + live log SSE)
-|       |-- index.html                <- single-page app shell
-|       |-- css/style.css
-|       +-- js/app.js
+|-- dev/
+|   +-- src/scout/                   <- the `scout` Python package (all source)
+|       |-- season_config.py         <- central loader: SCOUT_ROOT, DATA_ROOT, SEASONS_ROOT,
+|       |                               LOGS_DIR, SESSION_FILE, SEASON_DIR,
+|       |                               build_scraper_divisions(), build_hitting_divisions(),
+|       |                               add_team_to_yaml(), list/create/set_active_season().
+|       |-- hitting/
+|       |   |-- gen_hitting.py        <- Step 3: stat engine + hitting PDFs
+|       |   |-- stat_analysis.py      <- distribution/percentile analysis -> HTML report
+|       |   +-- archetype_reference.txt
+|       |-- pitching/
+|       |   |-- gen_pitching.py       <- Step 4: stat engine + pitching PDFs
+|       |   +-- pitcher_icon.png      <- Savant-style pitcher silhouette
+|       |-- scraping/
+|       |   |-- scrape_gc_playbyplay.py  <- Step 1: GC schedule -> .txt game files
+|       |   |-- scrape_gc_boxscores.py   <- Step 2: GC box scores -> rosters
+|       |   |-- parse_gc_text.py         <- utility: raw GC text -> WCWAA format
+|       |   +-- diag_schedule.py         <- utility: schedule diagnostics
+|       |-- orchestrator/
+|       |   +-- run_menu.py           <- pipeline orchestrator (Steps 1-4) + add-team + seasons
+|       +-- web/                      <- HTML front-end
+|           |-- server.py             <- Flask server (build/view/add + live log SSE)
+|           |-- index.html            <- single-page app shell
+|           |-- css/style.css
+|           +-- js/app.js
 |
-|-- launchers/                       <- all shell scripts + launchd plist
-|   |-- Start Scout.command           <- double-click: start web UI + open browser
-|   |-- run_scout.sh                  <- manual launcher (interactive menu)
-|   |-- run_scout_nightly.sh          <- headless launcher (manual testing)
-|   |-- run_pitching.sh               <- standalone pitching launcher
-|   |-- run_pitching_nightly.sh       <- standalone headless pitching launcher
-|   +-- com.wcwaa.scout_pipeline.plist <- launchd schedule (symlinked to ~/Library/LaunchAgents/)
+|-- docs/                            <- CHANGELOG.md, BUGS.md, Principles and Practices.md
+|-- data/samples/                    <- example game file + sample scouting PDF (tracked)
 |
-|-- sessions/                        <- [gitignored]
-|   +-- gc_session.json               <- Playwright GC login session
-|-- logs/                            <- [gitignored]
-|   +-- pipeline_summary.log          <- appended each run (per-team accounting)
+|-- launchers/                       <- all shell scripts + launchd plist (see table above)
 |
-|-- seasons/                         <- [gitignored] all season data
-|   +-- 2026-spring/
-|       |-- Majors/Reports/           <- Scorebooks/, Scouting_Reports/, rosters.json, box_verify.json
-|       |-- Minors/Reports/           <- same structure
-|       |-- Wild/[TeamName]/           <- Games/, roster.txt, *-Scout-*.pdf
-|       |-- Storm/[TeamName]/          <- same structure
-|       |-- AllStars/                  <- one-time AllStars builds (9U, 12U)
-|       +-- Coach_Pitch/
+|-- data/real/                       <- [gitignored] LOCAL runtime data (stays with the code)
+|   |-- logs/                        <- dated run logs + pipeline_summary.log
+|   +-- sessions/gc_session.json     <- Playwright GC login session (GC auth)
 |
 +-- venv/                            <- shared Python venv [gitignored]
+
+
+Google Drive (data root -- set by SCOUT_DATA_ROOT; default shown):
+~/Library/CloudStorage/.../WCWAA/Scout/data/real/
++-- seasons/                         <- [not in repo] all season report data
+    +-- 2026-Fall/  2026-spring/ ...
+        |-- Majors/Reports/          <- Scorebooks/, Scouting_Reports/, rosters.json, box_verify.json
+        |-- Minors/Reports/          <- same structure
+        |-- Wild/[TeamName]/         <- Games/, roster.txt, *-Scout-*.pdf
+        |-- Storm/[TeamName]/        <- same structure
+        |-- AllStars/                <- one-time AllStars builds (9U, 12U)
+        +-- Coach_Pitch/
 ```
 
-> **Note:** All code uses relative paths anchored to `__file__` (via `season_config.py`),
-> so the repo folder can be renamed or relocated freely without touching any script
-> (as was done in v3.1.2 when it moved from `WCWAA/2026/Spring/` to `WCWAA/Scout/`).
+> **Note (code/data split):** Code lives under the repo root (`~/Documents/VSCode/Personal/Scout`).
+> Season report data lives on Google Drive, resolved via `SEASONS_ROOT = DATA_ROOT/seasons`
+> where `DATA_ROOT` = the `SCOUT_DATA_ROOT` env var (default: the GDrive `.../Scout/data/real`).
+> Logs + the GC session stay local under the code root at `data/real/{logs,sessions}`.
+> All code anchors paths to `__file__`/env via `season_config.py`, so the repo can be
+> relocated freely (as in this 2026-08 move from `WCWAA/Scout/` to `~/Documents/VSCode/Personal/Scout`).
 
 ---
 
@@ -253,10 +264,11 @@ launchctl list | grep wcwaa          # verify scheduler active
 launchctl start com.wcwaa.scout_pipeline  # trigger immediately
 ```
 
-> **Execution chain:** plist → `~/Library/LaunchAgents/run_wcwaa_nightly.sh` (local disk) → `run_menu.py --all`
+> **Execution chain:** plist (symlinked from `launchers/`) → `~/Library/LaunchAgents/run_wcwaa_nightly.sh` (local disk) → `python -m scout.orchestrator.run_menu --all`
 >
-> **Auto-load:** `~/.zprofile` re-registers the job on every login so it survives
-> reboots even when Google Drive mounts late. No manual `launchctl load` needed.
+> **Auto-load:** `~/.zprofile` re-registers the job on every login (`launchctl load`
+> of the plist symlink) so it survives reboots. The symlink must point at the repo's
+> `launchers/com.wcwaa.scout_pipeline.plist`; the wrapper's `SCOUT=` must point at the code root.
 
 **Option C -- CLI direct:**
 ```bash
@@ -404,9 +416,13 @@ Gateway module — every script imports from here. Reads `active_season.txt` →
 | Function / Constant | Purpose |
 |---|---|
 | **Path Constants** | |
-| `SCOUT_ROOT` | Absolute path to repo root (derived from `__file__`) |
-| `SEASON_ID` | Active season ID (`"2026-spring"`) — read from `active_season.txt` at import |
-| `SEASON_DIR` | `seasons/<season_id>/` data directory |
+| `SCOUT_ROOT` | Absolute path to the code repo root (derived from `__file__`) |
+| `DATA_ROOT` | Data root holding season reports — from the `SCOUT_DATA_ROOT` env var (default: GDrive `.../Scout/data/real`) |
+| `SEASONS_ROOT` | `DATA_ROOT/seasons` — parent of all season data dirs |
+| `LOGS_DIR` | Local dated run logs (`SCOUT_ROOT/data/real/logs`) |
+| `SESSIONS_DIR` / `SESSION_FILE` | Local GC auth session dir + `gc_session.json` |
+| `SEASON_ID` | Active season ID (e.g. `"2026-Fall"`) — read from `active_season.txt` at import |
+| `SEASON_DIR` | `SEASONS_ROOT/<season_id>/` data directory |
 | **DIVISIONS Builders** | |
 | `build_scraper_divisions()` | Builds `DIVISIONS` dict for scraping scripts (GC org ID, team slugs, team IDs) |
 | `build_hitting_divisions()` | Builds `DIVISIONS` dict for hitting/pitching scripts (folder paths, roster files) |
