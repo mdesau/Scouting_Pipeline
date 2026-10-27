@@ -1,8 +1,7 @@
-ok, familiarize yourself with our current project by reviewing the AGENTS.md and CHANGELOG.md 
+ok, familiarize yourself with our current project by reviewing the AGENTS.md and CHANGELOG.md
 
-For context we have applied the following 
-practices and principles to get to this point and plan to keep the same moving forward. 
-
+For context we have applied the following
+practices and principles to get to this point and plan to keep the same moving forward.
 
 ---
 
@@ -68,16 +67,19 @@ project-name/                     (e.g., oppenheimer/)
 - **Teach me:** Explain why src-layout avoids accidental local imports, and why config/tooling files must stay at the project root rather than nested under `dev/`.
 
 #### Environment Isolation & Dependency Management
+
 - **Always isolate project dependencies** so each project has its own reproducible environment — never rely on globally installed packages.
-- **Use a lockfile** so collaborators and future sessions install the *exact same* versions. Version drift between machines is a top cause of "works on my machine" bugs.
+- **Use a lockfile** so collaborators and future sessions install the _exact same_ versions. Version drift between machines is a top cause of "works on my machine" bugs.
 - **Document the setup steps in README.md** so anyone can go from clone → running in a few commands.
 
 - **Python:**
+
   ```bash
   python -m venv venv
   source venv/bin/activate   # macOS/Linux
   venv\Scripts\activate      # Windows
   ```
+
   - Add `venv/` to `.gitignore`.
   - Track your **direct** dependencies in `requirements.txt` (or, preferably, `pyproject.toml`).
   - ⚠️ **Avoid making `pip freeze > requirements.txt` your primary workflow** — it mixes your direct dependencies with every transitive, platform-specific package, which breaks reproducibility across operating systems. List the packages you actually import, and consider `uv`, `pip-tools`, or Poetry for a proper lockfile.
@@ -90,8 +92,9 @@ project-name/                     (e.g., oppenheimer/)
 - **Teach me:** Explain why isolation + lockfiles matter, and how they prevent dependency conflicts and cross-machine surprises.
 
 ### 2. Code Documentation & Learning
+
 - **Add comprehensive comments/remarks** at key points throughout the code to:
-  - Explain *why* decisions were made (not just *what* the code does)
+  - Explain _why_ decisions were made (not just _what_ the code does)
   - Define function purposes, parameters, and return values
   - Clarify complex logic or business rules
   - Help users understand the code enough to explain it to customers or stakeholders
@@ -99,19 +102,21 @@ project-name/                     (e.g., oppenheimer/)
 - **Include a detailed workflow summary** at the top of each file explaining the script's overall flow
 
 ### 3. DRY Principle (Don't Repeat Yourself)
+
 - **Leverage classes and modules** to encapsulate reusable logic
 - **Extract repeated code** into well-named functions
 - **Create utility/helper modules** for common operations
 - **Teach me:** Explain when to use classes vs functions, and why we're choosing one approach over another
 
 ### 4. API & External Runtime Best Practices
+
 - **Always consult official documentation BEFORE writing code** — not after errors surface
   - Identify which interfaces, methods, and types you need
   - Look them up in the official docs (e.g., Microsoft Learn, MDN, SDK references)
   - Verify exact type names, method signatures, and return types
   - Only then write code against verified APIs
 - **Never validate code against your own assumptions**
-  - Local type definitions (`.d.ts`), mock objects, and wrapper classes are *conveniences* — they are NOT the source of truth
+  - Local type definitions (`.d.ts`), mock objects, and wrapper classes are _conveniences_ — they are NOT the source of truth
   - If you didn't author the API, verify it before you code against it
 - **Never assume API capabilities exist without verification**
   - If a method or property "seems like it should exist," confirm it does before using it
@@ -121,6 +126,7 @@ project-name/                     (e.g., oppenheimer/)
 - **Document which doc pages were referenced** in code comments when working with non-trivial APIs
 
 ### 5. Security Best Practices
+
 - **Never hardcode credentials, API keys, or secrets** in source code
 - **Use environment variables** for sensitive configuration (`.env` files)
 - **Add sensitive files to .gitignore** (`.env`, config files with secrets, etc.)
@@ -131,6 +137,7 @@ project-name/                     (e.g., oppenheimer/)
 - **Teach me:** Explain common security pitfalls and how to avoid them
 
 ### 6. Testability & Quality
+
 - **Design code to be easily testable** from the start:
   - Small, focused functions with single responsibilities
   - Separate business logic from I/O operations
@@ -140,6 +147,7 @@ project-name/                     (e.g., oppenheimer/)
 - **After adding multiple functions (typically 3-5), prompt me to consider refactoring and cleanup**
 
 ### 7. Readability & Maintainability
+
 - **Optimize for human readability** over cleverness
 - **Use clear, descriptive variable and function names**
 - **Follow language-specific style guides** (PEP 8 for Python, etc.)
@@ -147,12 +155,14 @@ project-name/                     (e.g., oppenheimer/)
 - **One clear purpose per function**
 
 ### 8. Debugging Infrastructure
+
 - **Build in observability from the start** — you should be able to see what your code is doing without constantly adding and deleting `print` statements.
 - **Prefer your language's standard logging library with levels** over ad-hoc prints:
   - Python: the built-in `logging` module (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
   - Node/TS: a logger like `pino`/`winston`, or `console.debug` gated behind a level.
-  - Levels let you turn detail up or down *without editing code*.
+  - Levels let you turn detail up or down _without editing code_.
 - **A simple on-ramp (fine for small scripts):** a single DEBUG CONFIGURATION block of flags near the top of the main file. Treat this as a starting point and graduate to leveled logging as the project grows:
+
 ```python
   # DEBUG CONFIGURATION (simple starter — prefer the `logging` module as this grows)
   DEBUG_ALL = False              # Master toggle
@@ -160,10 +170,12 @@ project-name/                     (e.g., oppenheimer/)
   DEBUG_DATA_PROCESSING = False  # Show intermediate data transformations
   DEBUG_FILE_OPERATIONS = False  # Log file read/write operations
 ```
+
 - **Never log secrets** — redact API keys, tokens, passwords, and PII from log output.
 - **Teach me:** Explain logging levels, when to use each, and why leveled logging beats scattered `print` statements.
 
 ### 9. Git & Version Control
+
 - **Initialize git repository** at project start
 - **Create a thoughtful .gitignore** file appropriate for the language/framework
 - **Commit in small, logical units** and review your diff before committing (catch stray secrets or leftover debug code)
@@ -176,6 +188,7 @@ project-name/                     (e.g., oppenheimer/)
   - `chore:` tooling, config, or maintenance
 
 **Collaborating (multiple people or sessions on one repo):**
+
 - **Don't commit directly to `main`.** Create a branch per change: `feat/short-description`.
 - **Pull (or rebase) before you start and before you push** to minimize merge conflicts.
 - **Open a Pull Request** for review rather than pushing straight to the shared branch — even a quick self-review PR creates a paper trail.
@@ -184,6 +197,7 @@ project-name/                     (e.g., oppenheimer/)
 - **Teach me:** Explain branches, PRs, and how to resolve a merge conflict calmly.
 
 ### 10. Versioning Strategy (Semantic Versioning)
+
 - **Follow Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH` format where:
   - **MAJOR** = Breaking changes, significant features that change how the code works, major refactors that break backwards compatibility (1.x.x → 2.0.0)
   - **MINOR** = New features that are backwards-compatible, notable enhancements (1.0.x → 1.1.0)
@@ -207,106 +221,152 @@ project-name/                     (e.g., oppenheimer/)
   - Tag all releases: `v0.1.0`, `v0.2.0`, `v1.0.0`, `v1.1.0`, `v1.1.1`
   - **Do NOT tag** daily/nightly builds—track these only in CHANGELOG.md under `[Unreleased]`
   - Only create git tags when ready to "release" a version
-  
 - **Version update rules:**
   - **DO NOT** increment MAJOR version until testing is confirmed successful
   - Update version number in code, git tag, and CHANGELOG.md simultaneously
   - **Teach me:** Discuss when to increment each version component, what constitutes a "breaking change," and when we're ready to move from `0.x.x` to `1.0.0`
 
 ### 11. Change Tracking
+
 - **Maintain a CHANGELOG.md file** following the [Keep a Changelog](https://keepachangelog.com/) format:
+
 ```markdown
-  # Changelog
-  
-  All notable changes to this project will be documented in this file.
-  
-  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-  
-  ## [Unreleased]
-  ### Added
-  - New feature in development (daily/nightly changes tracked here)
-  
-  ### Changed
-  - Modifications to existing functionality
-  
-  ### Fixed
-  - Bug fixes in progress
-  
-  ## [1.0.0] - 2024-02-17
-  ### Added
-  - First stable production release
-  - All core features tested and verified
-  
-  ### Changed
-  - Finalized API interface
-  
-  ## [0.3.0] - 2024-02-10
-  ### Added
-  - Feature X implementation
-  - New API endpoint support
-  
-  ### Changed
-  - Improved error handling in data processor
-  
-  ## [0.2.0] - 2024-02-05
-  ### Added
-  - Core processing module
-  
-  ### Fixed
-  - Bug in file parsing logic
-  
-  ## [0.1.0] - 2024-02-01
-  ### Added
-  - Initial project structure
-  - Basic functionality implemented
-  - Git repository initialized
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- New feature in development (daily/nightly changes tracked here)
+
+### Changed
+
+- Modifications to existing functionality
+
+### Fixed
+
+- Bug fixes in progress
+
+## [1.0.0] - 2024-02-17
+
+### Added
+
+- First stable production release
+- All core features tested and verified
+
+### Changed
+
+- Finalized API interface
+
+## [0.3.0] - 2024-02-10
+
+### Added
+
+- Feature X implementation
+- New API endpoint support
+
+### Changed
+
+- Improved error handling in data processor
+
+## [0.2.0] - 2024-02-05
+
+### Added
+
+- Core processing module
+
+### Fixed
+
+- Bug in file parsing logic
+
+## [0.1.0] - 2024-02-01
+
+### Added
+
+- Initial project structure
+- Basic functionality implemented
+- Git repository initialized
 ```
+
 - **Update CHANGELOG.md with each significant change**
 - **Daily/nightly changes** go under `[Unreleased]` section
 - **Move `[Unreleased]` items** to a new versioned section when creating a git tag
 - **Link git tags to CHANGELOG.md entries**
 - **Cross-reference bugs** — when a bug is fixed, add a one-liner under `### Fixed` in CHANGELOG with the Bug ID (e.g., `Fixed crash in pitch parser (BUG-003)`). Full details live in `BUGS.md`
+- We do NOT need detailed verbiage in changelog. Changelog should JUST REFERENCE the bugs Added, Fixed, Changed.
+
+**CHANGELOG discipline (keep it lean — the _why/how_ lives in `BUGS.md`):**
+
+- **Only three subsections per release:** `### Added`, `### Changed`, `### Fixed`. Do **not** add
+  `Tests`, `Deploy`, `Notes`, `Known limitation`, or other ad-hoc subsections — that detail belongs
+  in the item's `BUGS.md` entry.
+- **Every bullet is one tracker item and nothing else**, written in the same syntax as the `BUGS.md`
+  ToC — status abbreviation, ID, title, linked to the entry:
+  `- [(RV) BUG-041 (Enh) — Managers can open assignment records directly in SDC](BUGS.md#bug-041-enh--status-rv)`
+  If a change has no tracker item, **file one first** (even retroactively, using the release's git-tag
+  date) — a changelog bullet with no `BUG-###`/`KC-###` is not allowed.
+- **The title and status come from `BUGS.md`, never retyped.** `docs_cleanup.py` regenerates every
+  bullet from the tracker, so a release note cannot drift from the entry it points at. Retitle the
+  `BUGS.md` entry and re-run the script rather than editing the changelog by hand.
+- **One line per item, once per release.** Push rationale, file lists, test counts, and deploy steps
+  into `BUGS.md`. The same ID must not appear twice in one release.
+- **No "Version bump X → Y" bullets** — the version is already the section header.
 
 ---
 
-### 12. Issue Tracking — `BUGS.md` (bugs, caveats & feature requests)
+### 12. Issue Tracking — `BUGS.md` (bugs, caveats & enhancements)
 
 `BUGS.md` is the project's single, canonical issue tracker — a **living developer record of the
-*why* and *how***, kept deliberately separate from `CHANGELOG.md` (the stakeholder-facing *what*
-and *when*). When something is fixed or shipped, `CHANGELOG.md` gets a one-line entry that
+_why_ and _how_**, kept deliberately separate from `CHANGELOG.md` (the stakeholder-facing _what_
+and _when_). When something is fixed or shipped, `CHANGELOG.md` gets a one-line entry that
 references the tracker ID; the full investigation stays in `BUGS.md`.
 
-**One file, three trackers.** `BUGS.md` holds three distinct item types, each with its own ID
-series, status vocabulary, and entry template. Keeping them in one file (rather than three) gives
-a single place to scan everything and to cross-link between them:
+**One file, two trackers.** `BUGS.md` holds two distinct item types, each with its own ID series,
+status vocabulary, and entry template. Keeping them in one file gives a single place to scan
+everything and to cross-link between them:
 
-| Tracker | ID | What it is | Terminal states |
-|---|---|---|---|
-| **Bugs** | `BUG-###` | Something is broken / behaves wrong **in our code** | `RV`, `C` |
-| **Known Caveats** | `KC-###` | An architectural/environmental *limitation* — **not** a code bug; designed around, not "fixed" | `Historical`, `Resolved <date>` |
-| **Feature Requests** | `FR-###` | Wanted-but-not-yet-built capability (the backlog) | `Shipped`, `Declined` |
+| Tracker           | ID        | What it is                                                                                                                                                                                                                                                                                    | Terminal states                 |
+| ----------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **Bugs**          | `BUG-###` | Something is broken / behaves wrong **in our code**, _plus_ non-defect changes carried in the same series and flagged by an optional heading tag: enhancements / feature requests `BUG-### (Enh)`, server/infra-only changes `BUG-### (Srv)`, and documentation-only changes `BUG-### (Docs)` | `RV`, `C` (`O`/`IP` while open) |
+| **Known Caveats** | `KC-###`  | An architectural/environmental _limitation_ — **not** a code bug; designed around, not "fixed"                                                                                                                                                                                                | `Historical`, `Resolved <date>` |
+
+> **Feature Requests were retired as a separate `FR-###` tracker (2026-08-19)** and folded into the
+> bug series as `BUG-### (Enh)` entries, so there is one canonical backlog. New feature requests are
+> filed directly as `BUG-### (Enh)`. For readability the `BUG-### (Enh)` entries are listed in their
+> own `## Enhancements` section, separate from the `## Bugs` defect entries — both share the one
+> `BUG-###` ID series.
 
 IDs are **sequential and never reused** within each series (a closed `BUG-007` stays `BUG-007`
 forever).
 
 **File layout (top → bottom):**
+
 1. A short header explaining the file's purpose + the CHANGELOG cross-ref rule.
-2. `## Contents` — a master ToC listing **all three** trackers, each split into **Open** and
-   **Resolved or Closed**, with anchor links.
+2. `## Contents` — a master ToC listing every section (**Bugs**, **Enhancements**, **Server**,
+   **Docs**, **Known Caveats**), each split into **Open** and **Resolved or Closed**, with anchor
+   links.
 3. `## Severity guide` and `## Status definitions` (shared reference).
-4. Three sections — `## Known Caveats`, `## Bugs`, `## Feature Requests` — each with its **own
-   mini-ToC** (`### Open` / `### Resolved or Closed`), a copy-paste `<!-- template -->` comment,
-   then `### Detailed Entries`.
+4. Five body sections — `## Bugs` (defects), `## Enhancements` (`BUG-### (Enh)`), `## Server`
+   (`BUG-### (Srv)`), `## Docs` (`BUG-### (Docs)`), and `## Known Caveats` (`KC-###`) — each with its
+   **own mini-ToC** (`### Open` / `### Resolved or Closed`), a copy-paste `<!-- template -->` comment,
+   then `### Detailed Entries`. The four `BUG-###` sections share the one ID series and template;
+   they're split only for readability (a section is chosen by the heading tag — untagged/defect →
+   Bugs, `(Enh)` → Enhancements, `(Srv)` → Server, `(Docs)` → Docs).
 
 **Navigation conventions (these keep links from breaking):**
-- **Every detailed entry's heading carries its status and *drives the GitHub anchor*** — e.g.
+
+- **Every detailed entry's heading carries its status and _drives the GitHub anchor_** — e.g.
   `## BUG-012 · [STATUS: RV]` → `#bug-012--status-rv`. The ToCs **and** `CHANGELOG.md` link to that
   anchor, so **don't casually re-word a heading**; changing it silently breaks every inbound link.
-  If a status genuinely changes, update the heading *and* every ToC/cross-ref pointing at it.
+  If a status genuinely changes, update the heading _and_ every ToC/cross-ref pointing at it.
 - **ToC entries are prefixed with the status abbreviation in parentheses** so status is scannable
   without opening the entry — e.g. `(RV) BUG-012 — …`. Update the prefix when the status changes.
-- **On close, move the entry's ToC line from `Open` → `Resolved or Closed`** in *both* the master
+- **On close, move the entry's ToC line from `Open` → `Resolved or Closed`** in _both_ the master
   ToC and the section mini-ToC. The detailed entry itself stays where it is.
 - **Detailed bug entries are ordered newest-first** (highest `BUG-###` at the top of
   `### Detailed Entries`).
@@ -315,6 +375,7 @@ forever).
   `[STATUS: Declined 2026-08-06]`.
 
 #### Bugs (`BUG-###`)
+
 - **Status vocabulary** (the abbreviation is what the ToC prefix uses):
   - `O` — Open — confirmed, not yet being worked
   - `IP` — In Progress — actively being investigated/fixed
@@ -327,79 +388,158 @@ forever).
   bug series (often reclassified from an FR) is written `BUG-### (Enh)` and carries a
   `**Type:** Enhancement — reclassified from FR-## …` line. Record the reclassification in both the
   old (FR) and new (BUG) entries.
+- **Classifier tags (`(Enh)` / `(Srv)` / `(Docs)`).** Non-defect or non-code changes are flagged in
+  the heading so the backlog stays scannable and grouped into its section:
+  - `(Enh)` — an enhancement / feature request (Severity `Enh`); lives in `## Enhancements`.
+  - `(Srv)` — a **server/infrastructure-only** change with no repo code (nginx / systemd / DNS / TLS /
+    ACL / a deploy step); lives in `## Server`. **Keep a real severity** (`Critical`…`Low`) reflecting
+    user impact — the tag only signals "no application code changed" (admins can adjust the severity
+    later if the first assessment was off).
+  - `(Docs)` — a **documentation-only** change; lives in `## Docs`. Also keeps a real severity
+    (usually `Low`).
+    The tag is part of the heading and therefore the **anchor** (`## BUG-050 (Srv) · [STATUS: RV]` →
+    `#bug-050-srv--status-rv`), so choose it when the entry is created — changing a tag later breaks
+    every inbound link. A defect fixed with real code stays **untagged** in `## Bugs`.
 - **Entry template:**
+
 ```markdown
 ## BUG-000 · [STATUS: O | IP | R | RV | C]
-(wrap each bullet below so that each item is on it's own row/line) 
+
+(wrap each bullet below so that each item is on it's own row/line)
 **Title:** Concise one-line description
-**Severity:** Critical | High | Medium | Low | Enh 
+**Severity:** Critical | High | Medium | Low | Enh
 **Reported Date:** YYYY-MM-DD
 **Release Found:** v0.x.x
+**Found By:**
 **Resolved Date:**
 **Resolved By:**
-**Integrated Release:** v0.x.x   (or "N/A — Open")
+**Integrated Release:** v0.x.x (commit <commit id>, tag pushed <date> (or "N/A — Open"))
+
+# Note on above: Resolved Date and Resolved By will vary depending the terminal status. If bug is closed, we track the "Closed Date" and "Closed By" if it's RV then we will use the default "Resolved Date" and "Resolved By" accordingly
+
+# Note on "Release Found" displayed value for enhancements: Instead of leaving it blank, use "N/A — Enhancement"
 
 ### Observable Problem
+
 What the user/developer sees going wrong. No code.
 
+### Expected Behavior
+
+What the user/developer expects to see
+
 ### Steps to Reproduce
-1. …  2. …  3. Expected vs. Actual
+
+1. … 2. … 3. Expected vs. Actual
+
+### Root Cause Analysis (RCA)
+
+Technical explanation as to what is causing the issue.
+If Enh, obviously this is may not be applicable
 
 ### Fix Explanation (Exec Level — No Code)
+
 Plain-language cause + resolution, suitable for a stakeholder.
 
 ### Fix Details (Technical)
+
 Root cause, what changed, and why. Name the files/functions touched — wrap changed paths in
 <span style="color:red">…</span> for at-a-glance review — no full code blocks.
 
+### Verification
+
+How the fix was proven: tests run and their counts, plus any live/real-data check.
+Omit the whole section when there is nothing to record.
+
 ### Workaround
+
 Any workaround, or "None".
+
+### Eng Note
+
+Catch-all for engineering detail that does not fit any section above — deploy steps,
+impact counts, prevention notes, classification rationale. Omit when empty.
 ```
-- **Optional extra sections** are encouraged when they add value: `### Note on classification`
-  (why it's a bug vs. an FR), `### Prevention` (how to avoid the whole class of mistake next
-  time), and a `### Resolution` / "Deploy performed" note recording the actual live deploy +
-  verification for shipped fixes.
+
+- **The section list above is closed — never invent a new `###` heading.** Every entry uses these
+  sections, in this order, and an entry simply omits the ones that do not apply. Anything that
+  would have become a new section (a `### Prevention`, `### Impact` or `### Deploy Notes`) goes
+  into **`### Eng Note`** instead, introduced by a bold lead-in naming what it is, e.g.
+  `**Prevention:**`. Same rule for the summary block: only the template fields appear there, and
+  an off-template `**Label:**` moves down into `### Eng Note`.
+- **Summary fields carry the required datum and nothing else.** `**Severity:** Medium`, not
+  `**Severity:** Medium — because the deep link points at the wrong record`; the reasoning belongs
+  in `### Observable Problem` or `### Eng Note`. Same for `Release Found` (a version), the dates
+  (`YYYY-MM-DD`) and `Requested by` / `Resolved By` (`ccoid (Full Name)`). `Integrated Release`
+  keeps its `(commit …, tag …)` parenthetical because the template asks for it.
+- **`docs_cleanup.py` enforces all of this.** Run it rather than tidying by hand, so "cleanup"
+  means the same thing every time:
+
+  ```bash
+  python3 docs_cleanup.py            # dry run — report only
+  python3 docs_cleanup.py --write    # review each change, then apply
+  python3 docs_cleanup.py --check    # exit 1 if the docs have drifted (use before tagging)
+  ```
+
+  It rewrites `CHANGELOG.md` bullets from `BUGS.md`, so a release note can never drift from the
+  tracker. Formatting fixes apply silently; anything that would alter or drop text is reviewed and
+  approved first, and both documents are snapshotted to `docs/.history/` beforehand
+  (`--list-history` / `--restore <stamp>` to recover).
 
 #### Known Caveats (`KC-###`)
+
 - These are **limitations, not defects** — nothing here gets "fixed" in the usual sense; each is
   either designed around or stops applying once the underlying context changes. **Keep historical
-  ones** (marked `Historical`) for the record of *why* a decision was made.
+  ones** (marked `Historical`) for the record of _why_ a decision was made.
 - **Status:** `Active` (still a real constraint) · `Historical` (no longer applies) ·
   `Resolved <date>`.
 - **Template:** `**Title:**`, `**Date Identified:**`, `### Exec Description` (1-line),
   `### Eng Description` (the real mechanism/root cause), `### Alternative Solutions` (max 3,
   high-level, mark the chosen one).
 
-#### Feature Requests (`FR-###`)
-- The product/engineering backlog — migrated from any "next planned work" list so there is one
-  canonical place.
-- **Status:** `Proposed` · `Planned` · `In Progress` · `Shipped` (reference the release) ·
-  `Declined` (document why).
-- **Template:** `**Title:**`, `**Date Requested:**`, `### Exec Description`, `### Eng Description`,
-  `### Dependencies`.
-- **Shipped/closed FRs keep a `> **Shipped in vX** …` blockquote summary at the top** of their
-  entry, with the original spec preserved below for history.
-- **Reclassification is expected and documented:** an FR that turns into implementation work can
-  become a `BUG-### (Enh)` (record it in both places); an FR closed as redundant points at
-  whatever supersedes it.
+#### Feature requests / enhancements (`BUG-### (Enh)`)
+
+- The `FR-###` tracker was **retired (2026-08-19)** and folded into the bug series. A
+  wanted-but-not-yet-built capability, or any small hardening/optimization, is filed as a
+  `BUG-### (Enh)` entry using the standard bug template above (Severity `Enh`), so there is one
+  canonical backlog.
+- **Status:** a proposed-but-unbuilt item is `O` (Open); when it ships it becomes `RV` (reference
+  the release in `Integrated Release`); a rejected one is `C` (Closed — document why).
+- **Header conventions for an Enh:** `Release Found: N/A — Enhancement`; an Open item has
+  `Integrated Release: N/A — Open`; `RCA` is `N/A — Enhancement` when there's no defect cause.
+- **Provenance:** an item reclassified from the old FR tracker carries a `**Type:** Enhancement …
+migrated from FR-##` line and a `*(formerly FR-##)*` note in its Fix Explanation, so historical
+  cross-references stay traceable.
+
+#### Server & documentation items (`BUG-### (Srv)` / `BUG-### (Docs)`)
+
+- **`(Srv)`** — a change that touched only server/infrastructure config (nginx, systemd, DNS, TLS,
+  ACLs, a deploy step) with **no repo code change**. It still gets a full entry — often it fixed a
+  real user-visible failure (e.g. a missing nginx route) — and keeps a **real severity**. Lives in
+  `## Server`.
+- **`(Docs)`** — a documentation-only change (README / AGENTS / runbook / tracker cleanup). Real
+  severity, usually `Low`. Lives in `## Docs`.
+- **Header conventions:** for a purely proactive `(Srv)`/`(Docs)` item with no defect trigger, use
+  `Release Found: N/A — Srv` / `N/A — Docs` and `RCA: N/A`. A `(Srv)` item that fixed a live failure
+  keeps a normal `Release Found`, RCA, and Observable Problem.
 
 **Cross-referencing (both directions):**
+
 - When a bug is fixed / an FR ships, add the one-line `### Fixed` / `### Added` entry in
   `CHANGELOG.md` with the ID **and** the anchor link (e.g.
-  `**[BUG-013 (Enh)](BUGS.md#bug-013-enh--status-fixed-v192)** — …`).
+  `**[BUG-013 (Enh)](BUGS.md#bug-013-enh--status-rv)** — …`).
 - Link entries out to the operational runbook (`eva-admins.md`), memory notes, or other tracker
   items where the detail lives, rather than duplicating it.
 
-- **Teach me:** Keep separating the *symptom* (Observable Problem) from the *root cause* (Fix
+- **Teach me:** Keep separating the _symptom_ (Observable Problem) from the _root cause_ (Fix
   Details) — that distinction is the foundation of disciplined debugging; you can't reliably fix
-  what you haven't correctly diagnosed. And keep the trackers honest: a *caveat* is not a *bug*,
-  and an *enhancement* logged as a bug should say so (`(Enh)`).
-
+  what you haven't correctly diagnosed. And keep the trackers honest: a _caveat_ is not a _bug_,
+  and an _enhancement_ logged as a bug should say so (`(Enh)`).
 
 ### 13. Project Memory & AI Assistant Instructions (AGENTS.md)
+
 - **Standardize on a single `AGENTS.md` at the project root** as the source of truth for anyone — human or AI assistant — picking up the project. `AGENTS.md` is the emerging cross-tool standard and is auto-detected by many AI coding tools, so you don't have to tell each assistant where to look every session.
   - **Use `AGENTS.md` instead of** older names like `Instructions.md`, `Instructions-Claude.md`, or `Instructions-CodeX.md`. Maintaining more than one project-memory file causes drift — one goes stale and nobody knows which is authoritative.
-  - If a specific tool insists on its own file, keep that file a *thin* one-liner pointing at `AGENTS.md` as the real source (e.g., "See AGENTS.md").
+  - If a specific tool insists on its own file, keep that file a _thin_ one-liner pointing at `AGENTS.md` as the real source (e.g., "See AGENTS.md").
 - **Include in AGENTS.md:**
   - **Project overview** — one paragraph: what it does and how to run it.
   - **Setup & run commands** — install, run, test, lint (copy-paste ready).
@@ -414,18 +554,22 @@ Any workaround, or "None".
 - **Teach me:** Explain how a living project-memory file fights "context rot" — the gradual loss of shared understanding across sessions and collaborators.
 
 ### 14. Session Handoff & Onboarding
-Smooth handoffs — between work sessions, or between collaborators — are what keep a shared project healthy. Cover both *ending* a session cleanly and *starting* one safely.
+
+Smooth handoffs — between work sessions, or between collaborators — are what keep a shared project healthy. Cover both _ending_ a session cleanly and _starting_ one safely.
 
 **Start-of-session checklist (do this before writing code):**
+
 1. Read `AGENTS.md` → **Current State** and the latest handoff note.
 2. `git status` and `git pull` — confirm you're on the right branch and up to date.
 3. Verify the environment (activate venv / reinstall deps if the lockfile changed).
-4. Run the tests to confirm a green baseline *before* you change anything.
+4. Run the tests to confirm a green baseline _before_ you change anything.
 5. Confirm the version and what the previous session left unfinished.
 
 **End-of-session handoff note** — append a short entry (in `AGENTS.md` or a dedicated `HANDOFF.md`). Keep it concise:
+
 ```markdown
 ## Handoff — YYYY-MM-DD (author/session)
+
 **Version / branch:** v0.3.0 on feat/reporting
 **Done this session:** 1–3 bullets of what changed
 **Current state:** builds? tests passing? anything half-finished?
@@ -433,16 +577,16 @@ Smooth handoffs — between work sessions, or between collaborators — are what
 **Gotchas / watch-outs:** anything that will bite the next person
 **To run/test:** the exact commands to get going
 ```
+
 - **Keep it short and honest** — a handoff note nobody reads is worse than none. Favor "what the next person needs" over exhaustive detail.
 - **Teach me:** Explain why an explicit handoff ritual prevents lost context, duplicated work, and "wait, why is this half-broken?" moments.
-
-
 
 ---
 
 ## 🎓 MENTORSHIP APPROACH
 
 As you help me code:
+
 - **Explain your reasoning** at a novice level—assume I'm learning
 - **Discuss tradeoffs** when making architectural decisions
 - **Teach me when to use specific patterns** (classes vs functions, inheritance vs composition, etc.)
@@ -456,11 +600,12 @@ As you help me code:
 ## 📦 INITIAL PROJECT SETUP CHECKLIST
 
 Before writing any code, help me:
+
 1. ✅ Initialize git repository
 2. ✅ Create .gitignore file
 3. ✅ Set up initial project structure (folders, main files)
 4. ✅ Create CHANGELOG.md with initial structure (starting with `[0.1.0]`)
-5. ✅ Create BUGS.md issue tracker (Bugs / Known Caveats / Feature Requests) with the master ToC, shared Severity/Status references, and the three empty section templates
+5. ✅ Create BUGS.md issue tracker (Bugs / Known Caveats; enhancements & feature requests filed as `BUG-### (Enh)`) with the master ToC, shared Severity/Status references, and the section templates
 6. ✅ Create README.md with:
    - Project description
    - Installation/setup instructions
@@ -486,4 +631,4 @@ Before writing any code, help me:
 
 Now that we have our foundation established, let's start building! Begin by asking me clarity questions about my specific projct. If this is a continuoation of an existing project, you should have access to my AGENTS.md and CHANGELOG.md files to assess the current working version
 
-If this is a new project we will start at version `0.1.0` as initial development. 
+If this is a new project we will start at version `0.1.0` as initial development.

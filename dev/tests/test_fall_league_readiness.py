@@ -1,6 +1,7 @@
 """Focused checks for safe play-by-play extraction and league team discovery."""
 
 import json
+import logging
 import tempfile
 import unittest
 from pathlib import Path
@@ -139,6 +140,44 @@ class LeagueTeamDiscoveryTests(unittest.TestCase):
             self.assertEqual(
                 _discover_league_teams(Path(temp_dir) / "missing.json"), []
             )
+
+
+class TeamFolderReconcileTests(unittest.TestCase):
+    def test_name_key_ignores_punctuation_spacing_case(self):
+        self.assertEqual(
+            season_config.team_name_key("OC Crushers - Blue 11U"),
+            season_config.team_name_key("oc crushers blue 11u"),
+        )
+
+    def test_renames_folder_and_yaml_to_gc_header_spelling(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            games = base / "OC Crushers Blue 11U" / "Games"
+            games.mkdir(parents=True)
+            (games / "Sep13-x.txt").write_text(
+                "GAME: Sep13 | url\n\n===Top 1st - OC Crushers - Blue 11U===\n"
+                "===Bottom 1st - Dirtbags Gold 11U===\n",
+                encoding="utf-8",
+            )
+            cfg = {"divisions": {"Wild": {"teams": [{"name": "OC Crushers Blue 11U"}]}}}
+            saved = {}
+            with patch.object(season_config, "_load_cfg", return_value=(Path("x.yaml"), cfg)), \
+                 patch.object(season_config, "_save_cfg", side_effect=lambda p, c: saved.update(c)):
+                renamed = season_config.reconcile_team_folders(
+                    "Wild", base, logging.getLogger("test"), season_id="test")
+
+            self.assertEqual(renamed, {"OC Crushers Blue 11U": "OC Crushers - Blue 11U"})
+            self.assertTrue((base / "OC Crushers - Blue 11U" / "Games").is_dir())
+            self.assertEqual(saved["divisions"]["Wild"]["teams"][0]["name"], "OC Crushers - Blue 11U")
+
+    def test_leaves_exact_match_alone(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            games = base / "Dirtbags Gold 11U" / "Games"
+            games.mkdir(parents=True)
+            (games / "g.txt").write_text("===Top 1st - Dirtbags Gold 11U===\n", encoding="utf-8")
+            self.assertEqual(
+                season_config.reconcile_team_folders("Wild", base, logging.getLogger("test")), {})
 
 
 if __name__ == "__main__":

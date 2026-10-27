@@ -87,8 +87,8 @@ DEBUG = os.environ.get("SCOUT_WEB_DEBUG", "0") == "1"
 # Version string stamped on every response as X-Scout-Version.
 # The web UI reads this header during boot to detect stale server processes
 # (a server started before a code update that added new API endpoints).
-# Bump this whenever a new API endpoint is added. See BUG-19.
-SERVER_VERSION = "5.0.0"
+# Bump this whenever a new API endpoint is added. See BUG-019.
+SERVER_VERSION = "5.1.0"
 
 # Fallback division order for report scanning of season dirs that have no
 # config YAML (e.g. one-off AllStars/Coach_Pitch folders). Live divisions are
@@ -117,7 +117,7 @@ def _add_version_header(response):
     (e.g. after a git pull) the running process is stale — it will lack any
     new API endpoints added in the update. The X-Scout-Version header lets
     the browser-side code detect this mismatch and show a restart prompt
-    instead of silently leaving season dropdowns empty. See BUG-19.
+    instead of silently leaving season dropdowns empty. See BUG-019.
     """
     response.headers["X-Scout-Version"] = SERVER_VERSION
     return response
@@ -268,7 +268,7 @@ def api_reports():
                 # Path relative to the seasons/ ROOT (includes the season id),
                 # because serve_report() resolves /report/<path> against
                 # seasons/ — not a single season dir. Using season_dir here
-                # dropped the season segment and caused 404s (BUG-20).
+                # dropped the season segment and caused 404s (BUG-020).
                 rel = str(pdf.relative_to(seasons_root))
                 entry = teams.setdefault(stem, {"name": _pretty_stem(stem),
                                                 "hitting": None,

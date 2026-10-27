@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.1.0] - 2026-10-27
+
+### Added
+
+- **[BUG-023 (Enh)](BUGS.md#bug-023-enh--status-rv) — Auto-fix travel-team folder names**
+  (Hitting/Pitching) — before building travel-division reports,
+  `season_config.reconcile_team_folders()` compares each team folder to the GC inning-header names in
+  its game files. If they differ only by punctuation, spacing, or case (e.g. folder
+  `OC Crushers Blue 11U` vs header `OC Crushers - Blue 11U`), it logs the mismatch (WARNING),
+  renames the folder, updates the team name in the season YAML, and logs `✔ Renamed folder` (INFO).
+  `--team` filters now also ignore punctuation.
+
+### Changed
+
+- **`BUGS.md` restructured** (Docs) to `docs/Principles and Practices.md` §12: master Contents,
+  severity/status guides, Bugs / Enhancements / Server / Docs / Known Caveats sections, full entry
+  template with release/commit backfill. IDs zero-padded (`BUG-7` → `BUG-007`); old `BUG-15b` →
+  `KC-001`. Open backlog moved from AGENTS.md To Do into `BUG-024`–`BUG-028 (Enh)`; new open defect
+  [BUG-029](BUGS.md#bug-029--status-o).
+
+---
+
 ## [5.0.0] - 2026-10-26
 
 ### Changed — GameChanger scraping now drives real Google Chrome (BREAKING)
@@ -22,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scrapers use a visible Google Chrome window with a dedicated Scout profile** (Scraping) —
   GameChanger now blocks headless/automated browsers. New `scout/scraping/gc_browser.py` launches
   installed Chrome (profile `data/real/sessions/gc_chrome_profile`, off-screen window, local CDP
-  port 9223) and Playwright drives it over CDP. See BUG-22.
+  port 9223) and Playwright drives it over CDP. See [BUG-022](BUGS.md#bug-022--status-rv).
   - **Requires** Google Chrome in `/Applications`. Playwright's bundled Chromium is no longer used.
   - `gc_session.json` is no longer read; the login lives in the Scout profile.
   - A Mac that is awake and logged in is required while Steps 1–2 run.
@@ -51,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Logged-out pages saved as game data** (Scraping) — see BUG-21.
+- **Logged-out pages saved as game data** (Scraping) — see [BUG-021](BUGS.md#bug-021--status-rv).
 - **Tie games skipped** (Scraping) — team-schedule results like `T 4-4` are now treated as
   completed games (was W/L only).
 - **Team name mismatches from GC slugs** (Parser) — `GC_NAME_FIXES` normalizes GC display names
@@ -149,7 +171,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **"Not Found" when opening any report PDF from the web UI (BUG-20)** — `api_reports()` built
+- **"Not Found" when opening any report PDF from the web UI ([BUG-020](BUGS.md#bug-020--status-rv))** — `api_reports()` built
   each report link relative to the season folder (`seasons/<id>/`), dropping the season-id
   segment, while `serve_report()` resolves `/report/<path>` relative to the `seasons/` root and
   requires it. The mismatch made every report link 404. Fixed by making `api_reports()` build
@@ -163,7 +185,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **Season dropdowns empty + header stuck on "loading…" (BUG-19)** — stale server process
+- **Season dropdowns empty + header stuck on "loading…" ([BUG-019](BUGS.md#bug-019--status-rv))** — stale server process
   (started before v3.2.0 code) did not have the `/api/seasons` endpoint; `loadSeasons()` was
   silently swallowing the 404 response, leaving all season selects empty with no feedback.
 
@@ -193,7 +215,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Added
 
-- **Per-tab season selectors in web UI** (resolves BUG-18):
+- **Per-tab season selectors in web UI** (resolves [BUG-018](BUGS.md#bug-018--status-rv)):
   - **Build tab**: `#buildSeason` dropdown (no "All") before Division/Team. Changing season reloads Division/Team lists for that season. Passes `?season=` to `/api/run`.
   - **View Reports tab**: `#reportsSeason` dropdown with **"All seasons"** as first option, then individual seasons. Defaults to active season. Changing it refreshes the reports list instantly.
   - **Add Team tab**: `#addSeason` dropdown (no "All") above Division. Team is added to the selected season's YAML and Games/ folder.
@@ -213,7 +235,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- BUG-18: Season selector was missing from Build, View Reports, and Add Team tab panels
+- [BUG-018](BUGS.md#bug-018--status-rv): Season selector was missing from Build, View Reports, and Add Team tab panels
 
 ---
 
@@ -229,7 +251,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
   - To Do table: season management marked ✅ Done; dynamic archetypes bumped to v3.3.0; added item #5
   - Scripts Overview: all line counts updated to v3.2.0 actual values
   - Directory tree: added `config/season_template.yaml`; updated `run_menu.py` and `season_config.py` descriptions
-  - Function maps updated: `season_config.py` (4 new functions), `run_menu.py` (3 new functions + stale line numbers), `server.py` (3 new endpoints + BUG-17 note)
+  - Function maps updated: `season_config.py` (4 new functions), `run_menu.py` (3 new functions + stale line numbers), `server.py` (3 new endpoints + BUG-017 note)
   - Teams Reference: Storm count 17 → 18; added Carolina Locos Black 9U
   - Added **Starting a New Season** section describing the create/switch wizard workflow
 - **`README.md`** — Version badge bumped to 3.2.0
@@ -273,7 +295,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **Newly added Wild/Storm team missing from web UI dropdown** (Web UI) — `api_divisions()` was serving a startup-time snapshot of division data; now reads YAML fresh on every request so teams added via "Add Team" appear immediately without a server restart. (BUG-17)
+- **Newly added Wild/Storm team missing from web UI dropdown** (Web UI) — `api_divisions()` was serving a startup-time snapshot of division data; now reads YAML fresh on every request so teams added via "Add Team" appear immediately without a server restart. ([BUG-017](BUGS.md#bug-017--status-rv))
 
 ### Changed
 
@@ -392,7 +414,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **Accented characters in player names break regex parsing** (Hitting + Pitching) — regexes used ASCII-only `[a-z]` for last-name capture groups, which silently dropped players with accented names (e.g., `B González`). Fixed by extending to `[a-z\u00C0-\u024F]`. Affected: `gen_hitting.py` (`DESC_RE`), `gen_pitching.py` (`PITCHER_NAMED_RE`, `LINEUP_CHANGE_RE`). See BUG-16.
+- **Accented characters in player names break regex parsing** (Hitting + Pitching) — regexes used ASCII-only `[a-z]` for last-name capture groups, which silently dropped players with accented names (e.g., `B González`). Fixed by extending to `[a-z\u00C0-\u024F]`. Affected: `gen_hitting.py` (`DESC_RE`), `gen_pitching.py` (`PITCHER_NAMED_RE`, `LINEUP_CHANGE_RE`). See [BUG-016](BUGS.md#bug-016--status-rv).
 
 ### Changed
 
@@ -429,8 +451,8 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **Schedule scraper now loads full season before extracting games** (Scraping) — added scroll-to-bottom loop before running `SCHEDULE_JS`. GC lazy-loads schedule cards; without scrolling, the scraper only saw games through late April. Recovered 9 Majors and 14 Minors games (May 4–9). See BUG-13.
-- **False "Skipped" entries in PDF subtitle eliminated** (Hitting) — `game_files` is built once at startup; as teams are processed their files are renamed to `-Reviewed.txt`. When the second team in a game was processed later, the original `.txt` path was stale. Fix: fall back to `-Reviewed.txt` path transparently. Recovered 9 Majors and 14 Minors games from false skips. See BUG-14.
+- **Schedule scraper now loads full season before extracting games** (Scraping) — added scroll-to-bottom loop before running `SCHEDULE_JS`. GC lazy-loads schedule cards; without scrolling, the scraper only saw games through late April. Recovered 9 Majors and 14 Minors games (May 4–9). See [BUG-013](BUGS.md#bug-013--status-rv).
+- **False "Skipped" entries in PDF subtitle eliminated** (Hitting) — `game_files` is built once at startup; as teams are processed their files are renamed to `-Reviewed.txt`. When the second team in a game was processed later, the original `.txt` path was stale. Fix: fall back to `-Reviewed.txt` path transparently. Recovered 9 Majors and 14 Minors games from false skips. See [BUG-014](BUGS.md#bug-014--status-rv).
 
 ---
 
@@ -443,7 +465,7 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 ### Fixed
 
 - **"No PAs found" warning now surfaces actual team names from game files** (Hitting) — when 0 PAs are parsed for a Wild/Storm opponent, the warning message now scans all game file inning headers and lists every unique team name seen. Makes folder-name/inning-header mismatches immediately self-diagnosing.
-- **Dilworth 9U - Navy team name corrected** (Scraping) — team name was `"Dilworth 9U Navy"` but GC inning headers write `"Dilworth 9U - Navy"`. Folder renamed to match; both scrapers updated. See BUG-15.
+- **Dilworth 9U - Navy team name corrected** (Scraping) — team name was `"Dilworth 9U Navy"` but GC inning headers write `"Dilworth 9U - Navy"`. Folder renamed to match; both scrapers updated. See [BUG-015](BUGS.md#bug-015--status-rv).
 
 ---
 
@@ -462,9 +484,9 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **Majors LG RANK showed `x/10` instead of `x/11`** (Hitting) — A's-Blanco apostrophe in `team_key` didn't match filename. Added `replace("'", "")` fallback. See BUG-13 (old numbering).
-- **INNING GAP warnings demoted to `logger.debug()`** (Hitting) — suppressed from terminal output. See BUG-12.
-- **BOX-VERIFY warnings demoted to `logger.debug()`** (Hitting) — suppressed from terminal output. See BUG-12.
+- **Majors LG RANK showed `x/10` instead of `x/11`** (Hitting) — A's-Blanco apostrophe in `team_key` didn't match filename. Added `replace("'", "")` fallback. (Pre-tracker issue — not in BUGS.md.)
+- **INNING GAP warnings demoted to `logger.debug()`** (Hitting) — suppressed from terminal output. See [BUG-012](BUGS.md#bug-012--status-rv).
+- **BOX-VERIFY warnings demoted to `logger.debug()`** (Hitting) — suppressed from terminal output. See [BUG-012](BUGS.md#bug-012--status-rv).
 
 ---
 
@@ -507,22 +529,22 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 - **`run_menu.py`** (Orchestrator) — interactive pipeline launcher with numbered menu, CLI passthrough, team list picker, add-new-team wizard, session file check
 - **Pipeline version string** — `__version__ = "2.0.0"` displayed in menu header
-- **`--team` filter in `scrape_gc_boxscores.py`** (Scraping) — Step 2 now respects single-team selection for Wild/Storm. See BUG-10.
+- **`--team` filter in `scrape_gc_boxscores.py`** (Scraping) — Step 2 now respects single-team selection for Wild/Storm. See [BUG-010](BUGS.md#bug-010--status-rv).
 - **Two new Wild opponents** — SBA Alabama National 12U, TN Nationals Heichelbech 12U
 
 ### Changed
 
 - **Renamed `run_weekly.sh` → `run_scout.sh`**
 - **`gen_hitting.py` `--team` filter** (Hitting) — `run_wild()` now uses partial case-insensitive match
-- **`load_wild_roster()`** (Hitting) — indexes entries under both key formats for jersey number resolution. See BUG-11.
+- **`load_wild_roster()`** (Hitting) — indexes entries under both key formats for jersey number resolution. See [BUG-011](BUGS.md#bug-011--status-rv).
 
 ### Fixed
 
-- **Wild/Storm PDF cards missing jersey numbers** (Hitting) — See BUG-11.
-- **Step 2 ignored `--team` for Wild/Storm** (Scraping) — See BUG-10.
-- **`SCHEDULE_JS` `final` detection broken for Wild/Storm** (Scraping) — See BUG-7.
-- **SCHEDULE_JS team-page filenames had wrong date and team name** (Scraping) — See BUG-8.
-- **`NameError: date not defined`** (Scraping) — See BUG-9.
+- **Wild/Storm PDF cards missing jersey numbers** (Hitting) — See [BUG-011](BUGS.md#bug-011--status-rv).
+- **Step 2 ignored `--team` for Wild/Storm** (Scraping) — See [BUG-010](BUGS.md#bug-010--status-rv).
+- **`SCHEDULE_JS` `final` detection broken for Wild/Storm** (Scraping) — See [BUG-007](BUGS.md#bug-007--status-rv).
+- **SCHEDULE_JS team-page filenames had wrong date and team name** (Scraping) — See [BUG-008](BUGS.md#bug-008--status-rv).
+- **`NameError: date not defined`** (Scraping) — See [BUG-009](BUGS.md#bug-009--status-rv).
 
 ---
 
@@ -534,8 +556,8 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 - All 4 divisions generating PDFs: Majors (11 teams), Minors (14 teams), Wild (5 opponents), Storm (5 opponents)
 - `run_weekly.sh` — CLI-only launcher (no interactive menu)
-- Wild/Storm scraping fully operational (Bugs 7/8/9 fixed in this cycle)
-- SS spray chart zone fix applied (BUG-6)
+- Wild/Storm scraping fully operational (BUG-007/008/009 fixed in this cycle)
+- SS spray chart zone fix applied ([BUG-006](BUGS.md#bug-006--status-rv))
 - Full pipeline verified clean on Apr 23 2026
 
 ---
@@ -553,9 +575,9 @@ Directory/layout + run-command changes only; no behavioral changes to the pipeli
 
 ### Fixed
 
-- **SCHEDULE_JS `final` detection broken for Wild/Storm team pages** (Scraping) — See BUG-7.
-- **SCHEDULE_JS team-page filenames had wrong date and team name** (Scraping) — See BUG-8.
-- **`NameError: date not defined`** (Scraping) — See BUG-9.
+- **SCHEDULE_JS `final` detection broken for Wild/Storm team pages** (Scraping) — See [BUG-007](BUGS.md#bug-007--status-rv).
+- **SCHEDULE_JS team-page filenames had wrong date and team name** (Scraping) — See [BUG-008](BUGS.md#bug-008--status-rv).
+- **`NameError: date not defined`** (Scraping) — See [BUG-009](BUGS.md#bug-009--status-rv).
 - **INNING_RE regex** (Scraping) — now tolerates missing closing `===`
 - **`$awyer M` auto-fix** (Parser) — `GC_NAME_FIXES` dict auto-corrects
 - **SCHEDULE_JS date + team parsing** (Scraping) — GC DOM change handling

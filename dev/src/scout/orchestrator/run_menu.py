@@ -93,7 +93,7 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "5.0.0"
+__version__ = "5.1.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""

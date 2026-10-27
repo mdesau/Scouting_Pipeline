@@ -1,20 +1,240 @@
-# WCWAA Scouting Report Pipeline — Bug Tracker
+# WCWAA Scout Pipeline — Issue Tracker (`BUGS.md`)
 
-> **Format:** Each entry includes Bug ID, Date, Component, Problem, Fix, and Status.
-> **Components:** Hitting (`gen_hitting.py`), Pitching (`gen_pitching.py`), Scraping (`scrape_gc_*.py`), Parser (`parse_gc_text.py`), Orchestrator (`run_menu.py`), Web UI (`server.py`)
->
-> Entries are listed in reverse chronological order (newest first). Bug IDs are sequential and never reused.
+The project's single issue tracker: the developer record of **why** and **how** each issue was
+found and fixed. [`CHANGELOG.md`](CHANGELOG.md) is the stakeholder-facing **what** and **when**;
+every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its anchor here.
+
+- **`BUG-###`** — one ID series for defects (untagged), enhancements `(Enh)`, server/infra-only
+  changes `(Srv)`, and documentation-only changes `(Docs)`. IDs are sequential and never reused.
+- **`KC-###`** — Known Caveats: architectural/environmental limitations, not code bugs.
+- Entry rules and templates: `docs/Principles and Practices.md` §12.
+- **Renumbered 2026-10-27:** IDs were zero-padded (`BUG-7` → `BUG-007`) and the old `BUG-15b`
+  (data issue, not a code bug) became [KC-001](#kc-001--status-historical).
 
 ---
 
-## BUG-22 · [STATUS: RV]
+## Contents
+
+### Bugs
+
+**Open**
+
+- (O) [BUG-029 — Pitching cards undercount 0-BB innings across games](#bug-029--status-o)
+
+**Resolved or Closed**
+
+- (RV) [BUG-022 — GameChanger blocks the scraper's headless browser](#bug-022--status-rv)
+- (RV) [BUG-021 — Logged-out page text saved as game data](#bug-021--status-rv)
+- (RV) [BUG-020 — Report PDFs 404 in the web UI](#bug-020--status-rv)
+- (RV) [BUG-019 — Season dropdowns empty (stale server process)](#bug-019--status-rv)
+- (RV) [BUG-018 — Season selector missing from web UI tabs](#bug-018--status-rv)
+- (RV) [BUG-017 — Newly added team missing from web UI dropdown](#bug-017--status-rv)
+- (RV) [BUG-016 — Accented player names dropped (González)](#bug-016--status-rv)
+- (RV) [BUG-015 — Dilworth 9U - Navy produced 0 PAs](#bug-015--status-rv)
+- (RV) [BUG-014 — False "Skipped" entries in PDF subtitle](#bug-014--status-rv)
+- (RV) [BUG-013 — Schedule scraper misses lazy-loaded games](#bug-013--status-rv)
+- (RV) [BUG-012 — Verification warnings flood the terminal](#bug-012--status-rv)
+- (RV) [BUG-011 — Travel PDF cards show no jersey numbers](#bug-011--status-rv)
+- (RV) [BUG-010 — Step 2 ignored the --team filter](#bug-010--status-rv)
+- (RV) [BUG-009 — Box-score scraper crashed: `date` not defined](#bug-009--status-rv)
+- (RV) [BUG-008 — Team-page game filenames had wrong date/team](#bug-008--status-rv)
+- (RV) [BUG-007 — Team pages found 0 completed games](#bug-007--status-rv)
+- (RV) [BUG-006 — Shortstop spray zone always 0%](#bug-006--status-rv)
+- (RV) [BUG-005 — Folder case mismatch → 0 PAs](#bug-005--status-rv)
+- (RV) [BUG-004 — Home run not counted in FB+LD%](#bug-004--status-rv)
+- (RV) [BUG-003 — Sacrifice fly counted as an at-bat](#bug-003--status-rv)
+- (RV) [BUG-002 — GC noise text dropped half-innings](#bug-002--status-rv)
+- (RV) [BUG-001 — Infield spray dots overlap the mound](#bug-001--status-rv)
+
+### Enhancements
+
+**Open**
+
+- (O) [BUG-028 (Enh) — `docs_cleanup.py` tracker/CHANGELOG enforcer](#bug-028-enh--status-o)
+- (O) [BUG-027 (Enh) — Box-score cross-check (Layer 4) for travel teams](#bug-027-enh--status-o)
+- (O) [BUG-026 (Enh) — Rebuild the whole travel division on single-team runs](#bug-026-enh--status-o)
+- (O) [BUG-025 (Enh) — Drop the GC `TEAM` row from travel rosters](#bug-025-enh--status-o)
+- (O) [BUG-024 (Enh) — Dynamic, percentile-driven archetypes](#bug-024-enh--status-o)
+
+**Resolved or Closed**
+
+- (RV) [BUG-023 (Enh) — Folder rename needed upon mismatch during game scrape](#bug-023-enh--status-rv)
+
+### Server
+
+**Open** — none · **Resolved or Closed** — none
+
+### Docs
+
+**Open** — none · **Resolved or Closed** — none
+
+### Known Caveats
+
+**Active**
+
+- (Active) [KC-004 — Kids sharing initials can't be told apart in play-by-play](#kc-004--status-active)
+- (Active) [KC-003 — GC box scores include a non-player `TEAM` row](#kc-003--status-active)
+- (Active) [KC-002 — GameChanger only serves a visible, real Chrome window](#kc-002--status-active)
+
+**Historical**
+
+- (Historical) [KC-005 — Minors box scores redirected to `/info` (no jersey numbers)](#kc-005--status-historical)
+- (Historical) [KC-001 — GC switched player-name format mid-season (split cards)](#kc-001--status-historical)
+
+---
+
+## Severity guide
+
+| Severity     | Meaning                                         |
+| ------------ | ----------------------------------------------- |
+| **Critical** | Crash, data loss, or total failure              |
+| **High**     | Major break, no workaround                      |
+| **Medium**   | Degraded behavior, workaround exists            |
+| **Low**      | Cosmetic, minor, or rare                        |
+| **Enh**      | Enhancement, optimization, or feature request   |
+
+## Status definitions
+
+| Status | Meaning                                                                       |
+| ------ | ----------------------------------------------------------------------------- |
+| `O`    | Open — confirmed, not yet being worked                                        |
+| `IP`   | In Progress — actively being investigated or fixed                            |
+| `R`    | Resolved — fixed, not yet verified/shipped in a release                       |
+| `RV`   | Resolved & Verified — verified and shipped (see `Integrated Release`)         |
+| `C`    | Closed — won't fix, or not actually a code bug (reason documented)            |
+| KC     | `Active` (still a real constraint) · `Historical` (no longer applies)         |
+
+---
+
+## Bugs
+
+### Open
+
+- (O) [BUG-029 — Pitching cards undercount 0-BB innings across games](#bug-029--status-o)
+
+### Resolved or Closed
+
+- (RV) [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
+  [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
+  [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
+  [BUG-016](#bug-016--status-rv) · [BUG-015](#bug-015--status-rv) ·
+  [BUG-014](#bug-014--status-rv) · [BUG-013](#bug-013--status-rv) ·
+  [BUG-012](#bug-012--status-rv) · [BUG-011](#bug-011--status-rv) ·
+  [BUG-010](#bug-010--status-rv) · [BUG-009](#bug-009--status-rv) ·
+  [BUG-008](#bug-008--status-rv) · [BUG-007](#bug-007--status-rv) ·
+  [BUG-006](#bug-006--status-rv) · [BUG-005](#bug-005--status-rv) ·
+  [BUG-004](#bug-004--status-rv) · [BUG-003](#bug-003--status-rv) ·
+  [BUG-002](#bug-002--status-rv) · [BUG-001](#bug-001--status-rv)
+
+<!-- template
+## BUG-000 · [STATUS: O | IP | R | RV | C]
+
+**Title:**
+
+**Severity:** Critical | High | Medium | Low
+
+**Reported Date:** YYYY-MM-DD
+
+**Release Found:** v0.x.x
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:**
+
+**Resolved By:**
+
+**Integrated Release:** v0.x.x (commit <sha>, tag pushed YYYY-MM-DD) | N/A — Open
+
+### Observable Problem
+### Expected Behavior
+### Steps to Reproduce
+### Root Cause Analysis (RCA)
+### Fix Explanation (Exec Level — No Code)
+### Fix Details (Technical)
+### Verification
+### Workaround
+### Eng Note
+-->
+
+### Detailed Entries
+
+## BUG-029 · [STATUS: O]
+
+**Title:** Pitching cards undercount 0-BB innings across games
+
+**Severity:** Medium
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** v5.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+The "0BB" stat on pitching cards (innings pitched with no walks) is too low for any pitcher who
+pitched in more than one game.
+
+### Expected Behavior
+
+Every inning a pitcher pitched in, in every game, is counted once; the stat is the number of those
+innings with zero walks.
+
+### Steps to Reproduce
+
+1. Pick a pitcher who pitched the 1st inning in several games, with no walks in each.
+2. Build that team's pitching PDF.
+3. Expected: 0BB counts each of those innings — Actual: they count as one.
+
+### Root Cause Analysis (RCA)
+
+`gen_pitching.compute_pitcher_stats()` receives one pitcher's PAs from **all** games combined and
+groups them by `p["inning"]` only. PA dicts carry no game ID, so inning 1 of game A and inning 1 of
+game B land in the same bucket, and a walk in either game zeroes out both.
+
+### Fix Explanation (Exec Level — No Code)
+
+Not fixed yet. The count needs to treat "inning 1 of each game" as separate innings.
+
+### Fix Details (Technical)
+
+Proposed: tag each PA with its game in `parse_game_for_pitching_team()` callers and group by
+`(game, inning)` in `compute_pitcher_stats()`. Add a unit test with the same inning across games.
+
+### Workaround
+
+The Fall Minors usage workbook (`dev/tmp/minors_usage_report.py`) counts 0-BB innings per game
+correctly.
+
+### Eng Note
+
+Found while building the Fall 2026 Minors pitching-usage workbook.
+
+---
+
+## BUG-022 · [STATUS: RV]
 
 **Title:** GameChanger blocks the scraper's hidden ("headless") browser — every page comes back empty
 
 **Severity:** Critical
-**Date Reported:** 2026-10-26
+
+**Reported Date:** 2026-10-26
+
 **Release Found:** v4.0.0
-**Release Fixed:** v5.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.0.0 (commit ece7ff1, tag pushed 2026-10-27)
 
 ### Observable Problem
 
@@ -22,37 +242,20 @@ Scraping finds **0 games** for every team (e.g. "Weddington Mavericks 10U: 0 FIN
 even though the team has played games and the GameChanger login is valid. Signing in through the
 scraper's browser window shows GameChanger's "Oops!" page instead of your teams.
 
+### Expected Behavior
+
+The scraper lists and downloads every completed game for each team.
+
 ### Steps to Reproduce
 
 1. `python -m scout.scraping.scrape_gc_playbyplay --division Mavs --check` (v4.0.0 code)
 2. Expected: the team's completed games are listed — Actual: `0 FINAL games found`
 
-### Fix Explanation _(Exec Level — No Code)_
+### Root Cause Analysis (RCA)
 
-The scraper used to run its own built-in browser **headless** — the browser engine loads pages
-but never opens a window, like a TV with the screen unplugged. GameChanger's security firewall
-now spots that kind of browser and refuses to hand it any data, so every page loads as an empty
-shell. A login doesn't help: the firewall decides before the login is even looked at.
-
-GameChanger does still serve a **normal Google Chrome window**. So the scraper now:
-
-1. Opens your installed Google Chrome as an ordinary window, using a separate **Scout profile**
-   (its own folder of logins/cookies — your everyday Chrome is never touched).
-2. Remote-controls that window (go to page, copy text) — the same steps as before, just driving
-   real Chrome instead of a hidden browser.
-3. Closes the window when scraping is done. Building PDFs needs no browser.
-
-You sign in to GameChanger in that Scout window once (`--login`); it stays signed in between runs.
-Before every pipeline run a quick **session check** confirms GameChanger is answering. If the
-login has expired, scraping is skipped (PDFs are still rebuilt from saved games), the log says
-exactly what to run, and nightly runs pop a macOS notification.
-
-What you'll see during a run: a second Chrome icon in the Dock while games/rosters are scraped
-(the window is placed off-screen). Don't close it mid-run. The Mac must be awake and logged in.
-
-### Fix Details _(Technical)_
-
-**Evidence (2026-10-26, same Scout profile + valid login in every case):**
+The AWS WAF in front of GameChanger rejects headless/automation browser fingerprints
+(`navigator.webdriver`, `--enable-automation`, headless UA/GPU traits) with HTTP 403, before the
+login is considered. Evidence (2026-10-26, same Scout profile + valid login in every case):
 
 | Browser                                                  | Window                     | `api.team-manager.gc.com/me/*` | Page          |
 | -------------------------------------------------------- | -------------------------- | ------------------------------ | ------------- |
@@ -61,511 +264,1603 @@ What you'll see during a run: a second Chrome icon in the Dock while games/roste
 | Real Chrome `--headless=new` + `connect_over_cdp`        | none                       | 403                            | empty         |
 | Real Chrome, normal window + `connect_over_cdp`          | yes                        | **200**                        | full schedule |
 
-Root cause: AWS WAF in front of GC rejects headless/automation fingerprints (`navigator.webdriver`,
-`--enable-automation`, headless UA/GPU traits). GC auth itself is a localStorage token
-(`eden-auth-tokens` on `https://web.gc.com`), not a cookie — which is also why the old
-`gc_session.json` storage-state looked "cookie-less".
+GC auth is a localStorage token (`eden-auth-tokens` on `https://web.gc.com`), not a cookie — why
+the old `gc_session.json` storage-state looked "cookie-less".
 
-**New module `scout/scraping/gc_browser.py`** (single place that touches Chrome):
+### Fix Explanation (Exec Level — No Code)
 
-- `gc_chrome(log, on_screen=False)` — context manager. `subprocess.Popen`s
-  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` with
-  `--user-data-dir=data/real/sessions/gc_chrome_profile`, `--remote-debugging-port=9223`
-  (bound to 127.0.0.1), `--window-position=-2400,0` (off-screen unless `on_screen`),
-  and `--disable-background-timer-throttling --disable-backgrounding-occluded-windows
---disable-renderer-backgrounding`. Polls `/json/version` until CDP is up (20 s), then
-  `pw.chromium.connect_over_cdp()` and yields the first page. On exit sends CDP
-  `Browser.close` (graceful — flushes the profile) and waits for the process.
-  Raises `ChromeLaunchError` if port 9223 is busy, Chrome is missing, or Chrome exits at once
-  (profile already open elsewhere).
-- `check_session(page, log)` — loads `/teams`, records `/me/*` API statuses, and
-  `classify_session()` returns `ok` (`/me/user` 200), `signed_out` (`/login` URL, "Sign in to
-  GameChanger", or any 401), or `blocked` (403, "couldn't load your account", or no API answer).
-- `run_with_session(log, work)` — open Chrome → check → `work(page)`; returns exit code
-  `EXIT_CODES = {ok: 0, signed_out: 2, blocked: 3}`.
-- `login(log)` — on-screen window, user signs in, ENTER, then `check_session`.
+The scraper used to run its own built-in browser **headless** — the browser loads pages but never
+opens a window, like a TV with the screen unplugged. GameChanger's security firewall now spots that
+kind of browser and refuses to hand it any data, so every page loads empty. A login doesn't help.
 
-**Callers:**
+GameChanger still serves a **normal Google Chrome window**, so the scraper now opens your installed
+Chrome with a separate **Scout profile** (its own logins — your everyday Chrome is never touched),
+remote-controls it to read pages, and closes it when scraping is done. You sign in once with
+`--login`; it stays signed in. Every run starts with a quick **session check**: if the login has
+expired, scraping is skipped (PDFs still rebuild from saved games), the log says what to run, and
+nightly runs pop a macOS notification. During scraping a second Chrome icon appears in the Dock
+(window placed off-screen); the Mac must be awake and logged in.
 
-- `scrape_gc_playbyplay.run()` / `scrape_gc_boxscores.run()` now use `run_with_session()` and
-  `sys.exit()` with its code. New flag `scrape_gc_playbyplay --check-session`.
-- `run_menu.run_pipeline()` adds a **Preflight** (`_gc_session_ok()` → subprocess
-  `--check-session`). Non-zero → Steps 1–2 skipped, Steps 3–4 still run; `--all` (nightly)
-  also calls `_notify()` (`osascript display notification`).
-- `run_menu.check_session()` warns when the Scout profile folder is missing (was: `gc_session.json`).
-- Nightly wrappers run under `caffeinate -i` so idle sleep can't kill Chrome mid-run.
-- `gc_session.json` / `SESSION_FILE` are no longer read by the scrapers (legacy
-  `diag_schedule.py` still uses them and is therefore non-functional).
-- Playwright's bundled Chromium (`playwright install chromium`) is no longer needed; the
-  `playwright` Python package still is (it is the CDP driver). Google Chrome must be installed.
+### Fix Details (Technical)
 
-Tests: `dev/tests/test_fall_league_readiness.py::SessionClassificationTests`.
+New module <span style="color:red">`dev/src/scout/scraping/gc_browser.py`</span> — the single place
+that touches Chrome:
 
-**Limits:** a run needs a logged-in, awake Mac (launchd catches up a missed 10am run on wake);
-behavior with the screen locked is untested. Only one Scout Chrome at a time (port 9223).
+- `gc_chrome(log, on_screen=False)` — `subprocess.Popen`s Google Chrome with
+  `--user-data-dir=data/real/sessions/gc_chrome_profile`, `--remote-debugging-port=9223` (127.0.0.1),
+  `--window-position=-2400,0` (off-screen unless `on_screen`) and background-throttling disabled;
+  polls `/json/version`, then `connect_over_cdp()`; on exit sends CDP `Browser.close` (graceful,
+  flushes the profile). Raises `ChromeLaunchError` if port 9223 is busy, Chrome is missing, or
+  Chrome exits at once.
+- `check_session()` / `classify_session()` — load `/teams`, classify `/me/*` API statuses as
+  `ok` / `signed_out` / `blocked`.
+- `run_with_session(log, work)` — open → check → `work(page)`; returns
+  `EXIT_CODES = {ok: 0, signed_out: 2, blocked: 3}`. `login(log)` — on-screen sign-in flow.
+
+Callers: <span style="color:red">`scrape_gc_playbyplay.py`</span> and
+<span style="color:red">`scrape_gc_boxscores.py`</span> use `run_with_session()` and exit with its
+code; new `--check-session` flag. <span style="color:red">`run_menu.py`</span> adds a Preflight
+(`_gc_session_ok()`), skipping Steps 1–2 on failure and calling `_notify()` on `--all`. Nightly
+wrappers run under `caffeinate -i`. Playwright's bundled Chromium is no longer used; Google Chrome
+must be installed.
+
+### Verification
+
+`dev/tests/test_fall_league_readiness.py::SessionClassificationTests` (6 tests). Live: session check
+`ok` with the off-screen window; Mavs scraped 12/12 games, 16-player roster, both PDFs built;
+Majors (38) and Minors (70) schedules found in dry runs.
 
 ### Workaround
 
 None on v4.0.0. On v5.0.0, if the session check reports "expired", run
-`python -m scout.scraping.scrape_gc_playbyplay --login` and sign in.
+`python -m scout.scraping.scrape_gc_playbyplay --login`.
+
+### Eng Note
+
+**Limits:** a logged-in, awake Mac is required while scraping (launchd catches up a missed 10am run
+on wake); screen-locked behavior is untested; only one Scout Chrome at a time (port 9223). See
+[KC-002](#kc-002--status-active). Legacy `diag_schedule.py` still uses headless Playwright and is
+non-functional.
 
 ---
 
-## BUG-21 · [STATUS: RV]
+## BUG-021 · [STATUS: RV]
 
 **Title:** Play-by-play scraper saves logged-out page text as game data when the GC session expires
 
 **Severity:** High
-**Date Reported:** 2026-10-26
+
+**Reported Date:** 2026-10-26
+
 **Release Found:** v3.4.0
-**Release Fixed:** v5.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.0.0 (commit ece7ff1, tag pushed 2026-10-27)
 
 ### Observable Problem
 
-If the saved GameChanger session has lost its login, GC serves a logged-out page. The scraper
-still saves whatever text is on that page as a game file, so reports are built from content that
-is not the real game — with no error shown.
+When the saved GameChanger login had expired, GC served a logged-out page and the scraper still
+saved that page's text as a game file. Reports were built from content that was not the real game,
+with no error shown.
 
-### Fix Explanation _(Exec Level — No Code)_
+### Expected Behavior
 
-The scraper now checks that a downloaded page really contains innings before saving it, and
-refuses any page that says "Sign in to GameChanger". Together with the session check added in
-BUG-22, an expired login is reported up front instead of silently producing bad data.
+A logged-out or empty page is rejected and reported; nothing is written.
 
-### Fix Details _(Technical)_
+### Root Cause Analysis (RCA)
 
-`scrape_gc_playbyplay.py`:
+`extract_plays_raw()` waited for the plays element, then returned `document.body.innerText`
+unconditionally — no check that plays actually loaded. `parse_gc_raw()` parsed whatever text was
+there; game IDs, dates, and team names came from the public schedule page, so filenames and headers
+looked correct and masked the bad content.
 
-- `extract_plays_raw()` → `_has_valid_plays_content()` rejects bodies containing
-  "Sign in to GameChanger" or lacking a `Top/Bottom N - Team` inning header; returns `None`
-  (counted as a failed game, nothing written).
+### Fix Explanation (Exec Level — No Code)
 
-Related: `season_config.build_hitting_divisions()` derives league teams from `rosters.json`
-keys (`_discover_league_teams()`) when the YAML team list is empty.
+The scraper now checks that a downloaded page really contains innings before saving it, and refuses
+any page that says "Sign in to GameChanger". With the session check from
+[BUG-022](#bug-022--status-rv), an expired login is reported up front.
 
-Tests: `dev/tests/test_fall_league_readiness.py::PlaysContentValidationTests`.
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_playbyplay.py`</span>: `extract_plays_raw()` →
+`_has_valid_plays_content()` rejects bodies containing "Sign in to GameChanger" or lacking a
+`Top/Bottom N - Team` inning header; returns `None` (counted as a failed game, nothing written).
+
+### Verification
+
+`dev/tests/test_fall_league_readiness.py::PlaysContentValidationTests` (3 tests). Live: 12 Mavs
+games scraped with 0 "Sign in" pages and 12 distinct play-by-play bodies.
 
 ### Workaround
 
 Run `python -m scout.scraping.scrape_gc_playbyplay --check-session` before scraping.
 
+### Eng Note
+
+Also shipped with this fix: `season_config.build_hitting_divisions()` derives league teams from
+`rosters.json` keys (`_discover_league_teams()`) when the YAML team list is empty.
+
 ---
 
-## BUG-20 · [STATUS: RV]
+## BUG-020 · [STATUS: RV]
 
 **Title:** "Not Found" when opening any report PDF from the web UI — season segment dropped from path
 
 **Severity:** High
-**Date Reported:** 2026-07-01
+
+**Reported Date:** 2026-07-01
+
 **Release Found:** v3.3.1
-**Release Fixed:** v3.3.2
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-07-01
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v3.3.2 (commit 6e8beb2, not tagged)
 
 ### Observable Problem
 
-In the web UI's View Reports tab, clicking any Hitting or Pitching report opens a new tab that
-shows a Flask "Not Found" (404) page instead of the PDF. The address bar shows a URL like
+In the web UI's View Reports tab, clicking any Hitting or Pitching report opens a Flask "Not Found"
+(404) page instead of the PDF, e.g.
 `http://127.0.0.1:5050/report/Majors/Reports/Scouting_Reports/Braves_Rue-Scout-Hitting_2026.pdf`.
+
+### Expected Behavior
+
+The PDF opens in a new tab.
 
 ### Steps to Reproduce
 
-1. Start the server (`Start Scout.command`)
-2. Open http://127.0.0.1:5050 → View Reports tab
-3. Click any team's "Hitting" or "Pitching" pill
-4. Expected: the PDF opens in a new tab — Actual: 404 "Not Found"
+1. Start the server (`Start Scout.command`) → http://127.0.0.1:5050 → View Reports
+2. Click any team's "Hitting" or "Pitching" pill
+3. Expected: the PDF opens — Actual: 404 "Not Found"
 
-### Fix Explanation _(Exec Level — No Code)_
+### Root Cause Analysis (RCA)
 
-Reports are stored per season under `seasons/<season-id>/<Division>/…`. The page builds the list
-of report links using a path that started at the _season folder_ — so the season id (e.g.
-`2026-spring`) was left out of the link. But the part of the server that actually delivers a PDF
-starts looking from the _seasons_ folder, one level higher, and so it needs the season id in the
-path. Because the two halves disagreed by exactly one folder level, every report link pointed at a
-location that did not exist, producing a 404. The link builder now includes the season id, so the
-delivered path lines up with where the files actually live.
+An asymmetry from the v3.3.0 per-season work: `api_reports()` built paths with
+`pdf.relative_to(season_dir)` (dropping the `<season-id>` segment), while `serve_report()` resolves
+`/report/<path>` from `seasons_root` and requires it.
 
-### Fix Details _(Technical)_
+### Fix Explanation (Exec Level — No Code)
 
-Root cause: an asymmetry introduced during the v3.3.0 per-season report work.
+The list of report links left the season name out of each link, but the part of the server that
+delivers PDFs needs it. The two halves disagreed by one folder level, so every link pointed at a
+location that didn't exist. Links now include the season name.
 
-- `api_reports()` built each report's relative path with `pdf.relative_to(season_dir)` where
-  `season_dir = seasons/<sid>/` — dropping the `<sid>` segment.
-- `serve_report()` resolves `/report/<path>` with `(seasons_root / relpath)` where
-  `seasons_root = seasons/` — so it _requires_ the `<sid>` segment.
+### Fix Details (Technical)
 
-Fix (`src/web/server.py`, `api_reports()`): changed the relative base to the seasons root —
-`rel = str(pdf.relative_to(seasons_root))` — so emitted paths now include the season id
-(e.g. `2026-spring/Majors/Reports/Scouting_Reports/…pdf`), matching what `serve_report()` expects.
-The path-traversal guard in `serve_report()` was already correct and needed no change. Verified
-end-to-end: `GET /report/2026-spring/Majors/…-Hitting_2026.pdf` → HTTP 200, PDF bytes returned.
+<span style="color:red">`src/web/server.py`</span> `api_reports()`: relative base changed to the
+seasons root (`pdf.relative_to(seasons_root)`), so paths include the season id. The path-traversal
+guard in `serve_report()` was already correct.
+
+### Verification
+
+`GET /report/2026-spring/Majors/…-Hitting_2026.pdf` → HTTP 200 with PDF bytes.
 
 ### Workaround
 
-None in the UI. (Files could be opened directly from the Google Drive folder as a manual bypass.)
+None in the UI; open files directly from the Google Drive folder.
 
 ---
 
-## BUG-19 · [STATUS: RV]
+## BUG-019 · [STATUS: RV]
 
 **Title:** Season dropdowns empty + header shows "loading…" — stale server process
 
 **Severity:** High
-**Date Reported:** 2026-07-01
+
+**Reported Date:** 2026-07-01
+
 **Release Found:** v3.3.0
-**Release Fixed:** v3.3.1
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-07-01
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v3.3.1 (commit f358235, not tagged)
 
 ### Observable Problem
 
-After opening the web UI, the Season dropdowns on the Build and Add Team tabs are completely
-empty, the View Reports tab shows only "All seasons" with no individual seasons listed, and the
-header subtitle stays "loading…" indefinitely instead of showing the active season name.
-The status indicator shows "Server online" (the server is reachable), yet no season data loads.
+The Season dropdowns on Build and Add Team are empty, View Reports shows only "All seasons", and
+the header stays on "loading…" — while the status indicator says "Server online".
+
+### Expected Behavior
+
+Season dropdowns are populated and the header shows the active season.
 
 ### Steps to Reproduce
 
-1. Start the server once with an older build of `server.py` (pre-v3.2.0)
-2. Update `server.py` to v3.2.0 or later (e.g. via `git pull`)
-3. Do NOT restart the server — leave the old process running
-4. Open or refresh http://127.0.0.1:5050
-5. Expected: Season dropdowns populated with "2026 Spring ✓" — Actual: all season selects empty, header shows "loading…"
+1. Start the server with a pre-v3.2.0 `server.py`
+2. Update the code (e.g. `git pull`) without restarting the server
+3. Open or refresh http://127.0.0.1:5050
+4. Expected: seasons listed — Actual: empty selects, header "loading…"
 
-### Fix Explanation _(Exec Level — No Code)_
+### Root Cause Analysis (RCA)
 
-Python loads `server.py` once when the server process starts. If the code on disk is later
-updated (through a git pull or any file save), the already-running process continues using the
-old code it loaded at startup. In this case the process was running a pre-v3.2.0 version of
-`server.py` that did not have the `/api/seasons` endpoint at all. When the browser asked for
-season data it received a 404 error, which the front-end was silently swallowing, leaving the
-dropdowns empty with no explanation.
+Python loads `server.py` once at startup; the running process predated the `/api/seasons`
+endpoint, returned 404, and the front end silently swallowed the error.
 
-**Immediate fix:** Kill the stale process (PID identified via `lsof -i :5050`) and relaunch
-via `Start Scout.command`.
+### Fix Explanation (Exec Level — No Code)
 
-**Long-term fix (shipped in v3.3.1):**
+The server was running old code from before seasons existed. Now every response is stamped with the
+server's version, and the page shows a clear "Server restart required" banner when the server is
+out of date instead of staying blank.
 
-1. `server.py` now stamps a `X-Scout-Version` header on every response so version drift is
-   detectable at any time.
-2. `app.js` now explicitly checks the HTTP status of the `/api/seasons` call. If the server
-   returns anything other than 200 (e.g. a 404 from a stale process), a purple
-   "⚠️ Server restart required" banner appears and the header subtitle changes to
-   "⚠ Restart server" instead of staying on "loading…".
+### Fix Details (Technical)
 
-### Fix Details _(Technical)_
-
-- **`server.py`**: Added `SERVER_VERSION = "3.3.0"` constant. Added `@app.after_request`
-  hook `_add_version_header()` that injects `X-Scout-Version: {SERVER_VERSION}` into every
-  Flask response.
-- **`app.js`**: `loadSeasons()` now checks `res.ok` before calling `res.json()`. If `res.ok`
-  is false (any non-2xx, including 404 from a stale server), updates `#seasonLabel` to
-  "⚠ Restart server" and un-hides `#staleBanner`. Added `const staleBanner = el("staleBanner")`
-  to the element cache.
-- **`index.html`**: Added `#staleBanner` div (initially `.hidden`) between `#offlineBanner`
-  and `<nav>`. Styled purple/violet to visually distinguish from the amber offline banner.
-- **`style.css`**: Added `.stale-banner` and `.stale-banner code` rules.
+- <span style="color:red">`server.py`</span>: `SERVER_VERSION` + `@app.after_request`
+  `_add_version_header()` → `X-Scout-Version` on every response.
+- <span style="color:red">`app.js`</span>: `loadSeasons()` checks `res.ok`; on failure sets
+  "⚠ Restart server" and shows `#staleBanner`.
+- <span style="color:red">`index.html`</span> / <span style="color:red">`style.css`</span>:
+  `#staleBanner` element and `.stale-banner` styles.
 
 ### Workaround
 
-Kill the Flask process manually (`kill <PID>`, PID found via `lsof -i :5050 -n -P`) and
-relaunch via `Start Scout.command`.
+Kill the Flask process (`lsof -i :5050 -n -P`, then `kill <PID>`) and relaunch.
 
 ---
 
-## BUG-18 · [STATUS: RV]
+## BUG-018 · [STATUS: RV]
 
 **Title:** Season selector missing from Build, View Reports, and Add Team tab panels
 
 **Severity:** Medium
-**Date Reported:** 2026-06-30
+
+**Reported Date:** 2026-06-30
+
 **Release Found:** v3.2.0
-**Release Fixed:** v3.3.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-06-30
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v3.3.0 (commit a32b064, tag pushed 2026-06-30)
 
 ### Observable Problem
 
-When the web UI is open and the server is running, there is no season dropdown inline with the
-Division/Team controls on the Build tab, no season filter on the View Reports tab, and no season
-selector on the Add Team tab. Users cannot target a specific season from within those panels.
+There is no season dropdown on the Build, View Reports, or Add Team tabs, so a season can't be
+targeted from within those panels.
+
+### Expected Behavior
+
+Each operational tab has its own season selector (View Reports adds "All seasons").
 
 ### Steps to Reproduce
 
-1. Start the server (`Start Scout.command`)
-2. Open http://127.0.0.1:5050
-3. Observe Build tab — no season dropdown next to Division/Team
-4. Observe View Reports tab — no season dropdown
-5. Observe Add Team tab — no season dropdown above Division
-6. Expected: season selector inline on each tab — Actual: no season selector on any operational tab
+1. Open http://127.0.0.1:5050
+2. Check Build, View Reports, and Add Team
+3. Expected: a season selector on each — Actual: none
 
-### Fix Explanation _(Exec Level — No Code)_
+### Root Cause Analysis (RCA)
 
-The v3.2.0 season management feature added a global season picker to the page header and a
-dedicated "Seasons" tab for creating and activating seasons. However, the per-tab inline
-season selectors (inline with Division/Team on Build; filter on View Reports; above Division
-on Add Team) were never added to those three panels. This is a design gap — the header picker
-controls which season is _active_ system-wide, but there is no way to target a specific
-season's data from within the operational tabs without switching the global active season.
+Design gap in v3.2.0: only a global header picker and a Seasons tab were built; the per-tab
+selectors were never added.
 
-### Fix Details _(Technical)_
+### Fix Explanation (Exec Level — No Code)
 
-Three panels in `index.html` need a season `<select>` added, and `app.js` needs to:
+Each tab now has its own season picker, so you can build, view, or add teams for any season
+without switching the system-wide active season.
 
-- **Build tab**: Add `#buildSeason` select (populated from `loadSeasons()`, no "All" option) before
-  the Division select. Pass `season=` param to `/api/run` and `/api/divisions`. Server may need
-  a `?season=` query param on those endpoints to scope the division/team lists and build target.
-- **View Reports tab**: Add `#reportsSeason` select before the filter input. Filter `reportsList`
-  render to only show PDFs under `seasons/<selected>/`.
-- **Add Team tab**: Add `#addSeason` select above the Division select. Pass to `/api/add_team`.
+### Fix Details (Technical)
 
-Note: the global header picker (`#seasonSelect`) still makes sense as a convenience for switching
-the system-wide active season. These per-tab selectors are about targeting a specific season
-for an operation without necessarily switching the global active.
+<span style="color:red">`index.html`</span> / <span style="color:red">`app.js`</span>: `#buildSeason`,
+`#reportsSeason` (with "All seasons"), `#addSeason`; `season=` passed to `/api/run`,
+`/api/divisions`, `/api/add_team`; <span style="color:red">`server.py`</span> endpoints accept
+`?season=`.
 
 ### Workaround
 
-Use the "Seasons" tab (4th tab) to activate the desired season first, then restart the server,
-then proceed with Build/View/Add Team. Clunky but functional.
+Activate the season in the Seasons tab and restart the server.
 
 ---
 
-## BUG-17 · [STATUS: RV]
+## BUG-017 · [STATUS: RV]
 
 **Title:** Newly added Wild/Storm team does not appear in web UI dropdown after "Add Team"
 
 **Severity:** Medium
-**Date Reported:** 2026-06-29
+
+**Reported Date:** 2026-06-29
+
 **Release Found:** v3.1.0
-**Release Fixed:** v3.1.3
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-06-30
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v3.1.3 (commit 6433f80, tag pushed 2026-06-30)
 
 ### Observable Problem
 
-After adding a new Wild or Storm opponent via the web UI "Add Team" tab, the team does not appear in the Build division/team dropdowns — even though the success message confirms the team was added. A server restart is required to see the new team, which is not obvious to the user.
+After adding a team in the web UI's Add Team tab, it doesn't appear in the Build dropdowns until
+the server is restarted. Travel teams were also listed in insertion order, not alphabetically.
 
-As a secondary issue, Wild/Storm teams appear in YAML insertion order rather than alphabetically, making long lists harder to scan. Majors/Minors were already alphabetical.
+### Expected Behavior
+
+The new team appears immediately; team lists are alphabetical.
 
 ### Steps to Reproduce
 
-1. Open the web UI → Add Team tab
-2. Add a valid Wild or Storm opponent via a GC URL
-3. Switch to the Build tab and open the division dropdown
-4. Expected: new team appears in the dropdown — Actual: team is missing until server restart
+1. Add Team tab → add a travel team from a GC URL
+2. Build tab → open the team dropdown
+3. Expected: new team listed — Actual: missing until restart
 
-### Fix Explanation _(Exec Level — No Code)_
+### Root Cause Analysis (RCA)
 
-The server was loading division/team data once when it started up and reusing that snapshot for every request. Adding a team updates the config file on disk, but the server was still serving its startup snapshot. Fixed by reading the config file fresh on every request to the divisions endpoint — the read is fast enough that users won't notice. Also sorted Wild/Storm team lists alphabetically to match Majors/Minors behavior.
+Two import-time caches: `server.py` `_DIVISIONS = build_scraper_divisions()` and
+`run_menu.DIVISIONS` (used by `get_team_list()`), both frozen for the process lifetime.
 
-### Fix Details _(Technical)_
+### Fix Explanation (Exec Level — No Code)
 
-Two module-level caches caused the stale data:
+The server read the team list once at startup. It now re-reads the config on every request
+(fast enough to be invisible) and sorts travel teams alphabetically.
 
-1. `server.py` — `_DIVISIONS = build_scraper_divisions()` was called once at module load. `api_divisions()` used this frozen dict for every subsequent request.
-2. `run_menu.py` — `get_team_list()` reads Wild/Storm teams from `run_menu.DIVISIONS`, also a module-level import-time cache. Since `server.py` imports `get_team_list`, this cache is frozen for the server's lifetime.
+### Fix Details (Technical)
 
-**Fix:** Removed the module-level `_DIVISIONS` cache from `server.py`. `api_divisions()` now calls `build_scraper_divisions()` fresh on every request (reads YAML — fast, < 1 ms). For Wild/Storm, team names are extracted directly from the fresh data and sorted alphabetically, bypassing the stale `run_menu.DIVISIONS` cache entirely. For Majors/Minors, `get_team_list()` continues to be used — it reads `rosters.json` from disk on each call, so it was already fresh.
-
-`run_menu.py` `get_team_list()` also updated: added `sorted()` to the Wild/Storm return so the terminal menu also displays teams alphabetically (matching Majors/Minors, which was already sorted via `rosters.json` key sort).
-
-Note: The JS side (`app.js` line 219) already correctly re-fetched `/api/divisions` after a successful Add Team response — the bug was entirely server-side.
-
-Files changed: `src/web/server.py`, `src/orchestrator/run_menu.py`
+<span style="color:red">`src/web/server.py`</span>: removed `_DIVISIONS`; `api_divisions()` calls
+`build_scraper_divisions()` per request and sorts travel teams.
+<span style="color:red">`src/orchestrator/run_menu.py`</span>: `get_team_list()` sorts travel teams.
 
 ### Workaround
 
-Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding a team.
+Restart the web server after adding a team.
 
 ---
 
-## BUG-16: Accented characters in player names break regex parsing (González)
+## BUG-016 · [STATUS: RV]
 
-**Date:** May 18, 2026 · **Component:** Hitting + Pitching · **Status:** ✅ Fixed
+**Title:** Accented characters in player names break regex parsing (González)
 
-**Problem:** Players with accented Latin characters in their last name (e.g., `B González`) were silently dropped from both hitting and pitching reports. The regexes used ASCII-only `[a-z]` for the last-name capture group. Affected: Ben González (#99, Weddington Stormtroopers / Storm) — 61 pitching PAs lost (carry-forward attributed them to prior pitcher), batting PAs also unparseable.
+**Severity:** High
 
-**Fix:** Changed `[a-z]` → `[a-z\u00C0-\u024F]` in all three regexes (covers all Latin Extended characters).
+**Reported Date:** 2026-05-18
 
-- Files: `gen_pitching.py` (`PITCHER_NAMED_RE`, `LINEUP_CHANGE_RE`), `gen_hitting.py` (`DESC_RE`)
-- Verification: `B González` now appears with 61 pitching PAs and 34 hitting PAs. G Elliott corrected from 90 → 54 PAs.
+**Release Found:** v2.5.0
 
----
+**Found By:** mesau (Matt Esau)
 
-## BUG-15b: Split player cards — same player appears twice in PDF _(data issue, not code bug)_
+**Resolved Date:** 2026-05-19
 
-**Date:** May 4, 2026 · **Component:** N/A (data) · **Status:** ⚠️ Closed — not a code bug
+**Resolved By:** mesau (Matt Esau)
 
-**Problem:** GC used two name formats across the season for Crushers White 10U: 2-char initials in March (`"A L"`) vs full first name in April+ (`"Andrew L"`). Two stat buckets → two cards per player.
+**Integrated Release:** v2.6.0 (commit 3dfb876, tag pushed 2026-05-19)
 
-**Workaround:** Patched 7 March game files via `patch_march_initials.py` (run once, retained for audit).
+### Observable Problem
 
----
+Players with accented last names (e.g. `B González`, Weddington Stormtroopers) were silently
+dropped from hitting and pitching reports; their pitching PAs were credited to the previous pitcher.
 
-## BUG-15: Dilworth 9U - Navy produced 0 PAs — folder name missing dash
+### Expected Behavior
 
-**Date:** May 2, 2026 · **Component:** Scraping + Hitting · **Status:** ✅ Fixed (v2.4.0)
+Accented names parse like any other.
 
-**Problem:** Storm opponent folder named `"Dilworth 9U Navy"` but GC headers write `"Dilworth 9U - Navy"`. 0 PAs across all 7 games.
+### Root Cause Analysis (RCA)
 
-**Fix:** Renamed folder; updated team name in both scrapers; enhanced "No PAs" warning to list team names from headers.
+Last-name capture groups used ASCII-only `[a-z]`.
 
-- Files: `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`, `gen_hitting.py`
+### Fix Explanation (Exec Level — No Code)
 
----
+The name matcher only understood plain English letters. It now accepts accented Latin letters.
 
-## BUG-14: False "Skipped" entries in PDF subtitle — stale game_files list
+### Fix Details (Technical)
 
-**Date:** May 10, 2026 · **Component:** Hitting · **Status:** ✅ Fixed (v2.4.1)
+`[a-z]` → `[a-z\u00C0-\u024F]` in <span style="color:red">`gen_pitching.py`</span>
+(`PITCHER_NAMED_RE`, `LINEUP_CHANGE_RE`) and <span style="color:red">`gen_hitting.py`</span>
+(`DESC_RE`).
 
-**Problem:** `gen_hitting.py` builds file list once at startup; renames `.txt` → `-Reviewed.txt` as it processes. Later team lookups on same file fail with FileNotFoundError. False SKIP label appears.
+### Verification
 
-**Fix:** Before opening a `.txt` path, check existence; if missing, fall back to `-Reviewed.txt`.
+`B González` now shows 61 pitching PAs and 34 hitting PAs; G Elliott corrected from 90 → 54 PAs.
 
-- File: `gen_hitting.py` → `run_league()`
+### Workaround
 
----
-
-## BUG-13: Schedule scraper misses games after late April — GC lazy-loads schedule cards
-
-**Date:** May 10, 2026 · **Component:** Scraping · **Status:** ✅ Fixed (v2.4.1)
-
-**Problem:** GC lazy-loads schedule cards. Scraper extracted game data before scrolling → only saw games through late April. 9 Majors + 14 Minors games missed.
-
-**Fix:** Added scroll-to-bottom loop (max 30 passes, 0.8s wait) before running `SCHEDULE_JS`. Loop exits when game count stops growing.
-
-- File: `scrape_gc_playbyplay.py` → `get_schedule()`
+None.
 
 ---
 
-## BUG-12: INNING GAP and BOX-VERIFY warnings producing terminal noise
+## BUG-015 · [STATUS: RV]
 
-**Date:** Apr 29, 2026 · **Component:** Hitting · **Status:** ✅ Fixed
+**Title:** Dilworth 9U - Navy produced 0 PAs — folder name missing dash
 
-**Problem:** Every run printed WARNING-level messages making it hard to spot genuine issues.
+**Severity:** Medium
 
-**Fix:** Demoted both from `logger.warning()` to `logger.debug()`. Still in log file.
+**Reported Date:** 2026-05-02
 
-- File: `gen_hitting.py` → `check_inning_continuity()`, `verify_game()`, `verify_box_score()`
+**Release Found:** v2.3.0
 
----
+**Found By:** mesau (Matt Esau)
 
-## BUG-11: Wild/Storm PDF cards show no jersey numbers
+**Resolved Date:** 2026-05-02
 
-**Date:** Apr 2026 · **Component:** Hitting · **Status:** ✅ Fixed
+**Resolved By:** mesau (Matt Esau)
 
-**Problem:** Game files use `"FirstName LastInitial"` format (e.g. `"Ryder B"`) but `roster.txt` keys use `"FirstInitial LastInitial"` (e.g. `"R B"`). Lookup never matched.
+**Integrated Release:** v2.4.0 (commit bcfa67b, tag pushed 2026-05-02)
 
-**Fix:** Extended `load_wild_roster()` to index each entry under both key formats.
+### Observable Problem
 
-- File: `gen_hitting.py` → `load_wild_roster()`
+Storm team "Dilworth 9U Navy" produced 0 PAs across all 7 games.
 
----
+### Expected Behavior
 
-## BUG-10: Step 2 ignored --team filter; always scraped all division teams
+All of the team's plate appearances are parsed.
 
-**Date:** Apr 2026 · **Component:** Scraping + Orchestrator · **Status:** ✅ Fixed
+### Root Cause Analysis (RCA)
 
-**Problem:** When running the pipeline for a single Wild/Storm team, Step 2 looped through ALL teams. No `--team` arg existed.
+Folder named `Dilworth 9U Navy`; GC inning headers say `Dilworth 9U - Navy`. Team matching is
+exact.
 
-**Fix:** Added `team_filter=None` param throughout; wired `--team` arg; updated `run_menu.py` to pass `team_args`.
+### Fix Explanation (Exec Level — No Code)
 
-- Files: `scrape_gc_boxscores.py`, `run_menu.py`
+The folder name was missing a dash that GameChanger uses. The folder and config were renamed, and
+the "No PAs" warning now lists the team names actually found in the game files.
 
----
+### Fix Details (Technical)
 
-## BUG-9: scrape_gc_boxscores.py crashed with NameError: 'date' not defined
+Folder renamed; team name updated in <span style="color:red">`scrape_gc_playbyplay.py`</span> and
+<span style="color:red">`scrape_gc_boxscores.py`</span>; <span style="color:red">`gen_hitting.py`</span>
+"No PAs" warning lists header team names.
 
-**Date:** Apr 24, 2026 · **Component:** Scraping · **Status:** ✅ Fixed
+### Workaround
 
-**Problem:** `date.today().isoformat()` called but only `datetime` was imported, not `date`.
+Rename the folder to the GC spelling.
 
-**Fix:** Changed to `from datetime import datetime, date`.
+### Eng Note
 
-- File: `scrape_gc_boxscores.py`
-
----
-
-## BUG-8: SCHEDULE_JS team-page filenames had wrong date and wrong team name
-
-**Date:** Apr 24, 2026 · **Component:** Scraping · **Status:** ✅ Fixed
-
-**Problem:** After Bug 7 was fixed, generated filenames were malformed — leading dash (no date) and team name replaced by a location string. Day-abbr nodes were outside the `<a>` card; `lines[1]` was a location, not team name.
-
-**Fix:** Added leaf-node day-abbr detection; added `is_home` field; used `team_name` for filename.
-
-- File: `scrape_gc_playbyplay.py` → `SCHEDULE_JS` + `scrape_team_division()`
+Superseded by automatic handling in [BUG-023 (Enh)](#bug-023-enh--status-rv).
 
 ---
 
-## BUG-7: SCHEDULE_JS 'final' detection broken for Wild/Storm team pages
+## BUG-014 · [STATUS: RV]
 
-**Date:** Apr 24, 2026 · **Component:** Scraping · **Status:** ✅ Fixed
+**Title:** False "Skipped" entries in PDF subtitle — stale game_files list
 
-**Problem:** GC team pages (Wild/Storm) show completed games with a score (e.g. `"W 7-5"`) rather than `"FINAL"`. Both scrapers reported `"0 FINAL games found"` for all Wild/Storm teams.
+**Severity:** Low
 
-**Fix:** Added score-pattern detection (`/^[WL]\s+\d+-\d+/`) alongside the `FINAL` check in `SCHEDULE_JS`.
+**Reported Date:** 2026-05-10
 
-- Files: `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`
+**Release Found:** v2.4.1
 
----
+**Found By:** mesau (Matt Esau)
 
-## BUG-6: Shortstop (SS) spray chart zone always showed 0% — mapped to 3B
+**Resolved Date:** 2026-05-10
 
-**Date:** Apr 23, 2026 · **Component:** Hitting · **Status:** ✅ Fixed
+**Resolved By:** mesau (Matt Esau)
 
-**Problem:** In `FIELDER_ZONES`, `"shortstop"` was mapped to zone key `"3B"` instead of `"SS"`. SS always showed 0%; 3B zone was inflated. Affected all four divisions.
+**Integrated Release:** v2.5.0 (commit d5caecc, tag pushed 2026-05-17)
 
-**Fix:** Changed mapping from `("shortstop","3B")` to `("shortstop","SS")`.
+### Observable Problem
 
-- File: `gen_hitting.py` → `FIELDER_ZONES`
+League PDF subtitles listed games as "Skipped" that were actually processed.
 
----
+### Expected Behavior
 
-## BUG-5: Team folder name case mismatch — team produces 0 PAs
+Only genuinely unreadable games are listed as skipped.
 
-**Date:** Apr 10, 2026 · **Component:** Hitting · **Status:** ✅ Fixed (filesystem rename)
+### Root Cause Analysis (RCA)
 
-**Problem:** Team folder created as `"Crushers White 10u"` (lowercase `u`) but GC inning headers use `"Crushers White 10U"`. Case-sensitive matching → 0 PAs parsed.
+`run_league()` built the file list once, then renamed `.txt` → `-Reviewed.txt` while processing;
+later teams' lookups of the same game hit `FileNotFoundError`.
 
-**Fix:** Renamed folder via temp name (macOS case-insensitive filesystem requires two-step rename).
+### Fix Explanation (Exec Level — No Code)
 
----
+The report builder looked for a file under its old name after renaming it. It now checks for the
+renamed copy.
 
-## BUG-4: Home Run not counting as FB+LD% _(symptom of Bug 2)_
+### Fix Details (Technical)
 
-**Date:** Apr 10, 2026 · **Component:** Parser · **Status:** ✅ Fixed (by BUG-2 fix)
+<span style="color:red">`gen_hitting.py`</span> `run_league()`: fall back to `-Reviewed.txt` when the
+`.txt` path no longer exists.
 
-**Problem:** R R's home run in g06 showed 0 FB+LD%. Root cause: the HR was in a half-inning silently dropped by Bug 2.
+### Workaround
 
----
+None needed (cosmetic).
 
-## BUG-3: Sacrifice Fly returned UNKNOWN outcome — counted as AB incorrectly
+### Eng Note
 
-**Date:** Apr 10, 2026 · **Component:** Hitting · **Status:** ✅ Fixed
-
-**Problem:** `"Sacrifice Fly"` was in `OUTCOME_KWS` but `parse_outcome()` had no branch to handle it, returning `UNKNOWN`. Every sacrifice fly counted as an AB, inflating AB counts and deflating AVG/OBP/SLG.
-
-**Fix:** Added `SF` and `SB` constants. Wired through `parse_outcome()`, `parse_ball_type()`, `BIP_OUTCOMES`, and AB aggregation.
-
-- File: `gen_hitting.py`
+Earlier tracker listed v2.4.1 as the fix release, but commit d5caecc landed after the v2.4.1 tag.
 
 ---
 
-## BUG-2: GC noise text absorbed into inning headers — half-innings silently dropped
+## BUG-013 · [STATUS: RV]
 
-**Date:** Apr 10, 2026 · **Component:** Parser · **Status:** ✅ Fixed
+**Title:** Schedule scraper misses games after late April — GC lazy-loads schedule cards
 
-**Problem:** GameChanger raw text sometimes contains status text (`"Runner Out"`, `"3 Outs"`, `"J B at bat"`) with no separator between the team name and the first play. `parse_gc_raw()` absorbed this noise into the inning team name string, producing malformed headers. Affected: Crushers White 10U g06 (10 PAs lost).
+**Severity:** High
 
-**Fix:** Added `TEAM_NOISE_RE` as a secondary split-point detector alongside `OUTCOME_RE` in `parse_gc_raw()`.
+**Reported Date:** 2026-05-10
 
-- File: `parse_gc_text.py` → `parse_gc_raw()`
+**Release Found:** v2.4.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-05-10
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.4.1 (commit 9dda244, tag pushed 2026-05-10)
+
+### Observable Problem
+
+Recent games were never scraped; 9 Majors + 14 Minors games missed.
+
+### Expected Behavior
+
+Every completed game on the schedule is found.
+
+### Root Cause Analysis (RCA)
+
+GC lazy-loads schedule cards; the scraper read the page before scrolling.
+
+### Fix Explanation (Exec Level — No Code)
+
+GameChanger only shows more games as you scroll. The scraper now scrolls to the bottom first.
+
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_playbyplay.py`</span> `get_schedule()`: scroll loop (max 30
+passes, 0.8 s) until the game count stops growing, then run `SCHEDULE_JS`.
+
+### Workaround
+
+None.
 
 ---
 
-## BUG-1: Infield spray chart dots overlapping pitcher's mound
+## BUG-012 · [STATUS: RV]
 
-**Date:** Apr 10, 2026 · **Component:** Hitting · **Status:** ✅ Fixed
+**Title:** INNING GAP and BOX-VERIFY warnings producing terminal noise
 
-**Problem:** Dots plotted for infield hits (2B, SS, 3B, 1B, P zones) were placed too close to home plate, landing visually inside or on top of the pitcher's mound circle on the spray chart.
+**Severity:** Low
 
-**Fix:** Pushed the inner radius for infield dot scatter from `r_mnd*1.5` to `r_if*0.58`.
+**Reported Date:** 2026-04-29
 
-- File: `gen_hitting.py` → `draw_field_spray_chart()`
+**Release Found:** v2.2.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-29
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.3.0 (commit 49a9a62, tag pushed 2026-04-29)
+
+### Observable Problem
+
+Every run printed WARNING-level verification messages, hiding genuine issues.
+
+### Expected Behavior
+
+Routine verification detail goes to the log file only.
+
+### Root Cause Analysis (RCA)
+
+Informational checks logged at `WARNING`.
+
+### Fix Explanation (Exec Level — No Code)
+
+Routine check messages were moved out of the screen output into the log file.
+
+### Fix Details (Technical)
+
+<span style="color:red">`gen_hitting.py`</span> `check_inning_continuity()`, `verify_game()`,
+`verify_box_score()`: `logger.warning()` → `logger.debug()`.
+
+### Workaround
+
+None needed.
 
 ---
 
-_End of bug log._
+## BUG-011 · [STATUS: RV]
+
+**Title:** Wild/Storm PDF cards show no jersey numbers
+
+**Severity:** Low
+
+**Reported Date:** 2026-04-24
+
+**Release Found:** v1.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-24
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.0.0 (commit fd26a40, tag pushed 2026-04-24)
+
+### Observable Problem
+
+Travel-team player cards had no jersey numbers.
+
+### Expected Behavior
+
+Cards show `#jersey` from `roster.txt`.
+
+### Root Cause Analysis (RCA)
+
+Game files use `"Ryder B"`; `roster.txt` keys use `"R B"` — lookups never matched.
+
+### Fix Explanation (Exec Level — No Code)
+
+The roster and game files wrote names two different ways. The roster is now indexed both ways.
+
+### Fix Details (Technical)
+
+<span style="color:red">`gen_hitting.py`</span> `load_wild_roster()` indexes each entry under both
+key formats.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-010 · [STATUS: RV]
+
+**Title:** Step 2 ignored --team filter; always scraped all division teams
+
+**Severity:** Low
+
+**Reported Date:** 2026-04-24
+
+**Release Found:** v1.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-24
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.0.0 (commit c7a0109, tag pushed 2026-04-24)
+
+### Observable Problem
+
+A single-team pipeline run still scraped box scores for every team in the division.
+
+### Expected Behavior
+
+Step 2 scrapes only the selected team.
+
+### Root Cause Analysis (RCA)
+
+`scrape_gc_boxscores.py` had no `--team` argument.
+
+### Fix Explanation (Exec Level — No Code)
+
+The roster step didn't know which team was picked. It now does.
+
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_boxscores.py`</span>: `team_filter` param + `--team` arg;
+<span style="color:red">`run_menu.py`</span> passes `team_args` to Step 2.
+
+### Workaround
+
+None needed (slow, not wrong).
+
+---
+
+## BUG-009 · [STATUS: RV]
+
+**Title:** scrape_gc_boxscores.py crashed with NameError: 'date' not defined
+
+**Severity:** High
+
+**Reported Date:** 2026-04-24
+
+**Release Found:** v1.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-24
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.0.0 (commit 00d8d40, tag pushed 2026-04-24)
+
+### Observable Problem
+
+The box-score scraper crashed while writing travel rosters.
+
+### Expected Behavior
+
+Rosters are written without error.
+
+### Root Cause Analysis (RCA)
+
+`date.today()` called, but only `datetime` was imported.
+
+### Fix Explanation (Exec Level — No Code)
+
+A missing import. Added.
+
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_boxscores.py`</span>: `from datetime import datetime, date`.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-008 · [STATUS: RV]
+
+**Title:** SCHEDULE_JS team-page filenames had wrong date and wrong team name
+
+**Severity:** Medium
+
+**Reported Date:** 2026-04-24
+
+**Release Found:** v1.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-24
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.0.0 (commit 00d8d40, tag pushed 2026-04-24)
+
+### Observable Problem
+
+After [BUG-007](#bug-007--status-rv) was fixed, travel game filenames had a leading dash (no date)
+and a location string where the team name belonged.
+
+### Expected Behavior
+
+Filenames look like `Apr19-TeamA_vs_TeamB.txt`.
+
+### Root Cause Analysis (RCA)
+
+Day-abbreviation nodes sit outside the `<a>` game card, and `lines[1]` is a location, not a team.
+
+### Fix Explanation (Exec Level — No Code)
+
+The scraper was reading the wrong parts of each schedule card. It now finds the date and team
+correctly.
+
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_playbyplay.py`</span> `SCHEDULE_JS`: leaf-node day-abbr detection,
+`is_home` field; `scrape_team_division()` uses the configured team name for filenames.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-007 · [STATUS: RV]
+
+**Title:** SCHEDULE_JS 'final' detection broken for Wild/Storm team pages
+
+**Severity:** High
+
+**Reported Date:** 2026-04-24
+
+**Release Found:** v1.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-24
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v2.0.0 (commit ea04909, tag pushed 2026-04-24)
+
+### Observable Problem
+
+Both scrapers reported "0 FINAL games found" for every Wild/Storm team.
+
+### Expected Behavior
+
+Completed games on team pages are found.
+
+### Root Cause Analysis (RCA)
+
+Team pages show a result (`W 7-5`) instead of `FINAL`.
+
+### Fix Explanation (Exec Level — No Code)
+
+Team schedules mark finished games with the score, not the word "FINAL". The scraper now
+recognizes scores too.
+
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_playbyplay.py`</span> and
+<span style="color:red">`scrape_gc_boxscores.py`</span> `SCHEDULE_JS`: added `/^[WL]\s+\d+-\d+/`.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Ties (`T 4-4`) were added to the pattern in v5.0.0.
+
+---
+
+## BUG-006 · [STATUS: RV]
+
+**Title:** Shortstop (SS) spray chart zone always showed 0% — mapped to 3B
+
+**Severity:** Medium
+
+**Reported Date:** 2026-04-23
+
+**Release Found:** v0.2.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-23
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v1.0.0 (commit b9cd1b3, tag pushed 2026-04-24)
+
+### Observable Problem
+
+SS always showed 0% on spray charts and 3B was inflated, in all divisions.
+
+### Expected Behavior
+
+Balls to the shortstop count in the SS zone.
+
+### Root Cause Analysis (RCA)
+
+`FIELDER_ZONES` mapped `"shortstop"` to `"3B"`.
+
+### Fix Explanation (Exec Level — No Code)
+
+Shortstop plays were filed under third base. Corrected.
+
+### Fix Details (Technical)
+
+<span style="color:red">`gen_hitting.py`</span> `FIELDER_ZONES`: `("shortstop","SS")`.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-005 · [STATUS: RV]
+
+**Title:** Team folder name case mismatch — team produces 0 PAs
+
+**Severity:** Medium
+
+**Reported Date:** 2026-04-10
+
+**Release Found:** Pre-release (before v0.1.0)
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-10
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** N/A — data fix (folder rename, no code change)
+
+### Observable Problem
+
+Crushers White 10U produced 0 PAs.
+
+### Expected Behavior
+
+All of the team's plate appearances are parsed.
+
+### Root Cause Analysis (RCA)
+
+Folder `Crushers White 10u` vs GC header `Crushers White 10U`; matching was case-sensitive.
+
+### Fix Explanation (Exec Level — No Code)
+
+The folder name's capitalization didn't match GameChanger's. The folder was renamed.
+
+### Fix Details (Technical)
+
+Two-step rename via a temporary name (macOS filesystems are case-insensitive).
+
+### Workaround
+
+Rename the folder.
+
+### Eng Note
+
+Case-insensitive matching added in commit b1e1c77 (v2.7.0); fully automatic since
+[BUG-023 (Enh)](#bug-023-enh--status-rv).
+
+---
+
+## BUG-004 · [STATUS: RV]
+
+**Title:** Home Run not counting as FB+LD% (symptom of BUG-002)
+
+**Severity:** Low
+
+**Reported Date:** 2026-04-10
+
+**Release Found:** Pre-release (before v0.1.0)
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-10
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v0.1.0 (commit 8b082f9, tag pushed 2026-04-21)
+
+### Observable Problem
+
+R R's home run in game 6 showed 0 FB+LD%.
+
+### Root Cause Analysis (RCA)
+
+The HR sat in a half-inning dropped by [BUG-002](#bug-002--status-rv).
+
+### Fix Explanation (Exec Level — No Code)
+
+Fixed by the BUG-002 fix; no separate change.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-003 · [STATUS: RV]
+
+**Title:** Sacrifice Fly returned UNKNOWN outcome — counted as AB incorrectly
+
+**Severity:** Medium
+
+**Reported Date:** 2026-04-10
+
+**Release Found:** Pre-release (before v0.1.0)
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-10
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v0.1.0 (commit 8b082f9, tag pushed 2026-04-21)
+
+### Observable Problem
+
+Every sacrifice fly counted as an at-bat, lowering AVG/OBP/SLG.
+
+### Expected Behavior
+
+Sacrifices are not at-bats.
+
+### Root Cause Analysis (RCA)
+
+`"Sacrifice Fly"` was in `OUTCOME_KWS` but `parse_outcome()` had no branch for it.
+
+### Fix Explanation (Exec Level — No Code)
+
+The parser didn't recognize sacrifice flies. It now handles sacrifice flies and bunts.
+
+### Fix Details (Technical)
+
+<span style="color:red">`gen_hitting.py`</span>: `SF`/`SB` constants wired through
+`parse_outcome()`, `parse_ball_type()`, `BIP_OUTCOMES`, and AB aggregation.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-002 · [STATUS: RV]
+
+**Title:** GC noise text absorbed into inning headers — half-innings silently dropped
+
+**Severity:** High
+
+**Reported Date:** 2026-04-10
+
+**Release Found:** Pre-release (before v0.1.0)
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-10
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v0.1.0 (commit 8b082f9, tag pushed 2026-04-21)
+
+### Observable Problem
+
+Some half-innings vanished from reports (Crushers White 10U game 6 lost 10 PAs).
+
+### Expected Behavior
+
+Every half-inning is parsed.
+
+### Root Cause Analysis (RCA)
+
+GC status text (`"Runner Out"`, `"3 Outs"`, `"J B at bat"`) ran into the team name with no
+separator; `parse_gc_raw()` absorbed it into the header, so the team never matched.
+
+### Fix Explanation (Exec Level — No Code)
+
+Extra GameChanger status text got glued onto team names. The converter now splits it off.
+
+### Fix Details (Technical)
+
+<span style="color:red">`parse_gc_text.py`</span> `parse_gc_raw()`: `TEAM_NOISE_RE` as a second
+split point alongside `OUTCOME_RE`.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-001 · [STATUS: RV]
+
+**Title:** Infield spray chart dots overlapping pitcher's mound
+
+**Severity:** Low
+
+**Reported Date:** 2026-04-10
+
+**Release Found:** Pre-release (before v0.1.0)
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-04-10
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v0.1.0 (commit 8b082f9, tag pushed 2026-04-21)
+
+### Observable Problem
+
+Infield-hit dots were drawn on top of the pitcher's mound.
+
+### Expected Behavior
+
+Infield dots sit in the infield, clear of the mound.
+
+### Fix Explanation (Exec Level — No Code)
+
+The dots were placed too close to home plate. Moved out.
+
+### Fix Details (Technical)
+
+<span style="color:red">`gen_hitting.py`</span> `draw_field_spray_chart()`: inner radius
+`r_mnd*1.5` → `r_if*0.58`.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+BUG-001–004 were fixed before the repo existed; the fixes first appear in the initial commit.
+
+---
+
+## Enhancements
+
+### Open
+
+- (O) [BUG-028 (Enh)](#bug-028-enh--status-o) · [BUG-027 (Enh)](#bug-027-enh--status-o) ·
+  [BUG-026 (Enh)](#bug-026-enh--status-o) · [BUG-025 (Enh)](#bug-025-enh--status-o) ·
+  [BUG-024 (Enh)](#bug-024-enh--status-o)
+
+### Resolved or Closed
+
+- (RV) [BUG-023 (Enh) — Folder rename needed upon mismatch during game scrape](#bug-023-enh--status-rv)
+
+<!-- template: same as Bugs, heading `## BUG-000 (Enh) · [STATUS: …]`, Severity `Enh`,
+Release Found `N/A — Enhancement`, RCA `N/A — Enhancement` when there is no defect cause,
+Integrated Release `N/A — Open` until shipped. -->
+
+### Detailed Entries
+
+## BUG-028 (Enh) · [STATUS: O]
+
+**Title:** `docs_cleanup.py` — enforce BUGS.md / CHANGELOG.md conventions
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+`Principles and Practices.md` §12 describes a `docs_cleanup.py` tool (dry run / `--write` /
+`--check`) that doesn't exist in this repo, so tracker formatting and CHANGELOG cross-links are
+kept by hand.
+
+### Expected Behavior
+
+One command checks and fixes headings, ToC status prefixes, anchors, and CHANGELOG lines against
+this tracker.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Not built yet.
+
+### Workaround
+
+Follow §12 by hand.
+
+---
+
+## BUG-027 (Enh) · [STATUS: O]
+
+**Title:** Box-score cross-check (verification Layer 4) for travel teams
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+Travel-team reports are never checked against GameChanger box scores, so a parsing miss would go
+unnoticed. League (Majors/Minors) reports are checked.
+
+### Expected Behavior
+
+Parsed AB/BB per player are compared with box-score totals for travel teams too.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement. Not a data limitation (both sources use initials):
+`scrape_gc_boxscores.scrape_team_division()` already accumulates AB/BB/SO per player but writes only
+names to `roster.txt` and no `box_verify.json`; `gen_hitting.run_wild()` never calls
+`verify_box_score()`. Git history shows the check was built for Minors (commit 4e1ce0e) with no
+recorded decision to exclude travel teams.
+
+### Fix Explanation (Exec Level — No Code)
+
+Not built yet. The scraper already reads the numbers; they need to be saved and compared.
+
+### Fix Details (Technical)
+
+Proposed: write a per-team `box_verify.json` in `scrape_team_division()` and call
+`verify_box_score()` from `run_wild()`.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-026 (Enh) · [STATUS: O]
+
+**Title:** Rebuild the whole travel division on single-team runs
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+After adding and running a new team, the other teams' LG RANK and pitching percentiles stay as of
+their last run.
+
+### Expected Behavior
+
+Every team's ranks reflect the current division.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement. `run_wild()` reads every team for rank context but writes PDFs only for the
+`--team` target.
+
+### Fix Explanation (Exec Level — No Code)
+
+Not built yet. Proposed: single-team runs still scrape one team, but Steps 3–4 rebuild the whole
+division (seconds, no scraping).
+
+### Workaround
+
+`python -m scout.hitting.gen_hitting --division X` and
+`python -m scout.pitching.gen_pitching --division X`.
+
+---
+
+## BUG-025 (Enh) · [STATUS: O]
+
+**Title:** Drop the GC `TEAM` row from travel `roster.txt`
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-26
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+Every travel roster includes a `TEAM, TEAM` line that isn't a player
+([KC-003](#kc-003--status-active)).
+
+### Expected Behavior
+
+Rosters list players only.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement. `scrape_team_division()` copies every box-score row.
+
+### Fix Explanation (Exec Level — No Code)
+
+Not built yet. Skip the `TEAM` row when building rosters.
+
+### Workaround
+
+Harmless as-is; play-by-play never names "TEAM".
+
+---
+
+## BUG-024 (Enh) · [STATUS: O]
+
+**Title:** Dynamic, percentile-driven archetypes
+
+**Severity:** Enh
+
+**Reported Date:** 2026-06-28
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+Archetype labels use fixed cutoffs that don't adapt to each division's distribution.
+
+### Expected Behavior
+
+Cutoffs come from percentiles of the division's own data.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement.
+
+### Fix Explanation (Exec Level — No Code)
+
+Not built yet. `stat_analysis.py` already produces the distribution data to drive it.
+
+### Workaround
+
+Static cutoffs (current behavior).
+
+### Eng Note
+
+Migrated from AGENTS.md To Do #5.
+
+---
+
+## BUG-023 (Enh) · [STATUS: RV]
+
+**Title:** Folder rename needed upon mismatch during game scrape
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.1.0 (commit TBD, tag pushed TBD)
+
+### Observable Problem
+
+A travel team's folder name often differs from GameChanger's inning-header spelling only by
+punctuation, e.g. folder `OC Crushers Blue 11U` vs header `OC Crushers - Blue 11U`. The team then
+produces 0 PAs and its reports are empty until someone renames the folder and the config entry by
+hand:
+
+```
+WARNING  No PAs found for 'OC Crushers Blue 11U' — 0 plate appearances parsed across 9 game file(s) …
+         Team names seen in these files: [… 'OC Crushers - Blue 11U', …]
+```
+
+### Expected Behavior
+
+Punctuation/spacing/case-only differences are detected, logged, and fixed automatically.
+
+### Steps to Reproduce
+
+1. Add a travel team whose suggested folder name drops a punctuation mark GC uses
+2. Scrape its games and build reports
+3. Expected: reports build — Actual: "No PAs found" warning, empty report
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement. Team matching against inning headers is exact (case-insensitive since v2.7.0);
+folder names come from the add-team wizard's slug-based suggestion, which can't know GC's display
+punctuation.
+
+### Fix Explanation (Exec Level — No Code)
+
+Before building travel-team reports, the pipeline compares each team folder with the team names in
+its game files. If they differ only by punctuation, spacing, or capitalization, it logs the
+mismatch, renames the folder to GameChanger's spelling, updates the team name in the season config
+(so the next scrape uses the new folder), and logs that it did. Real spelling differences are left
+alone and still produce the "No PAs" warning.
+
+### Fix Details (Technical)
+
+- <span style="color:red">`dev/src/scout/season_config.py`</span>: `team_name_key()` (casefold,
+  strip non-alphanumerics); `reconcile_team_folders(division, base_dir, log)` reads inning-header
+  names from each team's `Games/*.txt`, renames on exactly one key match (skips if the target exists
+  or contains `/`), and `_rename_team_in_yaml()` updates the YAML. Mismatch → `WARNING`; rename →
+  `INFO`; rename with no YAML entry → `WARNING`.
+- <span style="color:red">`dev/src/scout/hitting/gen_hitting.py`</span> `run_wild()` and
+  <span style="color:red">`dev/src/scout/pitching/gen_pitching.py`</span> `run_travel_division()`
+  call it first; `--team` filters compare with `team_name_key()`.
+
+### Verification
+
+`dev/tests/test_fall_league_readiness.py::TeamFolderReconcileTests` (3 tests; suite 16/16 OK).
+Live: Mavs rebuild renamed `OC Crushers Blue 11U` → `OC Crushers - Blue 11U`, updated
+`config/2026-Fall.yaml`, and built both PDFs (Mavs LG RANK enabled, 4 teams).
+
+### Workaround
+
+Before v5.1.0: rename the folder and the YAML `name:` to the GC spelling.
+
+### Eng Note
+
+Generalizes the manual fixes in [BUG-005](#bug-005--status-rv) and [BUG-015](#bug-015--status-rv).
+The rename runs at the start of report building (Steps 3–4), immediately after the scrape.
+
+---
+
+## Server
+
+### Open
+
+None.
+
+### Resolved or Closed
+
+None.
+
+<!-- template: same as Bugs, heading `## BUG-000 (Srv) · [STATUS: …]`, real severity. -->
+
+### Detailed Entries
+
+None yet.
+
+---
+
+## Docs
+
+### Open
+
+None.
+
+### Resolved or Closed
+
+None.
+
+<!-- template: same as Bugs, heading `## BUG-000 (Docs) · [STATUS: …]`, severity usually Low. -->
+
+### Detailed Entries
+
+None yet.
+
+---
+
+## Known Caveats
+
+### Active
+
+- (Active) [KC-004](#kc-004--status-active) · [KC-003](#kc-003--status-active) ·
+  [KC-002](#kc-002--status-active)
+
+### Historical
+
+- (Historical) [KC-005](#kc-005--status-historical) · [KC-001](#kc-001--status-historical)
+
+<!-- template
+## KC-000 · [STATUS: Active | Historical | Resolved YYYY-MM-DD]
+
+**Title:**
+
+**Date Identified:** YYYY-MM-DD
+
+### Exec Description
+### Eng Description
+### Alternative Solutions
+-->
+
+### Detailed Entries
+
+## KC-005 · [STATUS: Historical]
+
+**Title:** Minors box scores redirected to `/info` — jersey numbers unavailable
+
+**Date Identified:** 2026-04-22
+
+### Exec Description
+
+Early in Spring 2026, Minors box-score pages weren't reachable, so Minors reports had no jersey
+numbers. No longer the case.
+
+### Eng Description
+
+Minors `/box-score` URLs redirected to `/info`. Current data shows jerseys are present: 146/180
+Spring 2026 and 120/138 Fall 2026 Minors players in `rosters.json` have a jersey number; the gaps
+are players GC lists without one.
+
+### Alternative Solutions
+
+1. **(Chosen)** None needed — GC now serves the pages.
+2. Manual `roster_additions` in the season YAML.
+
+---
+
+## KC-004 · [STATUS: Active]
+
+**Title:** Kids sharing initials can't be told apart in play-by-play
+
+**Date Identified:** 2026-04-21
+
+### Exec Description
+
+GameChanger's play-by-play names players by initials, so two kids on one team with the same
+initials look identical.
+
+### Eng Description
+
+Box scores give full first names, so `scrape_gc_boxscores._accum_player()` promotes collisions to
+5-char keys and writes `_collision_map`; `gen_hitting._disambiguate_pas()` splits batting PAs by
+batting-order occurrence. Pitching lines (`"X Y pitching"`) have no batting order to lean on, so
+colliding pitchers are combined. Fall 2026 Minors collisions: Cubs-Leonard `D B`, Giants-Hanshaw
+`C C` (three kids), Rays-Levengood `T L`.
+
+### Alternative Solutions
+
+1. **(Chosen)** Collision map for batting; label combined pitchers.
+2. Manual per-game pitcher overrides in the season YAML.
+3. Pull full names from GC's API (would need authenticated API access).
+
+---
+
+## KC-003 · [STATUS: Active]
+
+**Title:** GC box scores include a non-player `TEAM` row
+
+**Date Identified:** 2026-10-26
+
+### Exec Description
+
+Every GameChanger box score has a "TEAM" totals row, which shows up in travel rosters as if it were
+a player.
+
+### Eng Description
+
+The row carries team totals (e.g. Blue Jays-Patel `TEAM` so=89, bb=109). Summing per-player box
+score stats without excluding it double-counts. Play-by-play never names "TEAM", so reports are
+unaffected. Cleanup tracked in [BUG-025 (Enh)](#bug-025-enh--status-o).
+
+### Alternative Solutions
+
+1. **(Chosen, pending)** Skip the row when building rosters — BUG-025 (Enh).
+2. Leave it (harmless clutter).
+
+---
+
+## KC-002 · [STATUS: Active]
+
+**Title:** GameChanger only serves a visible, real Chrome window
+
+**Date Identified:** 2026-10-26
+
+### Exec Description
+
+Scraping only works through a real Chrome window on a Mac that is awake and logged in.
+
+### Eng Description
+
+GC's AWS WAF returns 403 to headless and automation-flagged browsers (see
+[BUG-022](#bug-022--status-rv)). The scrapers launch real Chrome with the Scout profile, off-screen,
+and drive it over CDP. A sleeping, logged-out, or shut-down Mac can't scrape; launchd runs a missed
+10am job on wake; screen-locked behavior is untested.
+
+### Alternative Solutions
+
+1. **(Chosen)** Real Chrome + Scout profile + CDP, off-screen window, `caffeinate` during runs.
+2. Official GC data export/API, if one becomes available.
+3. Run on an always-on, logged-in machine.
+
+---
+
+## KC-001 · [STATUS: Historical]
+
+**Title:** GC switched player-name format mid-season (split player cards)
+
+**Date Identified:** 2026-05-04
+
+### Exec Description
+
+GameChanger changed how it wrote one team's player names partway through the season, so the same
+player showed up as two cards. Not a code bug.
+
+### Eng Description
+
+Crushers White 10U used 2-character initials in March (`"A L"`) and full first names from April
+(`"Andrew L"`), creating two stat buckets per player. Formerly tracked as `BUG-15b` (Closed — not a
+code bug).
+
+### Alternative Solutions
+
+1. **(Chosen)** One-time patch of 7 March game files (`patch_march_initials.py`, retired in v3.0.0).
+2. Index rosters under both name formats (done for jerseys in [BUG-011](#bug-011--status-rv)).

@@ -63,7 +63,9 @@ DEBUG_PERCENTILES       = False  # Log percentile rank computation
 # ===========================================================================
 # Package import — season_config is part of the scout package.
 # ===========================================================================
-from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions
+from scout.season_config import (
+    SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions, reconcile_team_folders, team_name_key,
+)
 
 # DIVISIONS provides folder paths for all four divisions.
 # Use the hitting shape since gen_pitching needs scorebooks/wild_base paths.
@@ -1136,6 +1138,7 @@ def run_travel_division(division_name, team_filter=None, verbose=False):
     if not base_dir or not os.path.isdir(base_dir):
         logger.warning(f"  {division_name}: base directory not found: {base_dir}")
         return
+    reconcile_team_folders(division_name, base_dir, logger)
 
     # Discover opponent team folders (skip Sample_Opponent, README, hidden)
     teams = []
@@ -1201,7 +1204,7 @@ def run_travel_division(division_name, team_filter=None, verbose=False):
     for team_name in teams:
 
         if team_filter:
-            if team_filter.lower() not in team_name.lower():
+            if team_name_key(team_filter) not in team_name_key(team_name):
                 continue
 
         pitchers_for_team = team_pitcher_map.get(team_name, {})

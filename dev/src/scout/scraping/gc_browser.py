@@ -1,5 +1,5 @@
 """
-gc_browser.py — shared real-Chrome access to GameChanger (see BUG-22)
+gc_browser.py — shared real-Chrome access to GameChanger (see BUG-022)
 =====================================================================
 GameChanger's firewall (AWS WAF) returns HTTP 403 to every headless or
 Playwright-launched browser. It only serves a normal, visible Google Chrome
@@ -172,7 +172,7 @@ SESSION_MESSAGES = {
     ),
     SESSION_BLOCKED: (
         "GameChanger refused the Scout browser (blocked or account failed to load). "
-        "See BUG-22 in docs/BUGS.md."
+        "See BUG-022 in docs/BUGS.md."
     ),
 }
 

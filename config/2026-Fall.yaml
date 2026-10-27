@@ -73,5 +73,8 @@ divisions:
     - name: QC Crushers 10U
       gc_id: BLE9kFjmgagD
       gc_slug: 2026-summer-qc-crushers-10u
+    - name: OC Crushers - Blue 11U
+      gc_id: iU0Brg2DoVfx
+      gc_slug: 2026-fall-oc-crushers---blue-11u
     tournament_team: true
     active: true

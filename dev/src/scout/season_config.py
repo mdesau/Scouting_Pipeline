@@ -704,6 +704,64 @@ def _save_cfg(yaml_path: "Path", cfg: dict) -> None:
                   sort_keys=False)
 
 
+_INNING_TEAM_RE = re.compile(r"^===\s?(?:Top|Bottom)\s+\w+\s+-\s+(.+?)\s?===", re.MULTILINE)
+
+
+def team_name_key(name: str) -> str:
+    """Compare team names ignoring case, spaces, and punctuation ("OC Crushers - Blue 11U" == "OC Crushers Blue 11U")."""
+    return re.sub(r"[^a-z0-9]", "", name.casefold())
+
+
+def reconcile_team_folders(division: str, base_dir, log, season_id: str = None) -> dict:
+    """
+    Rename travel-team folders whose name differs from the GC inning-header
+    spelling only by punctuation/spacing/case, and update the team's name in
+    the season YAML so the next scrape uses the new folder.
+
+    Returns {old_name: new_name} for every rename performed.
+    """
+    base_dir = Path(base_dir)
+    if not base_dir.is_dir():
+        return {}
+    renamed = {}
+    for team_dir in sorted(p for p in base_dir.iterdir() if (p / "Games").is_dir()):
+        headers = set()
+        for game in (team_dir / "Games").glob("*.txt"):
+            headers.update(m.strip() for m in _INNING_TEAM_RE.findall(game.read_text(encoding="utf-8")))
+        if not headers or team_dir.name in headers:
+            continue
+        matches = [h for h in headers if team_name_key(h) == team_name_key(team_dir.name)]
+        if len(matches) != 1:
+            continue
+        new_name = matches[0]
+        target = base_dir / new_name
+        if "/" in new_name or target.exists():
+            log.warning(f"  Team name mismatch: folder '{team_dir.name}' vs GC header '{new_name}' "
+                        f"— could not auto-rename (target exists or invalid name). Fix manually.")
+            continue
+        log.warning(f"  Team name mismatch: folder '{team_dir.name}' vs GC inning header '{new_name}'")
+        team_dir.rename(target)
+        yaml_updated = _rename_team_in_yaml(division, team_dir.name, new_name, season_id)
+        if yaml_updated:
+            log.info(f"  ✔ Renamed folder '{team_dir.name}' → '{new_name}' "
+                     f"and updated config/{season_id or SEASON_ID}.yaml")
+        else:
+            log.warning(f"  ✔ Renamed folder '{team_dir.name}' → '{new_name}' "
+                        "(team not found in season YAML — update it manually)")
+        renamed[team_dir.name] = new_name
+    return renamed
+
+
+def _rename_team_in_yaml(division: str, old: str, new: str, season_id: str = None) -> bool:
+    yaml_path, cfg = _load_cfg(season_id or SEASON_ID)
+    for team in (cfg.get("divisions", {}).get(division, {}).get("teams") or []):
+        if team.get("name") == old:
+            team["name"] = new
+            _save_cfg(yaml_path, cfg)
+            return True
+    return False
+
+
 def update_season(
     season_id: str,
     display_name: str = None,

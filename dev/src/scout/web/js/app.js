@@ -20,7 +20,7 @@
 const el = (id) => document.getElementById(id);
 const connStatus    = el("connStatus");
 const offlineBanner = el("offlineBanner");
-const staleBanner   = el("staleBanner");   // shown when server process is stale (BUG-19)
+const staleBanner   = el("staleBanner");   // shown when server process is stale (BUG-019)
 
 let SERVER_ONLINE = false;   // set by checkConnection()
 let activeStream  = null;    // current EventSource for a running build
@@ -330,7 +330,7 @@ async function loadSeasons() {
   try {
     const res  = await fetch("/api/seasons", { cache: "no-store" });
 
-    // BUG-19: if the server is a stale process (started before v3.2.0 code
+    // BUG-019: if the server is a stale process (started before v3.2.0 code
     // was deployed) the /api/seasons endpoint does not exist and Flask returns
     // a 404 HTML page. Detect this and show a restart banner instead of
     // silently leaving season dropdowns empty.

@@ -86,7 +86,9 @@ logger.addHandler(logging.NullHandler())
 # ---------------------------------------------------------------------------
 # Package import — season_config is a sibling module in the scout package.
 # ---------------------------------------------------------------------------
-from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions
+from scout.season_config import (
+    SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions, reconcile_team_folders, team_name_key,
+)
 
 # BASE is kept as an alias for SEASON_DIR (str) for backward compatibility
 # with any f-string path joins that use BASE directly.
@@ -1952,6 +1954,7 @@ def run_wild(teams_filter=None, division="Wild"):
 
     run_start = time.time()
     timings = []
+    reconcile_team_folders(division, wild_base, logger)
     all_opponents = get_wild_opponents(wild_base)
 
     if not all_opponents:
@@ -1961,7 +1964,7 @@ def run_wild(teams_filter=None, division="Wild"):
     targets = [
         t for t in all_opponents
         if teams_filter is None
-        or any(f.lower() in t.lower() for f in teams_filter)
+        or any(team_name_key(f) in team_name_key(t) for f in teams_filter)
     ]
 
     # ── Pass 1: parse all opponents, collect batters + team totals ───────────
