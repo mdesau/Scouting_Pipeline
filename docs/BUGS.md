@@ -182,7 +182,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+**Integrated Release:** v5.2.0 (commit 077a24e, tag pushed 2026-10-27)
 
 ### Observable Problem
 
@@ -1454,7 +1454,7 @@ Integrated Release `N/A — Open` until shipped. -->
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+**Integrated Release:** v5.2.0 (commit 077a24e, tag pushed 2026-10-27)
 
 ### Observable Problem
 
@@ -1520,7 +1520,7 @@ grades. Kids sharing initials split shared pitching value evenly (KC-004).
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+**Integrated Release:** v5.2.0 (commit 077a24e, tag pushed 2026-10-27)
 
 ### Observable Problem
 
@@ -1582,7 +1582,7 @@ The 9/12 Expos–Marlins 10–10 tie is unconfirmed; if it was an Expos win, add
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+**Integrated Release:** v5.2.0 (commit 077a24e, tag pushed 2026-10-27)
 
 ### Observable Problem
 
@@ -1980,7 +1980,7 @@ None.
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+**Integrated Release:** v5.2.0 (commit 077a24e, tag pushed 2026-10-27)
 
 ### Observable Problem
 
