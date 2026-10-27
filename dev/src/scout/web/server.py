@@ -11,7 +11,7 @@ text-based menu in run_menu.py — same capabilities, nicer experience:
 
   • Pick a division → pick a team → click "Build Reports"   (live log streams)
   • Browse every existing report and open the PDF in one click
-  • Add a new Wild / Storm opponent from a GameChanger URL
+  • Add a new travel-division opponent (Wild / Storm / tournament) from a URL
   • Switch between seasons or create a new season from the Seasons tab
 
 WHY A LOCAL SERVER (AND NOT A PLAIN HTML FILE)?
@@ -68,8 +68,8 @@ from flask import (
 # editable (`pip install -e .`), so it resolves from anywhere without sys.path.
 # ---------------------------------------------------------------------------
 from scout.season_config import (
-    SCOUT_ROOT, SEASON_DIR, SEASON_ID, SEASONS_ROOT,
-    build_scraper_divisions, add_team_to_yaml,
+    SCOUT_ROOT, SEASON_DIR, SEASON_ID, SEASONS_ROOT, LOGS_DIR,
+    build_scraper_divisions, add_team_to_yaml, list_divisions,
     list_seasons, set_active_season, create_season,
     update_season, get_season_detail,
     add_tournament_team, list_tournament_teams, set_tournament_team_active,
@@ -88,9 +88,11 @@ DEBUG = os.environ.get("SCOUT_WEB_DEBUG", "0") == "1"
 # The web UI reads this header during boot to detect stale server processes
 # (a server started before a code update that added new API endpoints).
 # Bump this whenever a new API endpoint is added. See BUG-19.
-SERVER_VERSION = "4.0.0"
+SERVER_VERSION = "5.0.0"
 
-# Ordered list of divisions to surface in the UI. Mirrors the pipeline's order.
+# Fallback division order for report scanning of season dirs that have no
+# config YAML (e.g. one-off AllStars/Coach_Pitch folders). Live divisions are
+# read per-season from the YAML via list_divisions(); this is only a safety net.
 DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
 
 # The pipeline entry point we shell out to for every build (run as a module).
@@ -176,20 +178,24 @@ def api_divisions():
     # immediately without a server restart. (See docstring above.)
     divisions = build_scraper_divisions(season_id=season)
     out = []
-    for div in DIVISION_ORDER:
-        meta = divisions.get(div, {})
-        div_type = "league" if meta.get("type") == "org" else "travel"
-
-        if div in ("Wild", "Storm"):
-            # Extract names from fresh YAML data and sort alphabetically.
-            teams = sorted(name for (_, _, name) in meta.get("teams", []))
-        else:
+    # Divisions come from the season config (Majors/Minors + whatever travel
+    # divisions this season has — Wild, Storm, Mavs, …), not a hardcoded list.
+    # Only ACTIVE divisions are offered for building; inactive travel divisions
+    # are excluded from builds, so surfacing them here would be misleading.
+    for meta in list_divisions(season):
+        if not meta["active"]:
+            continue
+        name = meta["name"]
+        if meta["type"] == "league":
             # Majors/Minors: get_team_list() reads rosters.json fresh — correct.
-            teams = get_team_list(div)
-
+            teams = get_team_list(name)
+        else:
+            # Travel: extract names from fresh YAML data, sorted alphabetically.
+            meta_div = divisions.get(name, {})
+            teams = sorted(nm for (_, _, nm) in meta_div.get("teams", []))
         out.append({
-            "name": div,
-            "type": div_type,
+            "name": name,
+            "type": meta["type"],
             "teams": teams,
         })
     return jsonify({"season": season, "divisions": out})
@@ -239,7 +245,14 @@ def api_reports():
     for sid, season_dir in scan_list:
         # Use a season-qualified label when showing all seasons together.
         label_suffix = f" — {sid}" if not season_filter else ""
-        for div in DIVISION_ORDER:
+        # Report scanning includes EVERY configured division (even inactive
+        # ones) so previously-generated reports stay visible. Fall back to the
+        # static order for season dirs with no config YAML (AllStars, etc.).
+        try:
+            div_names = [d["name"] for d in list_divisions(sid)]
+        except Exception:
+            div_names = DIVISION_ORDER
+        for div in div_names:
             div_dir = season_dir / div
             if not div_dir.is_dir():
                 continue
@@ -294,10 +307,49 @@ def serve_report(relpath):
     return send_file(target, mimetype="application/pdf")
 
 
+@app.route("/api/logs")
+def api_logs():
+    """
+    List the run/debug log files in data/real/logs (newest first) for the Dev tab.
+
+    Returns each file's name, byte size, and modified time. Only regular files
+    directly inside LOGS_DIR are listed — no recursion, no directories.
+    """
+    logs = []
+    if LOGS_DIR.is_dir():
+        for p in LOGS_DIR.iterdir():
+            if p.is_file() and not p.name.startswith("."):
+                st = p.stat()
+                logs.append({"name": p.name, "size": st.st_size, "mtime": st.st_mtime})
+    logs.sort(key=lambda x: x["mtime"], reverse=True)
+    return jsonify({"logs": logs})
+
+
+@app.route("/api/logs/<path:name>")
+def api_log_content(name):
+    """
+    Return the raw text of a single log file for viewing in the Dev tab.
+
+    SECURITY: the requested path is resolved and confirmed to live directly
+    inside LOGS_DIR before anything is served, blocking path-traversal attempts
+    (e.g. ../../etc/passwd) from reaching files outside the logs folder.
+    """
+    logs_root = LOGS_DIR.resolve()
+    target = (logs_root / name).resolve()
+    # Must be a regular file whose immediate parent is the logs root.
+    if target.parent != logs_root or not target.is_file():
+        abort(404)
+    return send_file(target, mimetype="text/plain", conditional=True)
+
+
 @app.route("/api/add_team", methods=["POST"])
 def api_add_team():
     """
-    Register a new Wild / Storm opponent from a GameChanger schedule URL.
+    Register a new travel-division opponent from a GameChanger schedule URL.
+
+    The target division may be any ACTIVE travel division of the season
+    (Wild, Storm, or a user-added tournament division like Mavs), not just the
+    two built-ins — the valid set is read from the season config.
 
     Accepts an optional "season" field in the JSON body to target a specific
     season's YAML and Games/ folder. Defaults to the active SEASON_ID.
@@ -312,8 +364,16 @@ def api_add_team():
     division     = (data.get("division")    or "").strip()
     folder_override = (data.get("folder_name") or "").strip()
 
-    if division not in ("Wild", "Storm"):
-        return jsonify({"ok": False, "error": "Division must be Wild or Storm."}), 400
+    # Valid targets are the season's active travel divisions (read from config).
+    travel_active = sorted(
+        d["name"] for d in list_divisions(season)
+        if d["type"] == "travel" and d["active"]
+    )
+    if division not in travel_active:
+        choices = ", ".join(travel_active) or "none configured"
+        return jsonify({"ok": False,
+                        "error": f"Division must be an active travel division "
+                                 f"({choices})."}), 400
 
     team_id, slug = _parse_gc_url(url)
     if not team_id or not slug:

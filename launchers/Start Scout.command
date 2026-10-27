@@ -5,7 +5,7 @@
 # WHAT IT DOES
 #   1. Activates the project virtualenv (venv).
 #   2. Starts the local web server (scout.web.server).
-#   3. Opens the UI in your default browser.
+#   3. Opens the UI in Google Chrome (falls back to the default browser).
 #   4. Keeps running until you close the window or press Ctrl+C, which stops
 #      the server (reports can only be built while this window is open).
 #
@@ -43,8 +43,16 @@ else
 fi
 
 # Open the browser a moment after the server starts listening.
+# Prefer Google Chrome; fall back to the default browser if Chrome isn't installed.
 # Done in a backgrounded subshell so it does not block server startup.
-( sleep 1.5; open "$URL" ) &
+(
+    sleep 1.5
+    if open -a "Google Chrome" "$URL" 2>/dev/null; then
+        :   # opened in Chrome
+    else
+        open "$URL"   # Chrome not present — use the default browser
+    fi
+) &
 
 # Ensure the scout package is importable (one-time editable install on fresh venv).
 python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"

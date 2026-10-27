@@ -480,7 +480,7 @@ def generate_html(all_results, min_pa, output_path):
 </div>
 """
 
-    for div_name in ["Majors", "Minors", "Wild", "Storm"]:
+    for div_name in DIVISIONS:
         div_data = all_results.get(div_name)
         if not div_data:
             continue
@@ -576,7 +576,7 @@ def main():
 
     all_results = {}
 
-    for div_name in ["Majors", "Minors", "Wild", "Storm"]:
+    for div_name in DIVISIONS:
         print(f"  [{div_name}] Collecting batters...", end=" ", flush=True)
         batters = collect_division_batters(div_name, args.min_pa)
         print(f"{len(batters)} qualified (≥{args.min_pa} PA)")

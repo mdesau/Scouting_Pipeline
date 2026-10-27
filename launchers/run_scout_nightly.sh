@@ -43,7 +43,7 @@ fi
 # ── Run the pipeline ──────────────────────────────────────────────────────────
 cd "$REPO_ROOT"
 python -c "import scout" 2>/dev/null || pip install -e "$REPO_ROOT"
-python -m scout.orchestrator.run_menu --all
+caffeinate -i python -m scout.orchestrator.run_menu --all
 PIPELINE_EXIT=$?
 if [[ $PIPELINE_EXIT -ne 0 ]]; then
     echo ""

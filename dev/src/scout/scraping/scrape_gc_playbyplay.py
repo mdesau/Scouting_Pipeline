@@ -10,10 +10,13 @@ Covers all four divisions: Majors, Minors, Wild, Storm.
 
 Usage
 -----
-# First time only — opens a real browser window for you to log in
-python3 scrape_gc_playbyplay.py --login
+# First time / when the session expires — opens Scout Chrome so you can sign in
+python -m scout.scraping.scrape_gc_playbyplay --login
 
-# All subsequent runs — fully automated, browser hidden
+# Verify the GC login only (exit 0=ok, 2=signed out, 3=blocked)
+python -m scout.scraping.scrape_gc_playbyplay --check-session
+
+# All subsequent runs — automated; a Scout Chrome window opens off-screen (GC blocks headless)
 python3 scrape_gc_playbyplay.py
 
 # One division only
@@ -33,22 +36,22 @@ python3 scrape_gc_playbyplay.py --force
 
 Setup (one time)
 -----
-pip3 install playwright --break-system-packages
-playwright install chromium
+Requires Google Chrome in /Applications (see scout/scraping/gc_browser.py).
 """
 
 import argparse
 import logging
 import re
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 try:
-    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+    from playwright.sync_api import TimeoutError as PWTimeout
 except ImportError:
     print("ERROR: playwright not installed.")
-    print("Run: pip3 install playwright --break-system-packages && playwright install chromium")
+    print("Run: pip install -r requirements.txt")
     raise
 
 # ---------------------------------------------------------------------------
@@ -57,8 +60,11 @@ except ImportError:
 # This script lives at src/scraping/scrape_gc_playbyplay.py.
 # season_config.py lives at src/season_config.py (one level up).
 # season_config + parse_gc_text are part of the scout package.
-from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, SESSION_FILE, build_scraper_divisions
+from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_scraper_divisions
 from scout.scraping.parse_gc_text import parse_gc_raw
+from scout.scraping.gc_browser import (
+    SESSION_MESSAGES, SESSION_OK, login as gc_login, run_with_session,
+)
 
 # ─────────────────────────────────────────────────────────────
 # DEBUG CONFIGURATION
@@ -78,7 +84,7 @@ DEBUG_SCHEDULE_RAW = False   # Dump full SCHEDULE_JS return (every game card's r
 DEBUG_PAGE_TEXT    = False   # Dump raw page text from each /plays page before parsing
 
 GC_BASE_URL  = "https://web.gc.com"
-# SESSION_FILE (GC auth) and LOGS_DIR are imported from season_config above.
+# GC auth lives in the Scout Chrome profile (gc_browser.py); LOGS_DIR comes from season_config.
 
 # ─────────────────────────────────────────────────────────────
 # LOGGING
@@ -128,6 +134,17 @@ DIVISIONS = build_scraper_divisions()
 
 # Extracts raw page text from a /plays page (same approach as get_page_text)
 EXTRACT_PLAYS_JS = "() => document.body.innerText"
+_RAW_INNING_HEADER_RE = re.compile(
+    r"\b(?:Top|Bottom)\s+\d+(?:st|nd|rd|th)?\s*-\s*\S+",
+    re.IGNORECASE,
+)
+
+
+def _has_valid_plays_content(raw_text):
+    """Reject logged-out pages and bodies without a recognizable inning header."""
+    if not raw_text or "sign in to gamechanger" in raw_text.casefold():
+        return False
+    return bool(_RAW_INNING_HEADER_RE.search(raw_text))
 
 # Discovers all game UUIDs from a schedule page (works for both org and team pages).
 #
@@ -239,7 +256,7 @@ SCHEDULE_JS = """
                     // instead of 'FINAL' — no 'FINAL' text ever appears on those pages.
                     // A score pattern means the game is over and has play-by-play data.
                     final: lines.includes('FINAL') ||
-                           lines.some(l => /^[WL]\\s+\\d+-\\d+/.test(l))
+                           lines.some(l => /^[WLT]\\s+\\d+-\\d+/.test(l))
 
                 });
             }
@@ -330,7 +347,11 @@ def extract_plays_raw(page, plays_url):
         logger.error(f"    [error] {e}")
         return None
     time.sleep(0.5)
-    return page.evaluate(EXTRACT_PLAYS_JS)
+    raw_text = page.evaluate(EXTRACT_PLAYS_JS)
+    if not _has_valid_plays_content(raw_text):
+        logger.error(f"    Rejected invalid or unauthenticated plays page: {plays_url}")
+        return None
+    return raw_text
 
 
 # ─────────────────────────────────────────────────────────────
@@ -354,7 +375,7 @@ def scrape_org_division(page, div_name, cfg, team_filter, force, check_only=Fals
 
     sched_url = f"{GC_BASE_URL}/organizations/{org_id}/schedule"
     games = get_schedule(page, sched_url)
-    final_games = [g for g in games if g.get("final")]
+    final_games = [g for g in games if g.get("final") and g["id"] not in cfg.get("exclude_games", ())]
     logger.info(f"  {len(final_games)} FINAL games found on schedule")
 
     scraped = skipped = failed = missing = 0
@@ -431,7 +452,7 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
 
             sched_url = f"{GC_BASE_URL}/teams/{team_id}/{slug}/schedule"
             games = get_schedule(page, sched_url)
-            final_games = [g for g in games if g.get("final")]
+            final_games = [g for g in games if g.get("final") and g["id"] not in cfg.get("exclude_games", ())]
             logger.info(f"  {team_name}: {len(final_games)} FINAL games found")
 
             missing = 0
@@ -493,36 +514,20 @@ def scrape_team_division(page, div_name, cfg, team_filter, force, check_only=Fal
 # MAIN
 # ─────────────────────────────────────────────────────────────
 
-def run(login_mode=False, divisions_filter=None, team_filter=None, force=False, check_only=False, verbose=False):
+def run(login_mode=False, divisions_filter=None, team_filter=None, force=False, check_only=False,
+        verbose=False, check_session_only=False):
+    """Returns a process exit code (see gc_browser.EXIT_CODES)."""
     setup_logging(verbose=verbose)
-    with sync_playwright() as pw:
-        if login_mode:
-            browser = pw.chromium.launch(headless=False)
-            ctx = browser.new_context()
-        elif SESSION_FILE.exists():
-            browser = pw.chromium.launch(headless=True)
-            ctx = browser.new_context(storage_state=str(SESSION_FILE))
-        else:
-            browser = pw.chromium.launch(headless=False)
-            ctx = browser.new_context()
-            logger.warning("No saved session — browser opened. Log in to https://web.gc.com then press ENTER.")
-            input()
+    if login_mode:
+        return gc_login(logger)
+    if check_session_only:
+        return run_with_session(logger, lambda page: logger.info(SESSION_MESSAGES[SESSION_OK]))
 
-        page = ctx.new_page()
+    totals = [0, 0, 0]
 
-        if login_mode:
-            page.goto(f"{GC_BASE_URL}/teams")
-            logger.info("Log in to GameChanger in the browser window that just opened.")
-            logger.info("Once you can see your teams page, press ENTER here.")
-            input()
-            ctx.storage_state(path=str(SESSION_FILE))
-            logger.info(f"Session saved → {SESSION_FILE}")
-
+    def scrape_all(page):
         if check_only:
             logger.info("MODE: --check only (no files will be written)")
-
-        total_s = total_sk = total_f = 0
-
         for div_name, cfg in DIVISIONS.items():
             if divisions_filter and div_name not in divisions_filter:
                 continue
@@ -535,29 +540,33 @@ def run(login_mode=False, divisions_filter=None, team_filter=None, force=False, 
 
             try:
                 if cfg["type"] == "org":
-                    s, sk, f = scrape_org_division(page, div_name, cfg, team_filter, force, check_only)
+                    counts = scrape_org_division(page, div_name, cfg, team_filter, force, check_only)
                 else:
-                    s, sk, f = scrape_team_division(page, div_name, cfg, team_filter, force, check_only)
-                total_s += s; total_sk += sk; total_f += f
+                    counts = scrape_team_division(page, div_name, cfg, team_filter, force, check_only)
+                totals[:] = [a + b for a, b in zip(totals, counts)]
             except Exception as exc:
                 logger.error(f"  ⚠ {div_name} failed: {exc}")
-                total_f += 1
+                totals[2] += 1
 
-        ctx.storage_state(path=str(SESSION_FILE))
-        browser.close()
+    code = run_with_session(logger, scrape_all)
+    if code:
+        return code
 
     logger.info(f"\n{'='*55}")
     if check_only:
         logger.info("Check complete. Run without --check to scrape any missing games.")
     else:
-        logger.info(f"Done.  Scraped: {total_s}  Skipped: {total_sk}  Failed: {total_f}")
+        logger.info(f"Done.  Scraped: {totals[0]}  Skipped: {totals[1]}  Failed: {totals[2]}")
+    return 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WCWAA GameChanger Scraper")
     parser.add_argument("--login",      action="store_true",
-                        help="Open browser for manual login and save session")
-    parser.add_argument("--division",   nargs="+", choices=["Majors","Minors","Wild","Storm"],
+                        help="Open Scout Chrome on screen to sign in to GameChanger")
+    parser.add_argument("--check-session", action="store_true",
+                        help="Only verify the GC login (exit 0=ok, 2=signed out, 3=blocked/Chrome error)")
+    parser.add_argument("--division",   nargs="+", choices=list(DIVISIONS),
                         help="Only scrape these divisions (default: all)")
     parser.add_argument("--team",       default=None,
                         help="Only scrape games involving this team name")
@@ -569,11 +578,12 @@ if __name__ == "__main__":
                         help="Show DEBUG-level messages on screen (normally only written to log file)")
     args = parser.parse_args()
 
-    run(
+    sys.exit(run(
         login_mode=args.login,
         divisions_filter=args.division,
         team_filter=args.team,
         force=args.force,
         check_only=args.check,
         verbose=args.verbose,
-    )
+        check_session_only=args.check_session,
+    ))

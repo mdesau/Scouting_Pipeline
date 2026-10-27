@@ -7,6 +7,150 @@
 
 ---
 
+## BUG-22 · [STATUS: RV]
+
+**Title:** GameChanger blocks the scraper's hidden ("headless") browser — every page comes back empty
+
+**Severity:** Critical
+**Date Reported:** 2026-10-26
+**Release Found:** v4.0.0
+**Release Fixed:** v5.0.0
+
+### Observable Problem
+
+Scraping finds **0 games** for every team (e.g. "Weddington Mavericks 10U: 0 FINAL games found"),
+even though the team has played games and the GameChanger login is valid. Signing in through the
+scraper's browser window shows GameChanger's "Oops!" page instead of your teams.
+
+### Steps to Reproduce
+
+1. `python -m scout.scraping.scrape_gc_playbyplay --division Mavs --check` (v4.0.0 code)
+2. Expected: the team's completed games are listed — Actual: `0 FINAL games found`
+
+### Fix Explanation _(Exec Level — No Code)_
+
+The scraper used to run its own built-in browser **headless** — the browser engine loads pages
+but never opens a window, like a TV with the screen unplugged. GameChanger's security firewall
+now spots that kind of browser and refuses to hand it any data, so every page loads as an empty
+shell. A login doesn't help: the firewall decides before the login is even looked at.
+
+GameChanger does still serve a **normal Google Chrome window**. So the scraper now:
+
+1. Opens your installed Google Chrome as an ordinary window, using a separate **Scout profile**
+   (its own folder of logins/cookies — your everyday Chrome is never touched).
+2. Remote-controls that window (go to page, copy text) — the same steps as before, just driving
+   real Chrome instead of a hidden browser.
+3. Closes the window when scraping is done. Building PDFs needs no browser.
+
+You sign in to GameChanger in that Scout window once (`--login`); it stays signed in between runs.
+Before every pipeline run a quick **session check** confirms GameChanger is answering. If the
+login has expired, scraping is skipped (PDFs are still rebuilt from saved games), the log says
+exactly what to run, and nightly runs pop a macOS notification.
+
+What you'll see during a run: a second Chrome icon in the Dock while games/rosters are scraped
+(the window is placed off-screen). Don't close it mid-run. The Mac must be awake and logged in.
+
+### Fix Details _(Technical)_
+
+**Evidence (2026-10-26, same Scout profile + valid login in every case):**
+
+| Browser                                                  | Window                     | `api.team-manager.gc.com/me/*` | Page          |
+| -------------------------------------------------------- | -------------------------- | ------------------------------ | ------------- |
+| Playwright bundled Chromium (`launch(headless=True)`)    | none                       | 403                            | empty         |
+| Playwright `launch_persistent_context(channel="chrome")` | yes, with automation flags | 403 / "Oops!"                  | error         |
+| Real Chrome `--headless=new` + `connect_over_cdp`        | none                       | 403                            | empty         |
+| Real Chrome, normal window + `connect_over_cdp`          | yes                        | **200**                        | full schedule |
+
+Root cause: AWS WAF in front of GC rejects headless/automation fingerprints (`navigator.webdriver`,
+`--enable-automation`, headless UA/GPU traits). GC auth itself is a localStorage token
+(`eden-auth-tokens` on `https://web.gc.com`), not a cookie — which is also why the old
+`gc_session.json` storage-state looked "cookie-less".
+
+**New module `scout/scraping/gc_browser.py`** (single place that touches Chrome):
+
+- `gc_chrome(log, on_screen=False)` — context manager. `subprocess.Popen`s
+  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` with
+  `--user-data-dir=data/real/sessions/gc_chrome_profile`, `--remote-debugging-port=9223`
+  (bound to 127.0.0.1), `--window-position=-2400,0` (off-screen unless `on_screen`),
+  and `--disable-background-timer-throttling --disable-backgrounding-occluded-windows
+--disable-renderer-backgrounding`. Polls `/json/version` until CDP is up (20 s), then
+  `pw.chromium.connect_over_cdp()` and yields the first page. On exit sends CDP
+  `Browser.close` (graceful — flushes the profile) and waits for the process.
+  Raises `ChromeLaunchError` if port 9223 is busy, Chrome is missing, or Chrome exits at once
+  (profile already open elsewhere).
+- `check_session(page, log)` — loads `/teams`, records `/me/*` API statuses, and
+  `classify_session()` returns `ok` (`/me/user` 200), `signed_out` (`/login` URL, "Sign in to
+  GameChanger", or any 401), or `blocked` (403, "couldn't load your account", or no API answer).
+- `run_with_session(log, work)` — open Chrome → check → `work(page)`; returns exit code
+  `EXIT_CODES = {ok: 0, signed_out: 2, blocked: 3}`.
+- `login(log)` — on-screen window, user signs in, ENTER, then `check_session`.
+
+**Callers:**
+
+- `scrape_gc_playbyplay.run()` / `scrape_gc_boxscores.run()` now use `run_with_session()` and
+  `sys.exit()` with its code. New flag `scrape_gc_playbyplay --check-session`.
+- `run_menu.run_pipeline()` adds a **Preflight** (`_gc_session_ok()` → subprocess
+  `--check-session`). Non-zero → Steps 1–2 skipped, Steps 3–4 still run; `--all` (nightly)
+  also calls `_notify()` (`osascript display notification`).
+- `run_menu.check_session()` warns when the Scout profile folder is missing (was: `gc_session.json`).
+- Nightly wrappers run under `caffeinate -i` so idle sleep can't kill Chrome mid-run.
+- `gc_session.json` / `SESSION_FILE` are no longer read by the scrapers (legacy
+  `diag_schedule.py` still uses them and is therefore non-functional).
+- Playwright's bundled Chromium (`playwright install chromium`) is no longer needed; the
+  `playwright` Python package still is (it is the CDP driver). Google Chrome must be installed.
+
+Tests: `dev/tests/test_fall_league_readiness.py::SessionClassificationTests`.
+
+**Limits:** a run needs a logged-in, awake Mac (launchd catches up a missed 10am run on wake);
+behavior with the screen locked is untested. Only one Scout Chrome at a time (port 9223).
+
+### Workaround
+
+None on v4.0.0. On v5.0.0, if the session check reports "expired", run
+`python -m scout.scraping.scrape_gc_playbyplay --login` and sign in.
+
+---
+
+## BUG-21 · [STATUS: RV]
+
+**Title:** Play-by-play scraper saves logged-out page text as game data when the GC session expires
+
+**Severity:** High
+**Date Reported:** 2026-10-26
+**Release Found:** v3.4.0
+**Release Fixed:** v5.0.0
+
+### Observable Problem
+
+If the saved GameChanger session has lost its login, GC serves a logged-out page. The scraper
+still saves whatever text is on that page as a game file, so reports are built from content that
+is not the real game — with no error shown.
+
+### Fix Explanation _(Exec Level — No Code)_
+
+The scraper now checks that a downloaded page really contains innings before saving it, and
+refuses any page that says "Sign in to GameChanger". Together with the session check added in
+BUG-22, an expired login is reported up front instead of silently producing bad data.
+
+### Fix Details _(Technical)_
+
+`scrape_gc_playbyplay.py`:
+
+- `extract_plays_raw()` → `_has_valid_plays_content()` rejects bodies containing
+  "Sign in to GameChanger" or lacking a `Top/Bottom N - Team` inning header; returns `None`
+  (counted as a failed game, nothing written).
+
+Related: `season_config.build_hitting_divisions()` derives league teams from `rosters.json`
+keys (`_discover_league_teams()`) when the YAML team list is empty.
+
+Tests: `dev/tests/test_fall_league_readiness.py::PlaysContentValidationTests`.
+
+### Workaround
+
+Run `python -m scout.scraping.scrape_gc_playbyplay --check-session` before scraping.
+
+---
+
 ## BUG-20 · [STATUS: RV]
 
 **Title:** "Not Found" when opening any report PDF from the web UI — season segment dropped from path
@@ -17,31 +161,36 @@
 **Release Fixed:** v3.3.2
 
 ### Observable Problem
+
 In the web UI's View Reports tab, clicking any Hitting or Pitching report opens a new tab that
 shows a Flask "Not Found" (404) page instead of the PDF. The address bar shows a URL like
 `http://127.0.0.1:5050/report/Majors/Reports/Scouting_Reports/Braves_Rue-Scout-Hitting_2026.pdf`.
 
 ### Steps to Reproduce
+
 1. Start the server (`Start Scout.command`)
 2. Open http://127.0.0.1:5050 → View Reports tab
 3. Click any team's "Hitting" or "Pitching" pill
 4. Expected: the PDF opens in a new tab — Actual: 404 "Not Found"
 
-### Fix Explanation *(Exec Level — No Code)*
+### Fix Explanation _(Exec Level — No Code)_
+
 Reports are stored per season under `seasons/<season-id>/<Division>/…`. The page builds the list
-of report links using a path that started at the *season folder* — so the season id (e.g.
+of report links using a path that started at the _season folder_ — so the season id (e.g.
 `2026-spring`) was left out of the link. But the part of the server that actually delivers a PDF
-starts looking from the *seasons* folder, one level higher, and so it needs the season id in the
+starts looking from the _seasons_ folder, one level higher, and so it needs the season id in the
 path. Because the two halves disagreed by exactly one folder level, every report link pointed at a
 location that did not exist, producing a 404. The link builder now includes the season id, so the
 delivered path lines up with where the files actually live.
 
-### Fix Details *(Technical)*
+### Fix Details _(Technical)_
+
 Root cause: an asymmetry introduced during the v3.3.0 per-season report work.
+
 - `api_reports()` built each report's relative path with `pdf.relative_to(season_dir)` where
   `season_dir = seasons/<sid>/` — dropping the `<sid>` segment.
 - `serve_report()` resolves `/report/<path>` with `(seasons_root / relpath)` where
-  `seasons_root = seasons/` — so it *requires* the `<sid>` segment.
+  `seasons_root = seasons/` — so it _requires_ the `<sid>` segment.
 
 Fix (`src/web/server.py`, `api_reports()`): changed the relative base to the seasons root —
 `rel = str(pdf.relative_to(seasons_root))` — so emitted paths now include the season id
@@ -50,6 +199,7 @@ The path-traversal guard in `serve_report()` was already correct and needed no c
 end-to-end: `GET /report/2026-spring/Majors/…-Hitting_2026.pdf` → HTTP 200, PDF bytes returned.
 
 ### Workaround
+
 None in the UI. (Files could be opened directly from the Google Drive folder as a manual bypass.)
 
 ---
@@ -64,19 +214,22 @@ None in the UI. (Files could be opened directly from the Google Drive folder as 
 **Release Fixed:** v3.3.1
 
 ### Observable Problem
+
 After opening the web UI, the Season dropdowns on the Build and Add Team tabs are completely
 empty, the View Reports tab shows only "All seasons" with no individual seasons listed, and the
 header subtitle stays "loading…" indefinitely instead of showing the active season name.
 The status indicator shows "Server online" (the server is reachable), yet no season data loads.
 
 ### Steps to Reproduce
+
 1. Start the server once with an older build of `server.py` (pre-v3.2.0)
 2. Update `server.py` to v3.2.0 or later (e.g. via `git pull`)
 3. Do NOT restart the server — leave the old process running
 4. Open or refresh http://127.0.0.1:5050
 5. Expected: Season dropdowns populated with "2026 Spring ✓" — Actual: all season selects empty, header shows "loading…"
 
-### Fix Explanation *(Exec Level — No Code)*
+### Fix Explanation _(Exec Level — No Code)_
+
 Python loads `server.py` once when the server process starts. If the code on disk is later
 updated (through a git pull or any file save), the already-running process continues using the
 old code it loaded at startup. In this case the process was running a pre-v3.2.0 version of
@@ -88,6 +241,7 @@ dropdowns empty with no explanation.
 via `Start Scout.command`.
 
 **Long-term fix (shipped in v3.3.1):**
+
 1. `server.py` now stamps a `X-Scout-Version` header on every response so version drift is
    detectable at any time.
 2. `app.js` now explicitly checks the HTTP status of the `/api/seasons` call. If the server
@@ -95,7 +249,8 @@ via `Start Scout.command`.
    "⚠️ Server restart required" banner appears and the header subtitle changes to
    "⚠ Restart server" instead of staying on "loading…".
 
-### Fix Details *(Technical)*
+### Fix Details _(Technical)_
+
 - **`server.py`**: Added `SERVER_VERSION = "3.3.0"` constant. Added `@app.after_request`
   hook `_add_version_header()` that injects `X-Scout-Version: {SERVER_VERSION}` into every
   Flask response.
@@ -108,6 +263,7 @@ via `Start Scout.command`.
 - **`style.css`**: Added `.stale-banner` and `.stale-banner code` rules.
 
 ### Workaround
+
 Kill the Flask process manually (`kill <PID>`, PID found via `lsof -i :5050 -n -P`) and
 relaunch via `Start Scout.command`.
 
@@ -123,11 +279,13 @@ relaunch via `Start Scout.command`.
 **Release Fixed:** v3.3.0
 
 ### Observable Problem
+
 When the web UI is open and the server is running, there is no season dropdown inline with the
 Division/Team controls on the Build tab, no season filter on the View Reports tab, and no season
 selector on the Add Team tab. Users cannot target a specific season from within those panels.
 
 ### Steps to Reproduce
+
 1. Start the server (`Start Scout.command`)
 2. Open http://127.0.0.1:5050
 3. Observe Build tab — no season dropdown next to Division/Team
@@ -135,16 +293,19 @@ selector on the Add Team tab. Users cannot target a specific season from within 
 5. Observe Add Team tab — no season dropdown above Division
 6. Expected: season selector inline on each tab — Actual: no season selector on any operational tab
 
-### Fix Explanation *(Exec Level — No Code)*
+### Fix Explanation _(Exec Level — No Code)_
+
 The v3.2.0 season management feature added a global season picker to the page header and a
 dedicated "Seasons" tab for creating and activating seasons. However, the per-tab inline
 season selectors (inline with Division/Team on Build; filter on View Reports; above Division
 on Add Team) were never added to those three panels. This is a design gap — the header picker
-controls which season is *active* system-wide, but there is no way to target a specific
+controls which season is _active_ system-wide, but there is no way to target a specific
 season's data from within the operational tabs without switching the global active season.
 
-### Fix Details *(Technical)*
+### Fix Details _(Technical)_
+
 Three panels in `index.html` need a season `<select>` added, and `app.js` needs to:
+
 - **Build tab**: Add `#buildSeason` select (populated from `loadSeasons()`, no "All" option) before
   the Division select. Pass `season=` param to `/api/run` and `/api/divisions`. Server may need
   a `?season=` query param on those endpoints to scope the division/team lists and build target.
@@ -157,6 +318,7 @@ the system-wide active season. These per-tab selectors are about targeting a spe
 for an operation without necessarily switching the global active.
 
 ### Workaround
+
 Use the "Seasons" tab (4th tab) to activate the desired season first, then restart the server,
 then proceed with Build/View/Add Team. Clunky but functional.
 
@@ -172,21 +334,26 @@ then proceed with Build/View/Add Team. Clunky but functional.
 **Release Fixed:** v3.1.3
 
 ### Observable Problem
+
 After adding a new Wild or Storm opponent via the web UI "Add Team" tab, the team does not appear in the Build division/team dropdowns — even though the success message confirms the team was added. A server restart is required to see the new team, which is not obvious to the user.
 
 As a secondary issue, Wild/Storm teams appear in YAML insertion order rather than alphabetically, making long lists harder to scan. Majors/Minors were already alphabetical.
 
 ### Steps to Reproduce
+
 1. Open the web UI → Add Team tab
 2. Add a valid Wild or Storm opponent via a GC URL
 3. Switch to the Build tab and open the division dropdown
 4. Expected: new team appears in the dropdown — Actual: team is missing until server restart
 
-### Fix Explanation *(Exec Level — No Code)*
+### Fix Explanation _(Exec Level — No Code)_
+
 The server was loading division/team data once when it started up and reusing that snapshot for every request. Adding a team updates the config file on disk, but the server was still serving its startup snapshot. Fixed by reading the config file fresh on every request to the divisions endpoint — the read is fast enough that users won't notice. Also sorted Wild/Storm team lists alphabetically to match Majors/Minors behavior.
 
-### Fix Details *(Technical)*
+### Fix Details _(Technical)_
+
 Two module-level caches caused the stale data:
+
 1. `server.py` — `_DIVISIONS = build_scraper_divisions()` was called once at module load. `api_divisions()` used this frozen dict for every subsequent request.
 2. `run_menu.py` — `get_team_list()` reads Wild/Storm teams from `run_menu.DIVISIONS`, also a module-level import-time cache. Since `server.py` imports `get_team_list`, this cache is frozen for the server's lifetime.
 
@@ -199,6 +366,7 @@ Note: The JS side (`app.js` line 219) already correctly re-fetched `/api/divisio
 Files changed: `src/web/server.py`, `src/orchestrator/run_menu.py`
 
 ### Workaround
+
 Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding a team.
 
 ---
@@ -210,12 +378,13 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** Players with accented Latin characters in their last name (e.g., `B González`) were silently dropped from both hitting and pitching reports. The regexes used ASCII-only `[a-z]` for the last-name capture group. Affected: Ben González (#99, Weddington Stormtroopers / Storm) — 61 pitching PAs lost (carry-forward attributed them to prior pitcher), batting PAs also unparseable.
 
 **Fix:** Changed `[a-z]` → `[a-z\u00C0-\u024F]` in all three regexes (covers all Latin Extended characters).
+
 - Files: `gen_pitching.py` (`PITCHER_NAMED_RE`, `LINEUP_CHANGE_RE`), `gen_hitting.py` (`DESC_RE`)
 - Verification: `B González` now appears with 61 pitching PAs and 34 hitting PAs. G Elliott corrected from 90 → 54 PAs.
 
 ---
 
-## BUG-15b: Split player cards — same player appears twice in PDF *(data issue, not code bug)*
+## BUG-15b: Split player cards — same player appears twice in PDF _(data issue, not code bug)_
 
 **Date:** May 4, 2026 · **Component:** N/A (data) · **Status:** ⚠️ Closed — not a code bug
 
@@ -232,6 +401,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** Storm opponent folder named `"Dilworth 9U Navy"` but GC headers write `"Dilworth 9U - Navy"`. 0 PAs across all 7 games.
 
 **Fix:** Renamed folder; updated team name in both scrapers; enhanced "No PAs" warning to list team names from headers.
+
 - Files: `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`, `gen_hitting.py`
 
 ---
@@ -243,6 +413,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** `gen_hitting.py` builds file list once at startup; renames `.txt` → `-Reviewed.txt` as it processes. Later team lookups on same file fail with FileNotFoundError. False SKIP label appears.
 
 **Fix:** Before opening a `.txt` path, check existence; if missing, fall back to `-Reviewed.txt`.
+
 - File: `gen_hitting.py` → `run_league()`
 
 ---
@@ -254,6 +425,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** GC lazy-loads schedule cards. Scraper extracted game data before scrolling → only saw games through late April. 9 Majors + 14 Minors games missed.
 
 **Fix:** Added scroll-to-bottom loop (max 30 passes, 0.8s wait) before running `SCHEDULE_JS`. Loop exits when game count stops growing.
+
 - File: `scrape_gc_playbyplay.py` → `get_schedule()`
 
 ---
@@ -265,6 +437,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** Every run printed WARNING-level messages making it hard to spot genuine issues.
 
 **Fix:** Demoted both from `logger.warning()` to `logger.debug()`. Still in log file.
+
 - File: `gen_hitting.py` → `check_inning_continuity()`, `verify_game()`, `verify_box_score()`
 
 ---
@@ -276,6 +449,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** Game files use `"FirstName LastInitial"` format (e.g. `"Ryder B"`) but `roster.txt` keys use `"FirstInitial LastInitial"` (e.g. `"R B"`). Lookup never matched.
 
 **Fix:** Extended `load_wild_roster()` to index each entry under both key formats.
+
 - File: `gen_hitting.py` → `load_wild_roster()`
 
 ---
@@ -287,6 +461,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** When running the pipeline for a single Wild/Storm team, Step 2 looped through ALL teams. No `--team` arg existed.
 
 **Fix:** Added `team_filter=None` param throughout; wired `--team` arg; updated `run_menu.py` to pass `team_args`.
+
 - Files: `scrape_gc_boxscores.py`, `run_menu.py`
 
 ---
@@ -298,6 +473,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** `date.today().isoformat()` called but only `datetime` was imported, not `date`.
 
 **Fix:** Changed to `from datetime import datetime, date`.
+
 - File: `scrape_gc_boxscores.py`
 
 ---
@@ -309,6 +485,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** After Bug 7 was fixed, generated filenames were malformed — leading dash (no date) and team name replaced by a location string. Day-abbr nodes were outside the `<a>` card; `lines[1]` was a location, not team name.
 
 **Fix:** Added leaf-node day-abbr detection; added `is_home` field; used `team_name` for filename.
+
 - File: `scrape_gc_playbyplay.py` → `SCHEDULE_JS` + `scrape_team_division()`
 
 ---
@@ -320,6 +497,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** GC team pages (Wild/Storm) show completed games with a score (e.g. `"W 7-5"`) rather than `"FINAL"`. Both scrapers reported `"0 FINAL games found"` for all Wild/Storm teams.
 
 **Fix:** Added score-pattern detection (`/^[WL]\s+\d+-\d+/`) alongside the `FINAL` check in `SCHEDULE_JS`.
+
 - Files: `scrape_gc_playbyplay.py`, `scrape_gc_boxscores.py`
 
 ---
@@ -331,6 +509,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** In `FIELDER_ZONES`, `"shortstop"` was mapped to zone key `"3B"` instead of `"SS"`. SS always showed 0%; 3B zone was inflated. Affected all four divisions.
 
 **Fix:** Changed mapping from `("shortstop","3B")` to `("shortstop","SS")`.
+
 - File: `gen_hitting.py` → `FIELDER_ZONES`
 
 ---
@@ -345,7 +524,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 
 ---
 
-## BUG-4: Home Run not counting as FB+LD% *(symptom of Bug 2)*
+## BUG-4: Home Run not counting as FB+LD% _(symptom of Bug 2)_
 
 **Date:** Apr 10, 2026 · **Component:** Parser · **Status:** ✅ Fixed (by BUG-2 fix)
 
@@ -360,6 +539,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** `"Sacrifice Fly"` was in `OUTCOME_KWS` but `parse_outcome()` had no branch to handle it, returning `UNKNOWN`. Every sacrifice fly counted as an AB, inflating AB counts and deflating AVG/OBP/SLG.
 
 **Fix:** Added `SF` and `SB` constants. Wired through `parse_outcome()`, `parse_ball_type()`, `BIP_OUTCOMES`, and AB aggregation.
+
 - File: `gen_hitting.py`
 
 ---
@@ -371,6 +551,7 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** GameChanger raw text sometimes contains status text (`"Runner Out"`, `"3 Outs"`, `"J B at bat"`) with no separator between the team name and the first play. `parse_gc_raw()` absorbed this noise into the inning team name string, producing malformed headers. Affected: Crushers White 10U g06 (10 PAs lost).
 
 **Fix:** Added `TEAM_NOISE_RE` as a secondary split-point detector alongside `OUTCOME_RE` in `parse_gc_raw()`.
+
 - File: `parse_gc_text.py` → `parse_gc_raw()`
 
 ---
@@ -382,8 +563,9 @@ Restart the web server (`Ctrl+C` then `Start Scout.command` again) after adding 
 **Problem:** Dots plotted for infield hits (2B, SS, 3B, 1B, P zones) were placed too close to home plate, landing visually inside or on top of the pitcher's mound circle on the spray chart.
 
 **Fix:** Pushed the inner radius for infield dot scatter from `r_mnd*1.5` to `r_if*0.58`.
+
 - File: `gen_hitting.py` → `draw_field_spray_chart()`
 
 ---
 
-*End of bug log.*
+_End of bug log._

@@ -51,6 +51,7 @@
     <button class="tab" data-tab="reports">View Reports</button>
     <button class="tab" data-tab="addteam">Add Team</button>
     <button class="tab" data-tab="seasons">Seasons</button>
+    <button class="tab" data-tab="dev">Dev</button>
   </nav>
 
   <main>
@@ -76,7 +77,10 @@
         <div class="console-wrap">
           <div class="console-head">
             <span>Live log</span>
-            <button id="clearLog" class="ghost">Clear</button>
+            <div class="console-actions">
+              <button id="copyLog" class="ghost">Copy</button>
+              <button id="clearLog" class="ghost">Clear</button>
+            </div>
           </div>
           <pre id="console" class="console"></pre>
         </div>
@@ -101,7 +105,7 @@
     <!-- ── ADD TEAM TAB ──────────────────────────────────────────────────── -->
     <section id="tab-addteam" class="panel hidden">
       <div class="card">
-        <h2>Add a Wild / Storm opponent</h2>
+        <h2>Add a travel opponent</h2>
         <p class="hint">Paste the team's GameChanger schedule URL.</p>
         <div class="form">
           <label>Season
@@ -112,10 +116,8 @@
                    placeholder="https://web.gc.com/teams/&lt;id&gt;/&lt;slug&gt;/schedule" />
           </label>
           <label>Division
-            <select id="addDivision">
-              <option value="Wild">Wild</option>
-              <option value="Storm">Storm</option>
-            </select>
+            <!-- Populated per selected season from /api/divisions (travel only). -->
+            <select id="addDivision"></select>
           </label>
           <label>Folder name <span class="muted">(auto-filled from URL; edit if needed)</span>
             <input id="addFolder" type="text" placeholder="e.g. QC Flight Baseball 11U" />
@@ -179,15 +181,15 @@
             </label>
           </div>
 
-          <!-- Tournament Teams: compact dropdown multi-select + add new -->
+          <!-- Tournament Divisions: compact dropdown multi-select + add new -->
           <div class="field-group">
-            <p class="grp-title">Tournament Teams</p>
+            <p class="grp-title">Tournament Divisions</p>
             <p class="hint" style="margin:0 0 10px;">Travel/tournament divisions for this season
               (Wild, Storm, …). Each becomes its own folder alongside Majors &amp; Minors and holds
               its own opponents. Select the ones you're playing this season, or add a new one.</p>
             <div class="ms" id="ttMs">
               <button type="button" class="ms-toggle" id="ttToggle">
-                <span class="ms-summary placeholder" id="ttSummary">Select tournament teams…</span>
+                <span class="ms-summary placeholder" id="ttSummary">Select tournament divisions…</span>
                 <span class="caret">▼</span>
               </button>
               <div class="ms-menu hidden" id="ttMenu">
@@ -200,7 +202,7 @@
             </div>
             <!-- Note shown only in "Add New Season" mode -->
             <p class="hint" id="ttNewNote" style="margin:10px 0 0;">Wild and Storm are created
-              automatically for a new season — add any extra tournament teams here.</p>
+              automatically for a new season — add any extra tournament divisions here.</p>
           </div>
 
           <label class="row-label" id="seSetActiveWrap">
@@ -210,6 +212,32 @@
           <button id="saveSeasonBtn" class="primary">💾 Save Season</button>
         </div>
         <div id="seResult" class="add-result"></div>
+      </div>
+    </section>
+
+    <!-- ── DEV TAB ──────────────────────────────────────────────────── -->
+    <section id="tab-dev" class="panel hidden">
+      <div class="card">
+        <div class="reports-head">
+          <h2>Logs</h2>
+          <button id="refreshLogs" class="ghost">↻ Refresh</button>
+        </div>
+        <p class="hint">Run &amp; debug logs from <code>data/real/logs</code> (newest first).
+          Pick a log to view it below.</p>
+        <div class="row">
+          <label style="flex:1;">Log file
+            <select id="logSelect"></select>
+          </label>
+        </div>
+        <div class="console-wrap" style="margin-top:14px;">
+          <div class="console-head">
+            <span id="logMeta">No log selected</span>
+            <div class="console-actions">
+              <button id="copyLogFile" class="ghost">Copy</button>
+            </div>
+          </div>
+          <pre id="logView" class="console"></pre>
+        </div>
       </div>
     </section>
 

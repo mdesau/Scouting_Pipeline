@@ -33,21 +33,23 @@ import argparse
 import json
 import logging
 import re
+import sys
 import time
 from datetime import datetime, date
 from pathlib import Path
 
 try:
-    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+    from playwright.sync_api import TimeoutError as PWTimeout
 except ImportError:
     print("ERROR: playwright not installed.")
-    print("Run: pip3 install playwright --break-system-packages && playwright install chromium")
+    print("Run: pip install -r requirements.txt")
     raise
 
 # ---------------------------------------------------------------------------
 # Package import — season_config is part of the scout package.
 # ---------------------------------------------------------------------------
-from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, SESSION_FILE, build_scraper_divisions
+from scout.season_config import SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_scraper_divisions
+from scout.scraping.gc_browser import run_with_session
 
 # ─────────────────────────────────────────────────────────────
 # DEBUG CONFIGURATION
@@ -62,7 +64,7 @@ DEBUG_TEAM_NAMES    = False   # Log team name before/after normalization
 # ─────────────────────────────────────────────────────────────
 
 SCRIPTS_DIR  = Path(__file__).parent
-# SESSION_FILE (GC auth) and LOGS_DIR are imported from season_config above.
+# GC auth lives in the Scout Chrome profile (gc_browser.py); LOGS_DIR comes from season_config.
 
 GC_BASE_URL = "https://web.gc.com"
 
@@ -132,9 +134,9 @@ SCHEDULE_JS = """
                     id: m[1],
                     text: lines.join(' | '),
                     // WHY TWO CONDITIONS: see scrape_gc_playbyplay.py SCHEDULE_JS comment.
-                    // Org pages show 'FINAL'; team pages (Wild/Storm) show 'W 7-5' / 'L 9-11'.
+                    // Org pages show 'FINAL'; team pages show 'W 7-5' / 'L 9-11' / 'T 4-4'.
                     final: lines.includes('FINAL') ||
-                           lines.some(l => /^[WL]\s+\d+-\d+/.test(l))
+                           lines.some(l => /^[WLT]\s+\d+-\d+/.test(l))
                 });
             }
         }
@@ -493,7 +495,7 @@ def scrape_division(page, div_name, cfg, log, force=False):
     page.goto(sched_url, wait_until="networkidle", timeout=30_000)
     time.sleep(2)
     games = page.evaluate(SCHEDULE_JS) or []
-    final_games = [g for g in games if g.get("final")]
+    final_games = [g for g in games if g.get("final") and g["id"] not in cfg.get("exclude_games", ())]
     log.info(f"[{div_name}] Found {len(final_games)} FINAL games")
 
     scraped = skipped = failed = 0
@@ -640,7 +642,7 @@ def scrape_team_division(page, div_name, cfg, log, force=False, team_filter=None
             log.error(f"  Failed to load schedule: {e}")
             continue
 
-        final_games = [g for g in games if g.get("final")]
+        final_games = [g for g in games if g.get("final") and g["id"] not in cfg.get("exclude_games", ())]
         log.info(f"  {len(final_games)} FINAL games found")
 
         # Accumulated player data keyed by initials
@@ -741,18 +743,10 @@ def scrape_team_division(page, div_name, cfg, log, force=False, team_filter=None
 # ─────────────────────────────────────────────────────────────
 
 def run(divisions_filter=None, team_filter=None, force=False, verbose=False):
+    """Returns a process exit code (see gc_browser.EXIT_CODES)."""
     log = setup_logging(verbose=verbose)
 
-    if not SESSION_FILE.exists():
-        log.error(f"No session file found at {SESSION_FILE}")
-        log.error("Run scrape_gc_playbyplay.py --login first to save a session.")
-        return
-
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
-        ctx     = browser.new_context(storage_state=str(SESSION_FILE))
-        page    = ctx.new_page()
-
+    def scrape_all(page):
         for div_name, cfg in DIVISIONS.items():
             if divisions_filter and div_name not in divisions_filter:
                 continue
@@ -763,16 +757,16 @@ def run(divisions_filter=None, team_filter=None, force=False, verbose=False):
             else:
                 scrape_team_division(page, div_name, cfg, log, force=force, team_filter=team_filter)
 
-        ctx.storage_state(path=str(SESSION_FILE))
-        browser.close()
-
-    log.info("\nAll done.")
+    code = run_with_session(log, scrape_all)
+    if code == 0:
+        log.info("\nAll done.")
+    return code
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WCWAA Box Score Scraper")
     parser.add_argument("--division", nargs="+",
-                        choices=["Majors", "Minors", "Wild", "Storm"],
+                        choices=list(DIVISIONS),
                         help="Divisions to scrape (default: all)")
     parser.add_argument("--force", action="store_true",
                         help="Re-scrape all games even if already in JSON/roster.txt")
@@ -781,4 +775,4 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Show DEBUG-level messages on screen (normally only written to log file)")
     args = parser.parse_args()
-    run(divisions_filter=args.division, team_filter=args.team, force=args.force, verbose=args.verbose)
+    sys.exit(run(divisions_filter=args.division, team_filter=args.team, force=args.force, verbose=args.verbose))

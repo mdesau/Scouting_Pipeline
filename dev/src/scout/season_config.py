@@ -50,6 +50,7 @@ SEASON_DIR      : Path  — seasons/<season_id>/
 get_season_dir()           : Path  — same as SEASON_DIR (callable for testing)
 build_scraper_divisions()  : dict  — shape for scrape_gc_playbyplay/boxscores
 build_hitting_divisions()  : dict  — shape for gen_hitting + stat_analysis
+list_divisions()           : list  — ordered division metadata (UI dropdowns)
 add_team_to_yaml()         : bool  — appends a new travel team to the YAML
 list_seasons()             : list  — all season configs found in config/
 set_active_season()        : None  — writes active_season.txt
@@ -64,6 +65,7 @@ REFERENCED IN
 Version: Part of Scout Pipeline v3.2.0+
 """
 
+import json
 import os
 import re
 import sys
@@ -263,6 +265,10 @@ def build_scraper_divisions(season_id: str = None) -> dict:
                 "base_dir":    base,              # scrape_gc_boxscores key
                 "label":       div_name,
             }
+        # Scrimmages/test games to skip: GC game UUIDs listed per team or per division.
+        divs[div_name]["exclude_games"] = set(div_cfg.get("exclude_games") or []) | {
+            gid for t in (div_cfg.get("teams") or []) for gid in (t.get("exclude_games") or [])
+        }
 
     return divs
 
@@ -270,6 +276,25 @@ def build_scraper_divisions(season_id: str = None) -> dict:
 # ---------------------------------------------------------------------------
 # DIVISIONS Builder: Hitting Shape
 # ---------------------------------------------------------------------------
+def _discover_league_teams(roster_json_path):
+    """Build (team, coach) pairs from box-score roster keys such as Cubs-Holtzer."""
+    try:
+        with open(roster_json_path, encoding="utf-8") as f:
+            rosters = json.load(f)
+    except FileNotFoundError:
+        return []
+
+    if not isinstance(rosters, dict):
+        return []
+
+    teams = []
+    for team_key in rosters:
+        team_name, separator, coach = team_key.rpartition("-")
+        if separator and team_name.strip() and coach.strip():
+            teams.append((team_name, coach))
+    return sorted(teams, key=lambda team: (team[0].casefold(), team[1].casefold()))
+
+
 def build_hitting_divisions(season_id: str = None) -> dict:
     """
     Build the DIVISIONS dict in the shape expected by gen_hitting.py and
@@ -322,11 +347,14 @@ def build_hitting_divisions(season_id: str = None) -> dict:
             continue
         if div_cfg["type"] == "league":
             teams = [(t["name"], t["coach"]) for t in div_cfg["teams"]]
+            roster_json = str(season_dir / div_cfg["roster_json"])
+            if not teams:
+                teams = _discover_league_teams(roster_json)
             divs[div_name] = {
                 "scorebooks":       str(season_dir / div_cfg["scorebooks"]),
                 "output":           str(season_dir / div_cfg["output"]),
                 "csv":              str(season_dir / div_cfg["csv"]),
-                "roster_json":      str(season_dir / div_cfg["roster_json"]),
+                "roster_json":      roster_json,
                 "verify_json":      str(season_dir / div_cfg["verify_json"]),
                 "csv_overrides":    dict(div_cfg.get("csv_overrides") or {}),
                 "roster_additions": dict(div_cfg.get("roster_additions") or {}),
@@ -784,6 +812,50 @@ def list_tournament_teams(season_id: str = None) -> list:
             "builtin": not bool(div_cfg.get("tournament_team", False)),
         })
     return sorted(out, key=lambda d: d["name"].lower())
+
+
+def list_divisions(season_id: str = None) -> list:
+    """
+    Return ordered division metadata for a season, for UI dropdowns.
+
+    Unlike build_scraper_divisions()/build_hitting_divisions() (which drop
+    inactive travel divisions), this lists EVERY division in the season config
+    with its flags, so each caller decides what to show:
+      • Build / Add Team → filter to active divisions.
+      • View Reports     → include all (old reports of a now-inactive division
+                           should still be listed).
+
+    Ordering: league divisions first in canonical order (Majors, Minors),
+    then travel divisions alphabetically.
+
+    Args:
+        season_id: If None, uses the active season.
+
+    Returns:
+        List of dicts, each:
+          {"name": str, "type": "league"|"travel",
+           "active": bool, "builtin": bool}
+        `builtin` is True for structural divisions (Majors/Minors and the
+        template's Wild/Storm); False for user-added tournament divisions.
+    """
+    if season_id is None:
+        season_id = get_active_season_id()
+    _, cfg = _load_cfg(season_id)
+
+    league, travel = [], []
+    for name, dc in cfg.get("divisions", {}).items():
+        if dc.get("type") == "league":
+            league.append({"name": name, "type": "league",
+                           "active": True, "builtin": True})
+        else:
+            travel.append({"name": name, "type": "travel",
+                           "active": bool(dc.get("active", True)),
+                           "builtin": not bool(dc.get("tournament_team", False))})
+
+    _league_order = {"Majors": 0, "Minors": 1}
+    league.sort(key=lambda d: _league_order.get(d["name"], 99))
+    travel.sort(key=lambda d: d["name"].lower())
+    return league + travel
 
 
 def set_tournament_team_active(season_id: str, name: str, active: bool) -> bool:

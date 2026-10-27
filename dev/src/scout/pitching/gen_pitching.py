@@ -115,12 +115,14 @@ HALF_INNING_RE = re.compile(
 )
 
 # Regex to detect pitcher named at end of a description line: "..., X Y pitching."
-PITCHER_NAMED_RE = re.compile(r',\s+([A-Z][A-Za-z]*)\s+([A-Z][a-z\u00C0-\u024F]*)\s+pitching\b')
+# Surname allows a lowercase initial letter because GC sometimes renders names
+# in lower case (e.g. "G decker pitching"); we normalize the case when storing.
+PITCHER_NAMED_RE = re.compile(r',\s+([A-Z][A-Za-z]*)\s+([A-Za-z][a-z\u00C0-\u024F]*)\s+pitching\b')
 
 # Regex to detect lineup change introducing a new pitcher:
 # "Lineup changed: X Y in at pitcher"
 LINEUP_CHANGE_RE = re.compile(
-    r'Lineup changed:\s+([A-Z][A-Za-z]*)\s+([A-Z][a-z\u00C0-\u024F]*)\s+in at pitcher'
+    r'Lineup changed:\s+([A-Z][A-Za-z]*)\s+([A-Za-z][a-z\u00C0-\u024F]*)\s+in at pitcher'
 )
 
 # Description line regex (matches the action line like "B A singles to left fielder.")
@@ -344,7 +346,8 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
         # --- Check for pitcher change via "Lineup changed" ---
         lc_match = LINEUP_CHANGE_RE.search(line)
         if lc_match:
-            new_pitcher = f"{lc_match.group(1)} {lc_match.group(2)}"
+            _last = lc_match.group(2)
+            new_pitcher = f"{lc_match.group(1)} {_last[:1].upper()}{_last[1:]}"
             current_pitcher = new_pitcher
             if DEBUG_PITCHER_DETECTION:
                 logger.debug(f"  Pitcher change (lineup): {current_pitcher}")
@@ -353,7 +356,8 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
         # --- Check for pitcher named in description line ---
         pitcher_match = PITCHER_NAMED_RE.search(line)
         if pitcher_match:
-            named_pitcher = f"{pitcher_match.group(1)} {pitcher_match.group(2)}"
+            _last = pitcher_match.group(2)
+            named_pitcher = f"{pitcher_match.group(1)} {_last[:1].upper()}{_last[1:]}"
             current_pitcher = named_pitcher
             if DEBUG_PITCHER_DETECTION and not lc_match:
                 logger.debug(f"  Pitcher named: {current_pitcher}")
@@ -948,12 +952,16 @@ def dedup_pitcher_names(pitcher_dict):
     Returns:
         New dict with short-form names merged into long-form names.
     """
-    # Separate names into short-form (first token is single char) vs full-form
+    # Separate names into short-form (all tokens single char, e.g. "K D") vs
+    # full-form. A single-char FIRST token alone is NOT initials-only: GC's
+    # standard pitcher format is "Initial Lastname" (e.g. "G Decker"), which is
+    # resolvable and must be kept — only names where EVERY token is a single
+    # character are treated as unresolved initials.
     short_names = {}
     full_names = {}
     for name, pas in pitcher_dict.items():
         parts = name.split()
-        if len(parts) >= 2 and len(parts[0]) == 1:
+        if len(parts) >= 2 and all(len(p) == 1 for p in parts):
             short_names[name] = pas
         else:
             full_names[name] = pas
@@ -1271,18 +1279,21 @@ def main():
 
     divisions_to_run = []
     if not args.division or args.division.lower() == "all":
-        divisions_to_run = ["Majors", "Minors", "Wild", "Storm"]
+        divisions_to_run = list(DIVISIONS.keys())
     else:
         divisions_to_run = [args.division]
 
     for div in divisions_to_run:
         logger.info(f"Processing division: {div}")
-        if div in ("Majors", "Minors"):
-            run_league_division(div, team_filter=args.team, verbose=args.verbose)
-        elif div in ("Wild", "Storm"):
-            run_travel_division(div, team_filter=args.team, verbose=args.verbose)
-        else:
+        # Route by division TYPE, not hardcoded names, so tournament divisions
+        # (e.g. Mavs) are handled by the travel path.
+        meta = DIVISIONS.get(div)
+        if meta is None:
             logger.error(f"Unknown division: {div}")
+        elif meta.get("league_scan"):
+            run_league_division(div, team_filter=args.team, verbose=args.verbose)
+        else:
+            run_travel_division(div, team_filter=args.team, verbose=args.verbose)
 
 
 if __name__ == "__main__":

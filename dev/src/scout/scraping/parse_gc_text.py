@@ -94,10 +94,13 @@ def _parse_body(body):
 
 # Known GC name corruptions — applied as text cleanup before parsing.
 # Why: GameChanger occasionally renders special characters in player names
-# (e.g., "$awyer" instead of "Sawyer"). We fix these at the raw-text level
-# so downstream parsers and game files always have clean names.
+# (e.g., "$awyer" instead of "Sawyer"), and double-hyphen team slugs render an
+# extra hyphen in the play-by-play team name (e.g. "carolina-locos--hobos-9u" →
+# "Carolina Locos- Hobos 9U"). We fix these at the raw-text level so downstream
+# parsers and game files always match the clean folder/roster name.
 GC_NAME_FIXES = {
     "$awyer": "Sawyer",
+    "Carolina Locos- Hobos 9U": "Carolina Locos Hobos 9U",
 }
 
 def parse_gc_raw(raw_text, game_url='', game_date=''):

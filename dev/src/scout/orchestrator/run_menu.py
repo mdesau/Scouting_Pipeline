@@ -24,7 +24,7 @@ MENU OPTIONS
   [0] Full pipeline — all divisions, all teams (default — press ENTER)
   [1] Single division — all teams in one division
   [2] Single team — drill down: pick division → pick team
-  [3] Add a new Wild / Storm opponent to the pipeline
+  [3] Add a new Tournament Team to the pipeline
   [4] Manage seasons — switch active season or create a new one
   [Q] Quit
 
@@ -64,7 +64,7 @@ from pathlib import Path
 # Package imports — every pipeline module lives under the scout package.
 # ---------------------------------------------------------------------------
 from scout.season_config import (
-    SCOUT_ROOT, SEASON_DIR, SEASON_ID, LOGS_DIR, SESSION_FILE,
+    SCOUT_ROOT, SEASON_DIR, SEASON_ID, LOGS_DIR, SESSIONS_DIR,
     build_scraper_divisions, add_team_to_yaml,
     list_seasons, set_active_season, create_season,
 )
@@ -93,7 +93,7 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
@@ -107,19 +107,9 @@ def print_header():
 
 
 def check_session():
-    """
-    Warn the user if gc_session.json is missing.
-
-    The session file holds GC login cookies saved by scrape_gc_playbyplay.py --login.
-    Without it, both scrape_gc_playbyplay.py and scrape_gc_boxscores.py will fail
-    immediately with an authentication error.
-
-    We warn here (before showing the menu) so the user can fix it upfront
-    rather than waiting through menu navigation only to hit an error.
-    """
-    if not SESSION_FILE.exists():
-        print("⚠️  WARNING: gc_session.json not found.")
-        print("   The scraper needs a saved GameChanger login session.")
+    """Warn if the Scout Chrome profile (which holds the GC login) has never been created."""
+    if not (SESSIONS_DIR / "gc_chrome_profile").exists():
+        print("⚠️  WARNING: no GameChanger login found (Scout Chrome profile missing).")
         print("   Run this first, then re-launch:")
         print("     python -m scout.scraping.scrape_gc_playbyplay --login")
         print()
@@ -191,7 +181,7 @@ def get_team_list(division):
     Returns:
         List of team name strings, or [] if none found.
     """
-    if division in ("Wild", "Storm"):
+    if DIVISIONS.get(division, {}).get("type") != "org":
         # Each entry is a (team_id, slug, display_name) tuple.
         # Sorted alphabetically to match Majors/Minors behaviour (rosters.json
         # keys are already sorted via sorted() below).
@@ -245,19 +235,27 @@ def run_pipeline(division=None, team=None, headless=False):
     print()
     print("─" * 58)
     scope = f"{division or 'ALL'}" + (f" → {team}" if team else " (all teams)")
-    print(f"▶ Step 1/4  Scrape new games  [{scope}]")
+    print(f"▶ Preflight  GameChanger session check")
     print("─" * 58)
-    _run([sys.executable, "-m", _MOD_PLAYBYPLAY] + div_args + team_args, fatal=not headless)
+    session_ok = _gc_session_ok(notify=headless)
 
-    # Step 2: Update rosters
-    # --team is now supported by scrape_gc_boxscores.py for Wild/Storm team-based divisions.
-    # For Majors/Minors (org-based), --team is ignored — the full division roster JSON
-    # is always updated together since all teams share one file.
-    print()
-    print("─" * 58)
-    print(f"▶ Step 2/4  Update rosters    [{scope}]")
-    print("─" * 58)
-    _run([sys.executable, "-m", _MOD_BOXSCORES] + div_args + team_args, fatal=not headless)
+    if session_ok:
+        print()
+        print("─" * 58)
+        print(f"▶ Step 1/4  Scrape new games  [{scope}]")
+        print("─" * 58)
+        _run([sys.executable, "-m", _MOD_PLAYBYPLAY] + div_args + team_args, fatal=not headless)
+
+        # Step 2: Update rosters
+        # For Majors/Minors (org-based), --team is ignored — the full division roster JSON
+        # is always updated together since all teams share one file.
+        print()
+        print("─" * 58)
+        print(f"▶ Step 2/4  Update rosters    [{scope}]")
+        print("─" * 58)
+        _run([sys.executable, "-m", _MOD_BOXSCORES] + div_args + team_args, fatal=not headless)
+    else:
+        print("  ⏭  Steps 1–2 skipped (no GameChanger access) — rebuilding PDFs from existing game files.")
 
     # Step 3: Generate PDFs
     # For single-team runs, pass --team so only that PDF is regenerated (fast).
@@ -270,8 +268,8 @@ def run_pipeline(division=None, team=None, headless=False):
     if division:
         _run([sys.executable, "-m", _MOD_HITTING, "--division", division] + team_args)
     else:
-        # No division filter → run all four divisions
-        for div in ["Majors", "Minors", "Wild", "Storm"]:
+        # No division filter → run every division configured for this season
+        for div in DIVISIONS:
             print(f"  → {div}")
             _run([sys.executable, "-m", _MOD_HITTING, "--division", div])
 
@@ -285,7 +283,7 @@ def run_pipeline(division=None, team=None, headless=False):
         if division:
             _run([sys.executable, "-m", _MOD_PITCHING, "--division", division] + team_args)
         else:
-            for div in ["Majors", "Minors", "Wild", "Storm"]:
+            for div in DIVISIONS:
                 print(f"  → {div}")
                 _run([sys.executable, "-m", _MOD_PITCHING, "--division", div])
 
@@ -524,9 +522,14 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
     lines.append("=" * 80)
     lines.append("")
 
+    # Division sets for this season (dynamic, not hardcoded) so tournament
+    # divisions (e.g. Mavs) are reported alongside Majors/Minors/Wild/Storm.
+    all_divs = list(DIVISIONS.keys())
+    travel_divs = [d for d in all_divs if DIVISIONS[d].get("type") == "teams"]
+
     # Step 1
     lines.append("STEP 1 — Scrape Play-by-Play")
-    for div in ["Majors", "Minors", "Wild", "Storm"]:
+    for div in all_divs:
         d = step1.get(div, {})
         if d:
             lines.append(f"  {div:8s}: {d.get('final',0):3d} FINAL on schedule | "
@@ -536,7 +539,7 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
 
     # Step 2
     lines.append("STEP 2 — Update Rosters")
-    for div in ["Majors", "Minors", "Wild", "Storm"]:
+    for div in all_divs:
         d = step2.get(div, {})
         if d:
             lines.append(f"  {div:8s}: scraped: {d.get('scraped',0):3d}  "
@@ -548,10 +551,10 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
     lines.append("STEP 3 — Hitting PDFs")
 
     # Group teams by division (use DIVISIONS to figure out which is which)
-    div_teams = {"Majors": [], "Minors": [], "Wild": [], "Storm": []}
+    div_teams = {d: [] for d in all_divs}
     for team_name, stats in sorted(step3_teams.items()):
         placed = False
-        for div_name in ["Wild", "Storm"]:
+        for div_name in travel_divs:
             div_team_names = [n for (_, _, n) in DIVISIONS.get(div_name, {}).get("teams", [])]
             if team_name in div_team_names:
                 div_teams[div_name].append((team_name, stats))
@@ -573,10 +576,12 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
                     if team_name in minors_data:
                         div_teams["Minors"].append((team_name, stats))
                         placed = True
-            if not placed:
-                div_teams["Storm"].append((team_name, stats))
+            if not placed and travel_divs:
+                # Unknown travel team — file under the last travel division
+                # rather than dropping it from the summary entirely.
+                div_teams[travel_divs[-1]].append((team_name, stats))
 
-    for div in ["Majors", "Minors", "Wild", "Storm"]:
+    for div in all_divs:
         teams_in_div = div_teams[div]
         if not teams_in_div:
             continue
@@ -602,7 +607,7 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
 
     # Step 4
     lines.append("STEP 4 — Pitching PDFs")
-    for div in ["Majors", "Minors", "Wild", "Storm"]:
+    for div in all_divs:
         d = step4.get(div, {})
         if d:
             n_pitchers = d.get("pitchers", 0)
@@ -621,6 +626,28 @@ def _write_pipeline_summary(start_time, division_filter, team_filter):
         f.write("\n".join(lines))
 
     print(f"  📋 Pipeline summary → {SUMMARY_LOG.name}")
+
+
+def _notify(title, message):
+    """Show a macOS notification (best effort)."""
+    script = f"display notification {json.dumps(message)} with title {json.dumps(title)} sound name \"Basso\""
+    subprocess.run(["osascript", "-e", script], check=False)
+
+
+def _gc_session_ok(notify=False):
+    """Run the scraper's --check-session; exit 0=ok, 2=signed out, 3=blocked/Chrome error."""
+    result = subprocess.run([sys.executable, "-m", _MOD_PLAYBYPLAY, "--check-session"],
+                            cwd=str(SCRIPTS_DIR))
+    if result.returncode == 0:
+        return True
+    if result.returncode == 2:
+        message = "GameChanger login expired. Run: python -m scout.scraping.scrape_gc_playbyplay --login"
+    else:
+        message = "GameChanger blocked the Scout browser or Chrome failed to start. Check the scrape_gc_playbyplay log."
+    print(f"\n⚠️  {message}")
+    if notify:
+        _notify("Scout: scraping skipped", message)
+    return False
 
 
 def _run(cmd, fatal=True):
@@ -736,7 +763,7 @@ def add_new_team():
     The suggested name is a best guess from the URL slug. Always verify by
     opening the first scraped game file.
     """
-    print("\n── Add a New Wild / Storm Opponent ──────────────────────")
+    print("\n── Add a New Tournament Team ────────────────────────────")
     print("Paste the team's GameChanger schedule URL and press ENTER.")
     print("URL format: https://web.gc.com/teams/{team_id}/{slug}/schedule")
     print()
@@ -769,7 +796,8 @@ def add_new_team():
     print()
 
     # Choose Wild or Storm
-    division = pick_from_list("Add to which division?", ["Wild", "Storm"])
+    division = pick_from_list("Add to which division?",
+                              [d for d, c in DIVISIONS.items() if c["type"] != "org"])
     if not division:
         print("  Cancelled.")
         return
@@ -979,7 +1007,7 @@ def _create_season_wizard():
     print("  Next steps:")
     print(f"  1. Add Majors + Minors teams to config/{yaml_path.name}")
     print("     (after the draft — add name/coach per team under divisions.Majors/Minors.teams)")
-    print("  2. Wild/Storm opponents: use option [3] Add Team as games are scheduled.")
+    print("  2. Tournament teams: use option [3] Add a new Tournament Team as games are scheduled.")
     print("  3. Run scrape_gc_boxscores.py after the first games to build rosters.json.")
 
     if set_active:
@@ -1005,7 +1033,7 @@ def interactive_menu():
     print("  [0] Full pipeline — ALL divisions, all teams  (default — press ENTER)")
     print("  [1] Single division — all teams")
     print("  [2] Single team")
-    print("  [3] Add a new Wild / Storm opponent")
+    print("  [3] Add a new Tournament Team")
     print("  [4] Manage seasons — switch or create")
     print("  [Q] Quit")
     print()
@@ -1024,7 +1052,7 @@ def interactive_menu():
     # ── [1] Single division ──────────────────────────────────────────────────
     elif choice == "1":
         print()
-        division = pick_from_list("Select a division:", ["Majors", "Minors", "Wild", "Storm"])
+        division = pick_from_list("Select a division:", list(DIVISIONS.keys()))
         if not division:
             return
         print(f"\n▶ Running full pipeline for {division} (all teams)...")
@@ -1033,7 +1061,7 @@ def interactive_menu():
     # ── [2] Single team ──────────────────────────────────────────────────────
     elif choice == "2":
         print()
-        division = pick_from_list("Select a division:", ["Majors", "Minors", "Wild", "Storm"])
+        division = pick_from_list("Select a division:", list(DIVISIONS.keys()))
         if not division:
             return
 
@@ -1082,6 +1110,11 @@ def main():
     """
     # sys.argv[0] is the script name; sys.argv[1:] are the user's arguments
     user_args = sys.argv[1:]
+
+    if any(a in ("-h", "--help") for a in user_args):
+        print("Usage: python -m scout.orchestrator.run_menu [--all | --division DIV [--team TEAM]]")
+        print("       (no arguments → interactive menu)")
+        return
 
     if user_args:
         # ── CLI passthrough ──────────────────────────────────────────────────

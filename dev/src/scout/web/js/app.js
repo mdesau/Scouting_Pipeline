@@ -35,6 +35,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
     el("tab-" + tab).classList.remove("hidden");
     // Lazily load reports the first time that tab is opened.
     if (tab === "reports") loadReports();
+    if (tab === "dev")     loadLogs();
   });
 });
 
@@ -125,6 +126,34 @@ function logLine(text) {
   consoleEl.scrollTop = consoleEl.scrollHeight;   // auto-scroll to newest
 }
 el("clearLog").addEventListener("click", () => { consoleEl.textContent = ""; });
+
+// Copy an element's text to the clipboard with a brief button confirmation.
+// Falls back to a hidden-textarea execCommand for non-secure contexts where
+// navigator.clipboard is unavailable.
+async function copyToClipboard(sourceEl, btn) {
+  const text = sourceEl.textContent;
+  if (!text) return;
+  const prev = btn.textContent;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    btn.textContent = "Copied!";
+  } catch (_e) {
+    btn.textContent = "Copy failed";
+  }
+  setTimeout(() => { btn.textContent = prev; }, 1200);
+}
+el("copyLog").addEventListener("click", () => copyToClipboard(consoleEl, el("copyLog")));
 
 /**
  * Start a build. Opens an SSE stream to /api/run and pipes each log line into
@@ -219,6 +248,43 @@ el("reportFilter").addEventListener("input", renderReports);
 el("reportsSeason").addEventListener("change", loadReports);
 
 // ── Add-team tab ─────────────────────────────────────────────────────────────
+/**
+ * Populate the Add-Team division dropdown with the travel divisions of the
+ * currently selected season. Only ACTIVE travel divisions are offered (inactive
+ * ones are excluded from builds, so adding opponents to them would be
+ * confusing). Wild / Storm / Mavs / … all come straight from the season config
+ * via /api/divisions — no division names are hardcoded here.
+ */
+async function reloadAddDivisions() {
+  const sel = el("addDivision");
+  if (!sel) return;
+  const season = el("addSeason").value;
+  try {
+    const params = season ? `?season=${encodeURIComponent(season)}` : "";
+    const res  = await fetch(`/api/divisions${params}`, { cache: "no-store" });
+    const data = await res.json();
+    const travel = (data.divisions || []).filter((d) => d.type === "travel");
+    const prev = sel.value;
+    sel.innerHTML = "";
+    if (!travel.length) {
+      const o = document.createElement("option");
+      o.value = ""; o.textContent = "No travel divisions this season";
+      sel.appendChild(o);
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = !SERVER_ONLINE;
+    travel.forEach((d) => {
+      const o = document.createElement("option");
+      o.value = d.name; o.textContent = d.name;
+      sel.appendChild(o);
+    });
+    // Preserve the prior selection across season switches when still valid.
+    if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  } catch (_e) { /* non-fatal — server may be starting */ }
+}
+el("addSeason").addEventListener("change", reloadAddDivisions);
+
 el("addBtn").addEventListener("click", async () => {
   const out = el("addResult");
   out.className = "add-result";
@@ -240,7 +306,9 @@ el("addBtn").addEventListener("click", async () => {
       out.innerHTML = `✅ Added <strong>${data.folder_name}</strong> to ${data.division}.<br>`
         + `<span class="muted">${data.note}</span>`;
       el("addUrl").value = ""; el("addFolder").value = "";
-      checkConnection().then((d) => { if (d) populateDivisions(d); });  // refresh team lists
+      // Refresh team lists for the selected season (season-aware).
+      reloadBuildDivisions();
+      reloadAddDivisions();
     } else {
       out.classList.add("err");
       out.textContent = "❌ " + (data.error || "Could not add team.");
@@ -323,6 +391,8 @@ function populateTabSeasonSelects(data) {
 
   // After populating buildSeason, reload division/team lists for the new value
   reloadBuildDivisions();
+  // Also refresh the Add-Team division dropdown for its (active) season.
+  reloadAddDivisions();
 }
 
 /** Render the seasons list in the Seasons tab (name + active badge / Activate button). */
@@ -499,7 +569,7 @@ function renderTTOptions() {
   const box = el("ttOpts");
   box.innerHTML = "";
   if (seEdit.tts.length === 0) {
-    box.innerHTML = '<div class="ms-opt muted" style="cursor:default;">No tournament teams yet — add one below.</div>';
+    box.innerHTML = '<div class="ms-opt muted" style="cursor:default;">No tournament divisions yet — add one below.</div>';
   }
   seEdit.tts.forEach((t, i) => {
     const row = document.createElement("label");
@@ -521,7 +591,7 @@ function renderTTSummary() {
   const on = seEdit.tts.filter((t) => t.active).map((t) => t.name);
   const sum = el("ttSummary");
   if (on.length === 0) {
-    sum.textContent = "Select tournament teams…";
+    sum.textContent = "Select tournament divisions…";
     sum.classList.add("placeholder");
   } else {
     sum.textContent = on.join(", ") + `  (${on.length})`;
@@ -627,6 +697,63 @@ el("saveSeasonBtn").addEventListener("click", async () => {
     out.textContent = "❌ Could not reach the server.";
   }
 });
+
+// ── Dev tab (logs viewer) ────────────────────────────────────────────────────
+/** Human-readable byte size for the log dropdown labels. */
+function _fmtSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+/** Load the list of log files into the Dev-tab dropdown, then show the newest. */
+async function loadLogs() {
+  const sel = el("logSelect");
+  try {
+    const res  = await fetch("/api/logs", { cache: "no-store" });
+    const data = await res.json();
+    const logs = data.logs || [];
+    const prev = sel.value;
+    sel.innerHTML = "";
+    if (!logs.length) {
+      el("logMeta").textContent = "No logs found";
+      el("logView").textContent = "No log files in data/real/logs yet.";
+      return;
+    }
+    logs.forEach((l) => {
+      const o = document.createElement("option");
+      o.value = l.name;
+      o.textContent = `${l.name}  (${_fmtSize(l.size)})`;
+      sel.appendChild(o);
+    });
+    // Keep the current selection across refreshes; otherwise show the newest.
+    sel.value = [...sel.options].some((o) => o.value === prev) ? prev : logs[0].name;
+    viewLog(sel.value);
+  } catch (_e) {
+    el("logMeta").textContent = "Logs need the local server";
+    el("logView").textContent = "Could not reach the server to list logs.";
+  }
+}
+
+/** Fetch and display one log file's contents. */
+async function viewLog(name) {
+  if (!name) return;
+  const view = el("logView");
+  view.textContent = "Loading…";
+  try {
+    const res  = await fetch(`/api/logs/${encodeURIComponent(name)}`, { cache: "no-store" });
+    if (!res.ok) throw new Error("not found");
+    const text = await res.text();
+    view.textContent = text || "(empty file)";
+    el("logMeta").textContent = name;
+    view.scrollTop = view.scrollHeight;   // jump to newest lines
+  } catch (_e) {
+    view.textContent = "Could not load this log.";
+  }
+}
+el("logSelect").addEventListener("change", (e) => viewLog(e.target.value));
+el("refreshLogs").addEventListener("click", loadLogs);
+el("copyLogFile").addEventListener("click", () => copyToClipboard(el("logView"), el("copyLogFile")));
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 (async function boot() {

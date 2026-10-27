@@ -36,7 +36,10 @@ divisions:
       slg_top33: 0.45
       c_bot33: 0.5
       bb_top33: 0.2
-    teams: []
+    teams:
+    - name: Weddington Wild 12U
+      gc_id: Hde2xKyXcu4r
+      gc_slug: 2026-fall-weddington-wild-12u
     active: true
   Storm:
     type: travel
@@ -57,6 +60,18 @@ divisions:
       slg_top33: 0.45
       c_bot33: 0.5
       bb_top33: 0.2
-    teams: []
+    teams:
+    - name: Weddington Mavericks 10U
+      gc_id: P6jwWo3uwTln
+      gc_slug: 2026-fall-weddington-mavericks-10u
+      exclude_games:
+      - 1f0e0307-13db-4031-8533-57cddeb36db1
+      - e4b8f571-98cc-4e53-9165-7b36653829ea
+    - name: Carolina Locos White 10U
+      gc_id: BGgPgmLnuHMT
+      gc_slug: 2026-fall-carolina-locos-white-10u
+    - name: QC Crushers 10U
+      gc_id: BLE9kFjmgagD
+      gc_slug: 2026-summer-qc-crushers-10u
     tournament_team: true
     active: true

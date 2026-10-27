@@ -134,12 +134,14 @@ button.ghost:hover { color: var(--text); border-color: var(--muted); }
   display: flex; justify-content: space-between; align-items: center;
   font-size: 13px; color: var(--muted); margin-bottom: 6px;
 }
+.console-actions { display: flex; gap: 8px; }
 .console {
   background: #0b1219; border: 1px solid var(--line); border-radius: 8px;
   padding: 12px 14px; margin: 0;
   font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
   white-space: pre-wrap; word-break: break-word;
-  height: 320px; overflow-y: auto; color: #cbd5e1;
+  height: 560px; min-height: 260px; resize: vertical;
+  overflow-y: auto; color: #cbd5e1;
 }
 
 /* ── Reports list ────────────────────────────────────────────────────────── */

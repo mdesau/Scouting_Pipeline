@@ -2114,7 +2114,7 @@ def run_wild(teams_filter=None, division="Wild"):
 def main():
     parser = argparse.ArgumentParser(description="WCWAA Scouting Report Generator")
     parser.add_argument("--division", default="Majors",
-                        choices=["Majors", "Minors", "Wild", "Storm"],
+                        choices=list(DIVISIONS),
                         help="Division to generate reports for (default: Majors)")
     parser.add_argument("--team", nargs="*",
                         help="One or more team names to run (omit for all teams in division)")
@@ -2129,7 +2129,9 @@ def main():
     teams_filter = args.team or args.legacy_teams or None
     division = args.division
 
-    if division in ("Wild", "Storm"):
+    # Route by division TYPE (travel vs league), not hardcoded names, so
+    # tournament divisions (e.g. Mavs) run through the travel path too.
+    if not DIVISIONS.get(division, {}).get("league_scan", True):
         run_wild(teams_filter, division=division)
     else:
         run_league(division, teams_filter)
