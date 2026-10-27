@@ -1616,7 +1616,7 @@ Migrated from AGENTS.md To Do #5.
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.1.0 (commit TBD, tag pushed TBD)
+**Integrated Release:** v5.1.0 (commit 8685d18, tag pushed 2026-10-27)
 
 ### Observable Problem
 
