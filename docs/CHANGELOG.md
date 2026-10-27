@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.0] - 2026-10-27
+
+### Added
+
+- [(RV) BUG-030 (Enh) — Pitching usage and team comparison workbook](BUGS.md#bug-030-enh--status-rv)
+- [(RV) BUG-031 (Enh) — Tournament futures ("Vegas odds") board](BUGS.md#bug-031-enh--status-rv)
+- [(RV) BUG-032 (Enh) — Draft report card: grades, ROI, steals and busts](BUGS.md#bug-032-enh--status-rv)
+
+### Changed
+
+- [(RV) BUG-033 (Docs) — README rewritten in plain language](BUGS.md#bug-033-docs--status-rv)
+
+### Fixed
+
+- [(RV) BUG-034 — Nightly run fired at 2 PM instead of 10 AM](BUGS.md#bug-034--status-rv)
+
+---
+
 ## [5.1.0] - 2026-10-27
 
 ### Added

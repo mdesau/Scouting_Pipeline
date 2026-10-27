@@ -27,6 +27,43 @@ divisions:
     csv_overrides: {}
     roster_additions: {}
     teams: []
+    postseason:
+      start: 2026-10-22
+      seeding_games: 11
+      seeding_games_by_team:
+        Braves-Brooks: 10
+      official_records:
+        Expos-Esau: [9, 1, 1]
+      rollbacks:
+        8a3596b7-5bd1-47ea-a09d-9d8e9b4a8784: 4
+      winners_final: 10
+      final: 20
+      if_necessary:
+        game: 21
+        date: 2026-11-04
+      order:
+        [1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 8, 9, 14, 15, 16, 17, 10, 18, 19, 20]
+      bracket:
+        1: [2026-10-22, Cubs-Leonard, Braves-Brooks]
+        2: [2026-10-22, Rangers-Nielsen, Orioles-Naturale]
+        3: [2026-10-22, Rays-Levengood, Royals-Kennell]
+        4: [2026-10-24, Blue Jays-Patel, W1]
+        5: [2026-10-24, Yankees-DePasquale, Giants-Hanshaw]
+        6: [2026-10-24, Marlins-Gonzalez, W2]
+        7: [2026-10-24, Expos-Esau, W3]
+        11: [2026-10-26, L4, L2]
+        12: [2026-10-26, L3, L5]
+        13: [2026-10-26, L1, L6]
+        8: [2026-10-27, W7, W5]
+        9: [2026-10-27, W4, W6]
+        14: [2026-10-28, L7, W13]
+        15: [2026-10-28, W11, W12]
+        16: [2026-10-29, L9, W14]
+        17: [2026-10-29, L8, W15]
+        10: [2026-10-31, W8, W9]
+        18: [2026-10-31, W17, W16]
+        19: [2026-11-02, W18, L10]
+        20: [2026-11-03, W10, W19]
   Wild:
     type: travel
     age: 11U
@@ -37,9 +74,9 @@ divisions:
       c_bot33: 0.5
       bb_top33: 0.2
     teams:
-    - name: Weddington Wild 12U
-      gc_id: Hde2xKyXcu4r
-      gc_slug: 2026-fall-weddington-wild-12u
+      - name: Weddington Wild 12U
+        gc_id: Hde2xKyXcu4r
+        gc_slug: 2026-fall-weddington-wild-12u
     active: true
   Storm:
     type: travel
@@ -61,20 +98,20 @@ divisions:
       c_bot33: 0.5
       bb_top33: 0.2
     teams:
-    - name: Weddington Mavericks 10U
-      gc_id: P6jwWo3uwTln
-      gc_slug: 2026-fall-weddington-mavericks-10u
-      exclude_games:
-      - 1f0e0307-13db-4031-8533-57cddeb36db1
-      - e4b8f571-98cc-4e53-9165-7b36653829ea
-    - name: Carolina Locos White 10U
-      gc_id: BGgPgmLnuHMT
-      gc_slug: 2026-fall-carolina-locos-white-10u
-    - name: QC Crushers 10U
-      gc_id: BLE9kFjmgagD
-      gc_slug: 2026-summer-qc-crushers-10u
-    - name: OC Crushers - Blue 11U
-      gc_id: iU0Brg2DoVfx
-      gc_slug: 2026-fall-oc-crushers---blue-11u
+      - name: Weddington Mavericks 10U
+        gc_id: P6jwWo3uwTln
+        gc_slug: 2026-fall-weddington-mavericks-10u
+        exclude_games:
+          - 1f0e0307-13db-4031-8533-57cddeb36db1
+          - e4b8f571-98cc-4e53-9165-7b36653829ea
+      - name: Carolina Locos White 10U
+        gc_id: BGgPgmLnuHMT
+        gc_slug: 2026-fall-carolina-locos-white-10u
+      - name: QC Crushers 10U
+        gc_id: BLE9kFjmgagD
+        gc_slug: 2026-summer-qc-crushers-10u
+      - name: OC Crushers - Blue 11U
+        gc_id: iU0Brg2DoVfx
+        gc_slug: 2026-fall-oc-crushers---blue-11u
     tournament_team: true
     active: true

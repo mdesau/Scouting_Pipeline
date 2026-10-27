@@ -23,8 +23,8 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field             | Value                                                                                           |
 | ----------------- | ----------------------------------------------------------------------------------------------- |
-| **Version**       | 5.1.0                                                                                           |
-| **Last commit**   | `feat: v5.1.0 — auto-rename mismatched travel-team folders; BUGS.md restructure` (tag `v5.1.0`) |
+| **Version**       | 5.2.0                                                                                           |
+| **Last commit**   | `feat: v5.2.0 — analysis tools (usage workbook, tournament odds, draft report card)` (tag `v5.2.0`) |
 | **Branch**        | `main`                                                                                          |
 | **Uncommitted**   | None                                                                                            |
 | **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                           |
@@ -61,6 +61,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.2.0  feat: analysis tools — usage workbook, tournament odds, draft report card (BUG-030/031/032 Enh); README rewrite; nightly 10 AM fix
 v5.1.0  feat: auto-rename travel-team folders on GC header mismatch (BUG-023 Enh); BUGS.md restructured to §12
 v5.0.0  feat!: scrape via real Google Chrome + Scout profile (GC blocks headless, BUG-022), session preflight, per-season divisions
 v4.0.0  refactor!: dev/src/scout installable package layout + SCOUT_DATA_ROOT
@@ -98,15 +99,15 @@ v0.1.0  initial commit
 > (one canonical tracker, per `docs/Principles and Practices.md` §12). Former items #5–#7 moved
 > there as BUG-024, BUG-025, BUG-026. This table keeps the completed milestones for history.
 
-| #   | Item                                                                  | Status         | Target Version | Notes                                                                                                                                                                                          |
-| --- | --------------------------------------------------------------------- | -------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Optimize directory structure for growth and future seasons            | ✅ Done        | v3.0.0         | `src/`, `launchers/`, `config/`, `seasons/`, YAML season config                                                                                                                                |
-| 2   | Build a user-friendly HTML front end ("HTML-based app")               | ✅ Done        | v3.1.0         | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
-| 3   | Season management — create/switch seasons without manual YAML editing | ✅ Done        | v3.2.0         | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker                                                  |
-| 4   | Per-tab season selectors in web UI (BUG-018)                          | ✅ Done        | v3.3.0         | Build/View/Add Team each have their own season dropdown; View Reports has an "All seasons" option                                                                                              |
-| 5   | Dynamic archetypes                                                    | ➡️ Moved     | —              | [BUG-024 (Enh)](docs/BUGS.md#bug-024-enh--status-o)                                                                                                                                             |
-| 6   | Drop the `TEAM` row from travel `roster.txt`                          | ➡️ Moved     | —              | [BUG-025 (Enh)](docs/BUGS.md#bug-025-enh--status-o)                                                                                                                                             |
-| 7   | Rebuild the whole travel division on single-team runs                 | ➡️ Moved     | —              | [BUG-026 (Enh)](docs/BUGS.md#bug-026-enh--status-o)                                                                                                                                             |
+| #   | Item                                                                  | Status   | Target Version | Notes                                                                                                                                                                                          |
+| --- | --------------------------------------------------------------------- | -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Optimize directory structure for growth and future seasons            | ✅ Done  | v3.0.0         | `src/`, `launchers/`, `config/`, `seasons/`, YAML season config                                                                                                                                |
+| 2   | Build a user-friendly HTML front end ("HTML-based app")               | ✅ Done  | v3.1.0         | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
+| 3   | Season management — create/switch seasons without manual YAML editing | ✅ Done  | v3.2.0         | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker                                                  |
+| 4   | Per-tab season selectors in web UI (BUG-018)                          | ✅ Done  | v3.3.0         | Build/View/Add Team each have their own season dropdown; View Reports has an "All seasons" option                                                                                              |
+| 5   | Dynamic archetypes                                                    | ➡️ Moved | —              | [BUG-024 (Enh)](docs/BUGS.md#bug-024-enh--status-o)                                                                                                                                            |
+| 6   | Drop the `TEAM` row from travel `roster.txt`                          | ➡️ Moved | —              | [BUG-025 (Enh)](docs/BUGS.md#bug-025-enh--status-o)                                                                                                                                            |
+| 7   | Rebuild the whole travel division on single-team runs                 | ➡️ Moved | —              | [BUG-026 (Enh)](docs/BUGS.md#bug-026-enh--status-o)                                                                                                                                            |
 
 ---
 
@@ -142,22 +143,25 @@ Two division **types**, set per season in the YAML:
 All paths below are under `dev/src/scout/`.
 
 | Script                             | Lines | Component    | Role                                                                                                                                                                |
-| ---------------------------------- | ----- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ---------------------------------- | ----- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ---------------------------------- | ---- | -------- | ------------------------------------------------------------------------------------ |
 | `hitting/gen_hitting.py`           | ~2140 | Hitting      | Stat engine + PDF generator                                                                                                                                         |
 | `pitching/gen_pitching.py`         | ~1300 | Pitching     | Stat engine + PDF generator                                                                                                                                         |
 | `orchestrator/run_menu.py`         | ~1160 | Orchestrator | Pipeline orchestrator (preflight + 4 steps) + add-team wizard + season management                                                                                   |
 | `season_config.py`                 | ~960  | Config       | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()`, season lifecycle (`list_seasons`, `create_season`, `set_active_season`) |
 | `scraping/scrape_gc_boxscores.py`  | ~780  | Scraping     | GC box scores → rosters                                                                                                                                             |
 | `web/server.py`                    | ~760  | Web          | Flask server backing the HTML front-end (build/view/add/seasons/logs)                                                                                               |
-| `hitting/stat_analysis.py`         | ~600  | Hitting      | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, BUG-024 Enh)                                                                                 |
+| `hitting/stat_analysis.py`         | ~600  | Hitting      | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, BUG-024 Enh)                                                                              |
 | `scraping/scrape_gc_playbyplay.py` | ~590  | Scraping     | GC schedule → .txt game files; `--login` / `--check-session` entry points                                                                                           |
 | `scraping/parse_gc_text.py`        | ~270  | Parser       | Raw GC text → WCWAA format (utility)                                                                                                                                |
 | `scraping/gc_browser.py`           | ~210  | Scraping     | Launch/drive real Chrome (Scout profile) + GC session check (v5.0.0)                                                                                                |
-| `scraping/diag_schedule.py`        | ~144  | Scraping     | Schedule diagnostics (legacy utility — still headless, non-functional since BUG-022)                                                                                 |
+| `scraping/diag_schedule.py`        | ~144  | Scraping     | Schedule diagnostics (legacy utility — still headless, non-functional since BUG-022)                                                                                |     | `analysis_tools/pitching_usage.py` | ~500 | Analysis | League workbook: pitcher usage, team usage, team comparison (+ top-3 QP), draft tabs |
+| `analysis_tools/tourney_odds.py`   | ~640  | Analysis     | Monte Carlo tournament futures → dated PDF board (bracket from season YAML `postseason:`)                                                                           |
+| `analysis_tools/draft_roi.py`      | ~420  | Analysis     | Draft grades, per-pick ROI, steals/busts → PDF + workbook tabs                                                                                                      |
+| `analysis_tools/games.py`          | ~110  | Analysis     | Shared: runs per half-inning from GC score strings, dates, postseason config, weather rollbacks                                                                     |
 
 > **Web front-end assets** (not Python): `web/index.html` (~250 lines), `web/css/style.css` (~260 lines), `web/js/app.js` (~770 lines).
 >
-> **Tests:** `dev/tests/test_fall_league_readiness.py` (play-by-play validation, session classification, league team discovery).
+> **Tests:** `dev/tests/test_fall_league_readiness.py` (play-by-play validation, session classification, league team discovery, folder reconcile) and `dev/tests/test_analysis_tools.py` (draft snake order, name matching, rest rules, odds, rollbacks).
 
 ### Shell Launchers (all in `launchers/`)
 
@@ -211,6 +215,11 @@ Scout/                               <- git repo root (~/Documents/VSCode/Person
 |       |   +-- diag_schedule.py         <- utility: schedule diagnostics
 |       |-- orchestrator/
 |       |   +-- run_menu.py           <- pipeline orchestrator (Steps 1-4) + add-team + seasons
+|       |-- analysis_tools/           <- on-demand league analysis (not part of the nightly pipeline)
+|       |   |-- games.py              <- shared run/score/date parsing + postseason config
+|       |   |-- pitching_usage.py     <- league workbook (usage, team comparison, QP, draft tabs)
+|       |   |-- tourney_odds.py       <- tournament futures PDF
+|       |   +-- draft_roi.py          <- draft report card PDF
 |       +-- web/                      <- HTML front-end
 |           |-- server.py             <- Flask server (build/view/add + live log SSE)
 |           |-- index.html            <- single-page app shell
@@ -377,6 +386,33 @@ a manual run overlapping the 10am nightly would fail fast with "port in use".
 
 ---
 
+## Analysis Tools (`scout.analysis_tools`) — on demand, not in the nightly pipeline
+
+League-division analysis built on the same game files. Run from the code root, venv active, after
+scraping (`scrape_gc_playbyplay` + `scrape_gc_boxscores --division <Div>`):
+
+| Command                                                           | Output (in `<Div>/Reports/` on the data root)                                                     |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `python -m scout.analysis_tools.pitching_usage --division Minors` | `<season>_<Div>_Pitching_Usage_and_Team_Comparison.xlsx` (usage, team comparison, QP, draft tabs) |
+| `python -m scout.analysis_tools.tourney_odds --division Minors`   | `<season>_<Div>_Tournament_Futures_asof_<last game date>.pdf`                                     |
+| `python -m scout.analysis_tools.draft_roi --division Minors`      | `<season>_<Div>_Draft_Report_Card.pdf` + `.xlsx` (same content) + rebuilds the workbook           |
+
+**Season inputs (no code edits needed):**
+
+- **Draft:** the division's `csv:` path in the season YAML (rows = rounds, columns = coaches, last row =
+  team names; snake order in round-1 column order).
+- **Playoffs:** the division's `postseason:` block — `start`, `bracket` (`game: [date, slotA, slotB]`,
+  slots are team keys or `W#`/`L#`), `order`, `winners_final`, `final`, `if_necessary`, plus
+  `seeding_games` / `seeding_games_by_team`, `official_records` (W/L/T overrides) and `rollbacks`
+  (`game-uuid: last official inning`, e.g. weather). Games on/after `start` count as playoffs.
+
+**Model notes:** runs per half-inning come from GC's running score strings (match every final score).
+Pitcher ratings (`tourney_odds.build_ratings`) are opponent-adjusted runs-allowed indexes; the odds
+sim enforces 2-inning / 50-pitch limits and rest days (≤20 = 0, 21–35 = 1, 36–50 = 2). Draft value =
+batting linear-weight runs above average + pitching runs saved, per team game.
+
+---
+
 ## Function Map -- Hitting Component
 
 > Function maps list **name + purpose** only — no line numbers (they drift on every edit).
@@ -394,7 +430,7 @@ Navigates GC schedule pages, finds FINAL games, downloads play-by-play text, con
 | `scrape_org_division()`  | Org-level scraper (Majors/Minors): loads org schedule, finds FINAL games                                                                                                       |
 | `scrape_team_division()` | Team-level scraper (travel divisions): loads per-team schedule page                                                                                                            |
 | **Extraction**           |                                                                                                                                                                                |
-| `extract_plays_raw()`    | Navigates to `/plays` URL, extracts raw page text; rejects logged-out / inning-less pages (`_has_valid_plays_content()`, BUG-021)                                               |
+| `extract_plays_raw()`    | Navigates to `/plays` URL, extracts raw page text; rejects logged-out / inning-less pages (`_has_valid_plays_content()`, BUG-021)                                              |
 | `get_schedule()`         | Runs `SCHEDULE_JS` in browser, returns parsed schedule array                                                                                                                   |
 | `is_covered()`           | Checks whether a game file already exists on disk (skip logic)                                                                                                                 |
 | `SCHEDULE_JS`            | JS injected into browser to extract game cards from GC's React DOM                                                                                                             |
@@ -588,7 +624,7 @@ terminal menu + nightly cron), streaming live output to the page via Server-Sent
 | Endpoint                                  | Purpose                                                                               |
 | ----------------------------------------- | ------------------------------------------------------------------------------------- |
 | `GET /` + `/css/*` + `/js/*`              | Serve the single-page app                                                             |
-| `GET /api/divisions`                      | Active divisions of the season + team lists (fresh call each request — BUG-017 fix)    |
+| `GET /api/divisions`                      | Active divisions of the season + team lists (fresh call each request — BUG-017 fix)   |
 | `GET /api/reports`                        | Scan `seasons/<id>/` for `*-Scout-{Hitting,Pitching}_*.pdf`, grouped by division/team |
 | `GET /report/<path>`                      | Stream a PDF (with path-traversal protection — must resolve inside `seasons/`)        |
 | `GET /api/logs`, `/api/logs/<name>`       | Dev tab log viewer (list / raw text; path-traversal guarded)                          |
@@ -920,11 +956,11 @@ python -m scout.scraping.scrape_gc_playbyplay --login           # sign in to GC 
 | `WARNING UNKNOWN`                                                          | Play outcome not in OUTCOME_TYPES                  | Add to parser                                                                                                                                                                  |
 | Jersey numbers missing (Minors)                                            | Box scores inaccessible                            | Known permanent limitation                                                                                                                                                     |
 | "GameChanger session expired" / exit 2                                     | Scout profile signed out                           | `python -m scout.scraping.scrape_gc_playbyplay --login`                                                                                                                        |
-| "GameChanger refused the Scout browser" / exit 3, or `0 FINAL games found` | GC blocking the browser, or Chrome failed to start | Run `--check-session -v`; see BUG-022. Never switch back to headless                                                                                                            |
+| "GameChanger refused the Scout browser" / exit 3, or `0 FINAL games found` | GC blocking the browser, or Chrome failed to start | Run `--check-session -v`; see BUG-022. Never switch back to headless                                                                                                           |
 | "Port 9223 is already in use"                                              | Another Scout run or Scout Chrome still open       | Close it / wait for the other run                                                                                                                                              |
 | "Chrome exited immediately"                                                | Scout profile open in another Chrome window        | Quit that window and retry                                                                                                                                                     |
 | High pitcher count (travel)                                                | Initials-only names not deduped                    | Check dedup_pitcher_names() logic                                                                                                                                              |
-| Player with accented name missing                                          | Regex uses ASCII-only char class                   | Verify `[a-z\u00C0-\u024F]` in regex (BUG-016 fix)                                                                                                                              |
+| Player with accented name missing                                          | Regex uses ASCII-only char class                   | Verify `[a-z\u00C0-\u024F]` in regex (BUG-016 fix)                                                                                                                             |
 | No LG RANK row on a travel team                                            | Only one team in that division                     | Add more teams; then `gen_hitting --division X` refreshes all                                                                                                                  |
 | LG RANK / pitching percentiles look stale                                  | Other teams' PDFs built before new team was added  | `gen_hitting --division X` + `gen_pitching --division X`                                                                                                                       |
 | Scrimmage counted in a team's stats                                        | Game not excluded                                  | Add its UUID to `exclude_games` (see "Excluding games")                                                                                                                        |

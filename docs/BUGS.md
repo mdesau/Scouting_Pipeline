@@ -23,6 +23,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-034 — Nightly run fired at 2 PM instead of 10 AM](#bug-034--status-rv)
 - (RV) [BUG-022 — GameChanger blocks the scraper's headless browser](#bug-022--status-rv)
 - (RV) [BUG-021 — Logged-out page text saved as game data](#bug-021--status-rv)
 - (RV) [BUG-020 — Report PDFs 404 in the web UI](#bug-020--status-rv)
@@ -58,6 +59,9 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-032 (Enh) — Draft report card: grades, ROI, steals and busts](#bug-032-enh--status-rv)
+- (RV) [BUG-031 (Enh) — Tournament futures ("Vegas odds") board](#bug-031-enh--status-rv)
+- (RV) [BUG-030 (Enh) — Pitching usage and team comparison workbook](#bug-030-enh--status-rv)
 - (RV) [BUG-023 (Enh) — Folder rename needed upon mismatch during game scrape](#bug-023-enh--status-rv)
 
 ### Server
@@ -66,7 +70,11 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Docs
 
-**Open** — none · **Resolved or Closed** — none
+**Open** — none
+
+**Resolved or Closed**
+
+- (RV) [BUG-033 (Docs) — README rewritten in plain language](#bug-033-docs--status-rv)
 
 ### Known Caveats
 
@@ -85,24 +93,24 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ## Severity guide
 
-| Severity     | Meaning                                         |
-| ------------ | ----------------------------------------------- |
-| **Critical** | Crash, data loss, or total failure              |
-| **High**     | Major break, no workaround                      |
-| **Medium**   | Degraded behavior, workaround exists            |
-| **Low**      | Cosmetic, minor, or rare                        |
-| **Enh**      | Enhancement, optimization, or feature request   |
+| Severity     | Meaning                                       |
+| ------------ | --------------------------------------------- |
+| **Critical** | Crash, data loss, or total failure            |
+| **High**     | Major break, no workaround                    |
+| **Medium**   | Degraded behavior, workaround exists          |
+| **Low**      | Cosmetic, minor, or rare                      |
+| **Enh**      | Enhancement, optimization, or feature request |
 
 ## Status definitions
 
-| Status | Meaning                                                                       |
-| ------ | ----------------------------------------------------------------------------- |
-| `O`    | Open — confirmed, not yet being worked                                        |
-| `IP`   | In Progress — actively being investigated or fixed                            |
-| `R`    | Resolved — fixed, not yet verified/shipped in a release                       |
-| `RV`   | Resolved & Verified — verified and shipped (see `Integrated Release`)         |
-| `C`    | Closed — won't fix, or not actually a code bug (reason documented)            |
-| KC     | `Active` (still a real constraint) · `Historical` (no longer applies)         |
+| Status | Meaning                                                               |
+| ------ | --------------------------------------------------------------------- |
+| `O`    | Open — confirmed, not yet being worked                                |
+| `IP`   | In Progress — actively being investigated or fixed                    |
+| `R`    | Resolved — fixed, not yet verified/shipped in a release               |
+| `RV`   | Resolved & Verified — verified and shipped (see `Integrated Release`) |
+| `C`    | Closed — won't fix, or not actually a code bug (reason documented)    |
+| KC     | `Active` (still a real constraint) · `Historical` (no longer applies) |
 
 ---
 
@@ -114,7 +122,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Resolved or Closed
 
-- (RV) [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
+- (RV) [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
   [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
   [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
   [BUG-016](#bug-016--status-rv) · [BUG-015](#bug-015--status-rv) ·
@@ -157,6 +165,57 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 -->
 
 ### Detailed Entries
+
+## BUG-034 · [STATUS: RV]
+
+**Title:** Nightly run fired at 2 PM instead of 10 AM
+
+**Severity:** Low
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** v5.1.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+
+### Observable Problem
+
+The docs say the nightly pipeline runs at 10:00 AM, but it actually ran at 2:00 PM.
+
+### Expected Behavior
+
+The scheduled run starts at 10:00 AM local time.
+
+### Root Cause Analysis (RCA)
+
+`StartCalendarInterval.Hour` in the launchd plist was `14`. launchd uses the Mac's local time, so
+14 = 2 PM (likely set as UTC at some point).
+
+### Fix Explanation (Exec Level — No Code)
+
+The schedule file now says 10 AM, and the scheduler was reloaded so it took effect immediately.
+
+### Fix Details (Technical)
+
+<span style="color:red">`launchers/com.wcwaa.scout_pipeline.plist`</span>: `Hour` 14 → 10. Job reloaded with
+`launchctl unload` / `load` (plist is symlinked into `~/Library/LaunchAgents/`).
+
+### Verification
+
+`launchctl list | grep wcwaa` shows the job loaded; `plutil -extract StartCalendarInterval.Hour raw`
+returns `10`.
+
+### Workaround
+
+None.
+
+---
 
 ## BUG-029 · [STATUS: O]
 
@@ -1370,13 +1429,204 @@ BUG-001–004 were fixed before the repo existed; the fixes first appear in the 
 
 ### Resolved or Closed
 
-- (RV) [BUG-023 (Enh) — Folder rename needed upon mismatch during game scrape](#bug-023-enh--status-rv)
+- (RV) [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
+  [BUG-030 (Enh)](#bug-030-enh--status-rv) · [BUG-023 (Enh)](#bug-023-enh--status-rv)
 
 <!-- template: same as Bugs, heading `## BUG-000 (Enh) · [STATUS: …]`, Severity `Enh`,
 Release Found `N/A — Enhancement`, RCA `N/A — Enhancement` when there is no defect cause,
 Integrated Release `N/A — Open` until shipped. -->
 
 ### Detailed Entries
+
+## BUG-032 (Enh) · [STATUS: RV]
+
+**Title:** Draft report card: grades, ROI, steals and busts
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+
+### Observable Problem
+
+No way to judge how well each coach drafted, even though the draft sheet and every game are on hand.
+
+### Expected Behavior
+
+One command produces a draft report card (PDF and Excel) with team grades, each pick's value vs.
+where he was taken, steals, busts, and the full draft board.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Each kid gets a value (runs added hitting + runs saved pitching vs. an average player, per team
+game). ADP = actual pick; ROI ADP = where his value says he should have gone; ROI = the difference.
+Teams are graded A+–F on value over their draft slots. The report lists steals, busts, a coaches'-kid
+slotting check, and the full board. The Excel copy has one filterable tab per section with
+numeric +/- columns that sort correctly.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/draft_roi.py`</span> (new): `load_draft` (snake order
+from the YAML `csv:` sheet), `roster_index` (merges duplicate-jersey entries), `match_pick` (nicknames,
+traded players), `player_values` (linear-weight batting scaled to league runs + pitching runs saved
+from `tourney_odds.build_ratings`), `analyze` (ROI ADP, ROI, value over round average, z-score
+grades), `build_pdf`, `build_xlsx` (same text via shared constants; real numbers with `+0;-0`
+formats; autofilter + frozen header per tab), `add_sheets` (Draft Board / Grades / Steals & Busts
+tabs in the BUG-030 workbook).
+
+### Verification
+
+`dev/tests/test_analysis_tools.py`: snake order, nickname match, traded-player fallback. Full
+suite 22/22 OK. Output checked: 115 picks, 3 unmatched draftees shown as blank/—, filters on each
+tab, ROI stored as integers.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Three draftees (Landon Anderson, Henry Cato, Elijah Selman) aren't in GC and are excluded from
+grades. Kids sharing initials split shared pitching value evenly (KC-004).
+
+---
+
+## BUG-031 (Enh) · [STATUS: RV]
+
+**Title:** Tournament futures ("Vegas odds") board
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+
+### Observable Problem
+
+No way to estimate each team's chances in the double-elimination playoff bracket.
+
+### Expected Behavior
+
+A dated PDF with each team's title odds (American moneyline) and lines for the next games,
+re-runnable after every game day, with the bracket set in config.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Rates every team and pitcher (adjusted for opponents), then plays the bracket 20,000 times inning by
+inning, following the 2-inning / 50-pitch limits and rest-day rules, and turns the results into odds
+with a 25% sportsbook margin.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/tourney_odds.py`</span> (new): `build_ratings`
+(opponent-adjusted O/D per team and pitcher, normalized, shrunk), `fit_run_distribution`
+(negative binomial, 5-run cap), `Sim` (pitch limits, `rest_days`, emergency arm), `tune` (5-fold CV
+log-loss), `seed_order` (head-to-head tiebreak), `build_pdf` (named by last game date).
+<span style="color:red">`config/2026-Fall.yaml`</span>: Minors `postseason:` block (bracket, order, dates,
+`official_records`, `rollbacks`, `seeding_games`).
+
+### Verification
+
+`dev/tests/test_analysis_tools.py`: rest rules, American odds, rollback. Seeding reproduces the real
+bracket; next-game matchups match the published schedule.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+The 9/12 Expos–Marlins 10–10 tie is unconfirmed; if it was an Expos win, add a Marlins
+`official_records` override.
+
+---
+
+## BUG-030 (Enh) · [STATUS: RV]
+
+**Title:** Pitching usage and team comparison workbook
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+
+### Observable Problem
+
+No way to see how coaches spread pitching or compare teams side by side, though the game files
+already hold everything needed.
+
+### Expected Behavior
+
+One command builds a league workbook, re-runnable after each game day, with season details in
+config, not code.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+An Excel workbook: every pitcher's usage, each team's pitching spread, hitting/pitching/lineup
+comparison by team, and a version that counts only each team's top 3 pitchers. Rerun steps are on
+the Notes tab.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/`</span> (new package). `games.py`: runs per
+half-inning from GC score strings with per-team abbreviation mapping, weather rollbacks, postseason
+config (shared by BUG-031/032). `pitching_usage.py`: `parse_game`, `analyze`, `lineup_stats`,
+`write_sheet`, `build_workbook` (Pitcher Usage, Team Usage Summary, Team Comparison, Team Comparison
+QP, draft tabs, Notes). <span style="color:red">`requirements.txt`</span>: `openpyxl`.
+
+### Verification
+
+Suite 22/22 OK. All 70 Fall Minors games' parsed runs match GC final scores; league K/BB match box
+scores (995 vs 993, 1155 vs 1155).
+
+### Workaround
+
+None.
+
+### Eng Note
+
+On-demand only — not wired into `run_menu` / nightly. Workbook IP undercount (outs field position
+when a play also changed the score) was found and fixed while building this.
+
+---
 
 ## BUG-028 (Enh) · [STATUS: O]
 
@@ -1708,13 +1958,58 @@ None.
 
 ### Resolved or Closed
 
-None.
+- (RV) [BUG-033 (Docs)](#bug-033-docs--status-rv)
 
 <!-- template: same as Bugs, heading `## BUG-000 (Docs) · [STATUS: …]`, severity usually Low. -->
 
 ### Detailed Entries
 
-None yet.
+## BUG-033 (Docs) · [STATUS: RV]
+
+**Title:** README rewritten in plain language
+
+**Severity:** Low
+
+**Reported Date:** 2026-10-27
+
+**Release Found:** N/A — Docs
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-27
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.0 (commit pending, tag pushed 2026-10-27)
+
+### Observable Problem
+
+The README was written for developers and was missing what a new user needs: where reports
+land, a plain step-by-step of the pipeline, and how to point Scout at their own report folder.
+
+### Expected Behavior
+
+A non-technical user can understand what Scout does, set it up on a new Mac, and find the reports.
+
+### Root Cause Analysis (RCA)
+
+N/A
+
+### Fix Explanation (Exec Level — No Code)
+
+README rewritten in everyday terms: where everything lives, a 5-step pipeline walkthrough, what the
+reports show, new-Mac setup, running options, teams/seasons/scrimmages, the three analysis tools
+with plain explanations of how they work, and troubleshooting.
+
+### Fix Details (Technical)
+
+<span style="color:red">`README.md`</span> (full rewrite). New-user gaps closed: `SCOUT_DATA_ROOT` must be set
+(the default is the owner's Google Drive), and the nightly wrapper script lives outside the repo so
+setup now shows how to create it. <span style="color:red">`AGENTS.md`</span>: draft report card outputs.
+
+### Workaround
+
+None.
 
 ---
 
