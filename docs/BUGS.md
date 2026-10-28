@@ -1455,7 +1455,7 @@ Integrated Release `N/A — Open` until shipped. -->
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.2.1 (commit pending, tag pushed 2026-10-28)
+**Integrated Release:** v5.2.1 (commit 4ac70b0, tag pushed 2026-10-28)
 
 ### Observable Problem
 
