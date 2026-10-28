@@ -21,14 +21,14 @@ handling, and code style. Follow those guidelines throughout.
 
 ## Current State
 
-| Field             | Value                                                                                           |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| **Version**       | 5.2.0                                                                                           |
-| **Last commit**   | `feat: v5.2.0 — analysis tools (usage workbook, tournament odds, draft report card)` (tag `v5.2.0`) |
-| **Branch**        | `main`                                                                                          |
-| **Uncommitted**   | None                                                                                            |
-| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                           |
-| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)      |
+| Field             | Value                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| **Version**       | 5.2.1                                                                                               |
+| **Last commit**   | `feat: v5.2.1 — one command for all three analysis tools` (tag `v5.2.1`)                            |
+| **Branch**        | `main`                                                                                              |
+| **Uncommitted**   | User's web UI edits (`web/index.html`, `web/js/app.js`) — review/commit next session                |
+| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                               |
+| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)          |
 
 ### Session Handoff Protocol
 
@@ -61,6 +61,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.2.1  feat: one command for all three analysis tools (run_all / run_analysis.sh, BUG-035 Enh)
 v5.2.0  feat: analysis tools — usage workbook, tournament odds, draft report card (BUG-030/031/032 Enh); README rewrite; nightly 10 AM fix
 v5.1.0  feat: auto-rename travel-team folders on GC header mismatch (BUG-023 Enh); BUGS.md restructured to §12
 v5.0.0  feat!: scrape via real Google Chrome + Scout profile (GC blocks headless, BUG-022), session preflight, per-season divisions
@@ -157,7 +158,8 @@ All paths below are under `dev/src/scout/`.
 | `scraping/diag_schedule.py`        | ~144  | Scraping     | Schedule diagnostics (legacy utility — still headless, non-functional since BUG-022)                                                                                |     | `analysis_tools/pitching_usage.py` | ~500 | Analysis | League workbook: pitcher usage, team usage, team comparison (+ top-3 QP), draft tabs |
 | `analysis_tools/tourney_odds.py`   | ~640  | Analysis     | Monte Carlo tournament futures → dated PDF board (bracket from season YAML `postseason:`)                                                                           |
 | `analysis_tools/draft_roi.py`      | ~420  | Analysis     | Draft grades, per-pick ROI, steals/busts → PDF + workbook tabs                                                                                                      |
-| `analysis_tools/games.py`          | ~110  | Analysis     | Shared: runs per half-inning from GC score strings, dates, postseason config, weather rollbacks                                                                     |
+| `analysis_tools/games.py`          | ~110  | Analysis     | Shared: runs per half-inning from GC score strings, dates, postseason config, weather rollbacks; cached `division_data()`, `rerun_commands()` |
+| `analysis_tools/run_all.py`        | ~80   | Analysis     | One command for all three tools: scrape once, parse once, build workbook + odds PDF + draft card                                                    |
 
 > **Web front-end assets** (not Python): `web/index.html` (~250 lines), `web/css/style.css` (~260 lines), `web/js/app.js` (~770 lines).
 >
@@ -173,6 +175,7 @@ All paths below are under `dev/src/scout/`.
 | `~/Library/LaunchAgents/run_wcwaa_nightly.sh` | **Actual nightly launcher** (local disk): called by the launchd plist; `cd`s into the code root and runs `caffeinate -i python -m scout.orchestrator.run_menu --all`. Lives outside the repo — **update its `SCOUT=` path if the repo moves.** |
 | `launchers/run_pitching.sh`                   | Standalone manual launcher for pitching PDFs only                                                                                                                                                                                              |
 | `launchers/run_pitching_nightly.sh`           | Standalone headless launcher for pitching PDFs only                                                                                                                                                                                            |
+| `launchers/run_analysis.sh`                   | All three analysis tools for a league division (`--division`, `--no-scrape`) → `scout.analysis_tools.run_all`                                                                                                                                |
 | `launchers/com.wcwaa.scout_pipeline.plist`    | launchd schedule config (symlinked to `~/Library/LaunchAgents/`)                                                                                                                                                                               |
 
 ---
@@ -216,7 +219,8 @@ Scout/                               <- git repo root (~/Documents/VSCode/Person
 |       |-- orchestrator/
 |       |   +-- run_menu.py           <- pipeline orchestrator (Steps 1-4) + add-team + seasons
 |       |-- analysis_tools/           <- on-demand league analysis (not part of the nightly pipeline)
-|       |   |-- games.py              <- shared run/score/date parsing + postseason config
+|       |   |-- games.py              <- shared run/score/date parsing + postseason config (cached per division)
+|       |   |-- run_all.py            <- all three tools in one run (launchers/run_analysis.sh)
 |       |   |-- pitching_usage.py     <- league workbook (usage, team comparison, QP, draft tabs)
 |       |   |-- tourney_odds.py       <- tournament futures PDF
 |       |   +-- draft_roi.py          <- draft report card PDF
@@ -388,8 +392,10 @@ a manual run overlapping the 10am nightly would fail fast with "port in use".
 
 ## Analysis Tools (`scout.analysis_tools`) — on demand, not in the nightly pipeline
 
-League-division analysis built on the same game files. Run from the code root, venv active, after
-scraping (`scrape_gc_playbyplay` + `scrape_gc_boxscores --division <Div>`):
+League-division analysis built on the same game files. **All three at once** (scrapes Steps 1–2 once,
+parses games once via the cached `games.division_data()`, then builds every report):
+`bash launchers/run_analysis.sh --division Minors` = `python -m scout.analysis_tools.run_all --division Minors`
+(`--no-scrape` to reuse saved games). Individually (after scraping):
 
 | Command                                                           | Output (in `<Div>/Reports/` on the data root)                                                     |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |

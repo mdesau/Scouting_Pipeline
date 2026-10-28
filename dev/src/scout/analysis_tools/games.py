@@ -3,12 +3,29 @@
 import re
 from collections import defaultdict
 from datetime import date
+from functools import lru_cache
 
 from scout.analysis_tools import pitching_usage as mur
 from scout.season_config import SEASON_DIR, load_season_yaml
 
 SCORE_RE = re.compile(r"([A-Z0-9\-]{2,5})\s+(\d+)\s+-\s+([A-Z0-9\-]{2,5})\s+(\d+)")
 MONTHS = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
+
+
+def rerun_commands(division):
+    """The one command (plus setup) that refreshes every analysis report; printed in each output."""
+    return ["cd ~/Documents/VSCode/Personal/Scout", "source venv/bin/activate",
+            f"python -m scout.analysis_tools.run_all --division {division}"]
+
+
+@lru_cache(maxsize=None)
+def division_data(division):
+    """Parse a division's games once per process: (scorebooks, postseason, games, pitching_usage.analyze()).
+
+    Shared read-only by all three tools, so running them together parses every file only once.
+    """
+    sb, post = scorebooks_dir(division), postseason(division)
+    return sb, post, load_games(sb, post), mur.analyze(sb)
 
 
 def postseason(division):

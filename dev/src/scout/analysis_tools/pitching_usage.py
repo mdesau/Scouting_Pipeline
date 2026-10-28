@@ -279,10 +279,10 @@ def div(a, b):
 
 
 def build_workbook(division):
+    from scout.analysis_tools import games as td  # local: games imports this module
     reports = SEASON_DIR / division / "Reports"
-    scorebooks = reports / "Scorebooks"
     rosters = json.loads((reports / "rosters.json").read_text(encoding="utf-8"))
-    apps, team_games, orders, batter_pa, team_innings = analyze(scorebooks)
+    scorebooks, _post, game_list, (apps, team_games, orders, batter_pa, team_innings) = td.division_data(division)
 
     def display(team, init):
         r = rosters.get(team, {})
@@ -392,9 +392,8 @@ def build_workbook(division):
                                  "BB/9": "0.0", "WHIP": "0.00"})
 
     # Tab 4 — Team Comparison QP (pitching = each team's top 3 quality pitchers only)
-    from scout.analysis_tools import games as td  # local: games imports this module
     from scout.analysis_tools.tourney_odds import build_ratings
-    ratings = build_ratings(td.load_games(scorebooks, td.postseason(division)), apps)
+    ratings = build_ratings(game_list, apps)
     ws_qp = wb.create_sheet("Team Comparison QP")
     h_qp = h3[:12] + ["Top 3 Quality Pitchers", "Quality (≤ Lg Avg)", "% Team Pitches", "IP"] + h3[12:]
     rows_qp = []
@@ -435,20 +434,14 @@ def build_workbook(division):
 
     # Notes
     ws4 = wb.create_sheet("Notes")
-    rerun = [
-        "HOW TO RE-RUN (after new games) — open Terminal and run:",
-        "    cd ~/Documents/VSCode/Personal/Scout",
-        "    source venv/bin/activate",
-        f"    python -m scout.scraping.scrape_gc_playbyplay --division {division}",
-        f"    python -m scout.scraping.scrape_gc_boxscores --division {division}",
-        f"    python -m scout.analysis_tools.pitching_usage --division {division}",
-        "The first two commands pull new games and update player names; the last rebuilds this workbook in place.",
-        "",
-    ]
+    rerun = ["HOW TO RE-RUN (after new games) — open Terminal and run:"]
+    rerun += [f"    {c}" for c in td.rerun_commands(division)]
+    rerun += ["The last command downloads new games, updates player names, and rebuilds all three analysis "
+              "reports (this workbook, the tournament odds PDF, and the draft report card).", ""]
     for line in rerun:
         ws4.append([line])
     ws4["A1"].font = Font(bold=True)
-    for r in range(2, 7):
+    for r in range(2, 2 + len(td.rerun_commands(division))):
         ws4[f"A{r}"].font = Font(name="Courier New")
     notes = [
         f"{SEASON_ID} {division} — built {datetime.now():%Y-%m-%d %H:%M} from {len(files)} GameChanger play-by-play files.",

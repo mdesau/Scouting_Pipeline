@@ -13,7 +13,6 @@ from datetime import date, timedelta
 import numpy as np
 
 from scout.analysis_tools import games as td
-from scout.analysis_tools import pitching_usage as mur
 from scout.season_config import SEASON_DIR, SEASON_ID
 
 N_SIMS = 20000
@@ -501,11 +500,8 @@ def build_pdf(path, R, recs, opening, updated, fixed, lines, alpha, scale, nb, g
     story = [Paragraph(title, h1),
              Paragraph(f"Double elimination · {len(recs)} teams · {start:%-m/%-d} – {end:%-m/%-d} · "
                        f"{N_SIMS:,} simulated tournaments per board", body),
-             Paragraph("To rerun after the latest games, open Terminal and run:<br/>"
-                       "<font face='Courier'>cd ~/Documents/VSCode/Personal/Scout</font><br/>"
-                       "<font face='Courier'>source venv/bin/activate</font><br/>"
-                       f"<font face='Courier'>python -m scout.scraping.scrape_gc_playbyplay --division {division}</font><br/>"
-                       f"<font face='Courier'>python -m scout.analysis_tools.tourney_odds --division {division}</font>",
+             Paragraph("<br/>".join(["To rerun after the latest games, open Terminal and run:"]
+                                    + [f"<font face='Courier'>{c}</font>" for c in td.rerun_commands(division)]),
                        small),
              Spacer(1, 8),
              Paragraph(f"Opening Line — as of {start:%-m/%-d} (regular season only)", h2), board(opening), Spacer(1, 6),
@@ -558,14 +554,16 @@ def build_pdf(path, R, recs, opening, updated, fixed, lines, alpha, scale, nb, g
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--division", default="Minors")
-    division = ap.parse_args().division
+    run(ap.parse_args().division)
+
+
+def run(division):
+    """Build the futures PDF for `division`; returns its path."""
     post = td.postseason(division)
     if not post.get("bracket"):
         raise SystemExit(f"No postseason bracket configured for {division} in config/{SEASON_ID}.yaml")
     configure(post)
-    sb = td.scorebooks_dir(division)
-    games = td.load_games(sb, post)
-    apps, *_ = mur.analyze(sb)
+    sb, _post, games, (apps, *_) = td.division_data(division)
     R = build_ratings(games, apps)
     nb = fit_run_distribution(R["halves"])
     reg = [g for g in games if not g["playoff"]]
@@ -601,6 +599,7 @@ def main():
         w, l, ti, rs, ra = records(games)[t]
         print(f"  #{i:<2} {t:20s} {w}-{l}-{ti}  {rs}-{ra}")
     print(f"PDF → {out}")
+    return out
 
 
 if __name__ == "__main__":

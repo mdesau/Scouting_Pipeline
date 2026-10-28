@@ -59,6 +59,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-035 (Enh) — One command builds all three analysis reports](#bug-035-enh--status-rv)
 - (RV) [BUG-032 (Enh) — Draft report card: grades, ROI, steals and busts](#bug-032-enh--status-rv)
 - (RV) [BUG-031 (Enh) — Tournament futures ("Vegas odds") board](#bug-031-enh--status-rv)
 - (RV) [BUG-030 (Enh) — Pitching usage and team comparison workbook](#bug-030-enh--status-rv)
@@ -1429,7 +1430,7 @@ BUG-001–004 were fixed before the repo existed; the fixes first appear in the 
 
 ### Resolved or Closed
 
-- (RV) [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
+- (RV) [BUG-035 (Enh)](#bug-035-enh--status-rv) · [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
   [BUG-030 (Enh)](#bug-030-enh--status-rv) · [BUG-023 (Enh)](#bug-023-enh--status-rv)
 
 <!-- template: same as Bugs, heading `## BUG-000 (Enh) · [STATUS: …]`, Severity `Enh`,
@@ -1437,6 +1438,66 @@ Release Found `N/A — Enhancement`, RCA `N/A — Enhancement` when there is no 
 Integrated Release `N/A — Open` until shipped. -->
 
 ### Detailed Entries
+
+## BUG-035 (Enh) · [STATUS: RV]
+
+**Title:** One command builds all three analysis reports
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-28
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-28
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.1 (commit pending, tag pushed 2026-10-28)
+
+### Observable Problem
+
+Refreshing the analysis reports took five commands (two scrapes plus one per tool), and each tool
+re-read every game file on its own; the draft card even rebuilt its analysis twice.
+
+### Expected Behavior
+
+One command downloads the latest games once and builds all three reports.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+New `run_analysis.sh` launcher (and `run_all` command) downloads games once, reads them once, and
+writes the workbook, the tournament odds PDF, and the draft report card. Reports whose inputs aren't
+set up for a division (no bracket or no draft sheet) are skipped with a note. Every report's rerun
+instructions now show this single command.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/run_all.py`</span> (new): scrapes via subprocess
+(continues on a session failure), then calls `draft_roi.analyze/build_pdf/build_xlsx`,
+`pitching_usage.build_workbook`, `tourney_odds.run`.
+<span style="color:red">`games.py`</span>: `division_data()` (`lru_cache`d games + `pitching_usage.analyze`)
+and `rerun_commands()`. <span style="color:red">`pitching_usage.py`</span>,
+<span style="color:red">`tourney_odds.py`</span> (`main` → `run(division)`),
+<span style="color:red">`draft_roi.py`</span> (`analyze` cached): use the shared data and rerun text.
+<span style="color:red">`launchers/run_analysis.sh`</span> (new).
+
+### Verification
+
+`run_all --division Minors --no-scrape`: 72 games parsed once, 4 files written in 21 s. Standalone
+`pitching_usage` and `draft_roi` still run. Suite 22/22 OK.
+
+### Workaround
+
+None.
+
+---
 
 ## BUG-032 (Enh) · [STATUS: RV]
 

@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.1] - 2026-10-28
+
+### Added
+
+- [(RV) BUG-035 (Enh) — One command builds all three analysis reports](BUGS.md#bug-035-enh--status-rv)
+
+---
+
 ## [5.2.0] - 2026-10-27
 
 ### Added

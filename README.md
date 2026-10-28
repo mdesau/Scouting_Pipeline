@@ -1,6 +1,6 @@
 # WCWAA Scout
 
-![Version](https://img.shields.io/badge/version-5.2.0-blue)
+![Version](https://img.shields.io/badge/version-5.2.1-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -279,14 +279,17 @@ new season.
 ## Analysis Tools (Minors / Majors extras)
 
 Three extra, just-for-fun reports for a league division. They aren't part of the daily run —
-run them when you want them. Download the latest games first:
+run them when you want them. **One command builds all three** (it downloads the latest games first,
+then reads each game only once, about 20 seconds after downloading):
 
 ```bash
-python -m scout.scraping.scrape_gc_playbyplay --division Minors
-python -m scout.scraping.scrape_gc_boxscores --division Minors
+bash launchers/run_analysis.sh --division Minors
+# same thing: python -m scout.analysis_tools.run_all --division Minors
+# add --no-scrape to skip downloading and use the games already saved
 ```
 
-Every output includes these rerun steps at the top.
+Every output includes this rerun command at the top. Each tool can also be run on its own with
+the command shown below (download the latest games first).
 
 ### 1. Pitching Usage & Team Comparison workbook
 

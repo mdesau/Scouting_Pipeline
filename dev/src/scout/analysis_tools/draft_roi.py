@@ -6,6 +6,7 @@ ROI ADP = player's value rank among all drafted players; ROI = actual pick − R
 
 Run from the repo root with the venv active:
     python -m scout.analysis_tools.draft_roi --division Minors
+(or build all three analysis reports at once: python -m scout.analysis_tools.run_all --division Minors)
 """
 
 import argparse
@@ -14,6 +15,7 @@ import json
 import math
 import re
 from collections import defaultdict
+from functools import lru_cache
 
 from scout.analysis_tools import games as td
 from scout.analysis_tools import pitching_usage as mur
@@ -149,6 +151,7 @@ def _pitcher_keys(team, name, rosters, idx, canon):
     return []
 
 
+@lru_cache(maxsize=None)
 def analyze(division):
     _sid, cfg = load_season_yaml()
     dcfg = cfg["divisions"][division]
@@ -156,9 +159,7 @@ def analyze(division):
     picks = load_draft(SEASON_DIR / dcfg["csv"])
     rosters = json.loads((SEASON_DIR / dcfg["roster_json"]).read_text(encoding="utf-8"))
     idx, canon = roster_index(rosters)
-    post = td.postseason(division)
-    games = td.load_games(td.scorebooks_dir(division), post)
-    apps, *_ = mur.analyze(td.scorebooks_dir(division))
+    _sb, _post, games, (apps, *_) = td.division_data(division)
     vals, R = player_values(division, games, apps, rosters, idx, canon)
 
     matched_keys = set()
@@ -288,10 +289,7 @@ def _title(division):
 
 
 def _rerun_cmds(division):
-    return ["cd ~/Documents/VSCode/Personal/Scout", "source venv/bin/activate",
-            f"python -m scout.scraping.scrape_gc_playbyplay --division {division}",
-            f"python -m scout.scraping.scrape_gc_boxscores --division {division}",
-            f"python -m scout.analysis_tools.draft_roi --division {division}"]
+    return td.rerun_commands(division)
 
 
 def _grade_rows(res):
