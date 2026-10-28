@@ -1,6 +1,6 @@
 # WCWAA Scout
 
-![Version](https://img.shields.io/badge/version-5.2.1-blue)
+![Version](https://img.shields.io/badge/version-5.2.2-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -284,6 +284,7 @@ then reads each game only once, about 20 seconds after downloading):
 
 ```bash
 bash launchers/run_analysis.sh --division Minors
+# leave off --division and it asks which division (Majors / Minors)
 # same thing: python -m scout.analysis_tools.run_all --division Minors
 # add --no-scrape to skip downloading and use the games already saved
 ```

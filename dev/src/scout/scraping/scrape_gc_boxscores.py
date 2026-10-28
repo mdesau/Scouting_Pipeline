@@ -323,18 +323,35 @@ def _first_name_from(name_str="", entry=None, key=""):
         display = entry.get("display", "")
         if display:
             return display.split()[0]
-    if len(key) == 5 and key[3] == " ":   # e.g. "Bri A"
-        return key[:3]
+    if len(key) >= 5 and " " in key:   # e.g. "Bri A", "Cars B"
+        return key.split()[0]
     return ""
 
 
-def _disambig_key(init, first_name):
+def _disambig_key(init, first_name, taken=(), jersey=None):
     """
-    Build a 5-char disambiguation key.
+    Build a disambiguation key, unique among `taken`.
     init="B A", first_name="Brian"  →  "Bri A"
-    init="B A", first_name="Ben"    →  "Ben A"
+    init="C B", first_name="Carson", taken={"Car B"} (Carter)  →  "Cars B"
+    identical first names            →  "Jax W #5" (jersey), else "Jax W2"
     """
-    return first_name[:3] + " " + init[-1]
+    for n in range(min(3, len(first_name)), len(first_name) + 1):
+        dk = f"{first_name[:n]} {init[-1]}"
+        if dk not in taken:
+            return dk
+    if jersey and f"{first_name} {init[-1]} #{jersey}" not in taken:
+        return f"{first_name} {init[-1]} #{jersey}"
+    n = 2
+    while f"{first_name} {init[-1]}{n}" in taken:
+        n += 1
+    return f"{first_name} {init[-1]}{n}"
+
+
+def _same_kid(stored_fn, stored_jersey, first_name, jersey):
+    """Jersey decides when both have one (GC lists one kid as "DJ" and "Dheeraj", both #2); else first name."""
+    if jersey and stored_jersey:
+        return str(jersey) == str(stored_jersey)
+    return bool(first_name and stored_fn and first_name.lower() == stored_fn.lower())
 
 
 def _accum_player(rosters, team_name, p, game_id, batting_pos=None, log=None):
@@ -368,15 +385,16 @@ def _accum_player(rosters, team_name, p, game_id, batting_pos=None, log=None):
     if init in cmap:
         matched_key = None
         for dk in cmap[init]:
-            stored_fn = _first_name_from(entry=team.get(dk, {}), key=dk)
-            if first_name and stored_fn and first_name.lower() == stored_fn.lower():
+            stored = team.get(dk, {})
+            stored_fn = _first_name_from(entry=stored, key=dk)
+            if _same_kid(stored_fn, stored.get("jersey"), first_name, p["jersey"]):
                 matched_key = dk
                 break
         if matched_key:
             merge_player(team[matched_key], p, game_id)
         else:
             # Third player sharing the same 2-char initials (extreme edge case)
-            dk = _disambig_key(init, first_name)
+            dk = _disambig_key(init, first_name, team, p["jersey"])
             team[dk] = {
                 "display": display_name(p["name"], p["jersey"]),
                 "jersey":  p["jersey"],
@@ -403,7 +421,7 @@ def _accum_player(rosters, team_name, p, game_id, batting_pos=None, log=None):
     existing    = team[init]
     existing_fn = _first_name_from(entry=existing)
 
-    if not existing_fn or not first_name or first_name.lower() == existing_fn.lower():
+    if not existing_fn or not first_name or _same_kid(existing_fn, existing.get("jersey"), first_name, p["jersey"]):
         # Same player (or can't tell) — normal accumulation
         merge_player(existing, p, game_id)
         return
@@ -416,8 +434,8 @@ def _accum_player(rosters, team_name, p, game_id, batting_pos=None, log=None):
     else:
         print(msg)
 
-    dk_existing = _disambig_key(init, existing_fn)
-    dk_incoming = _disambig_key(init, first_name)
+    dk_existing = _disambig_key(init, existing_fn, team, existing.get("jersey"))
+    dk_incoming = _disambig_key(init, first_name, set(team) | {dk_existing}, p["jersey"])
 
     # Move existing entry to its disambiguated key
     existing["_first_name"] = existing_fn          # ensure field is set

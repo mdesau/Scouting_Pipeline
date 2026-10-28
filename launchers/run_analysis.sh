@@ -3,7 +3,7 @@
 # run_analysis.sh — build all three analysis reports for a league division
 #
 # USAGE
-#   bash launchers/run_analysis.sh                          # Minors, download new games first
+#   bash launchers/run_analysis.sh                          # asks which division, downloads new games first
 #   bash launchers/run_analysis.sh --division Majors
 #   bash launchers/run_analysis.sh --division Minors --no-scrape
 # ─────────────────────────────────────────────────────────────────────────────

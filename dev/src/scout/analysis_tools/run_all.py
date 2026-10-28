@@ -6,6 +6,7 @@ Downloads new games + rosters once, parses every game once, then writes:
   3. Draft report card PDF + XLSX (when a draft `csv:` is configured)
 
 Run from the repo root with the venv active:
+    python -m scout.analysis_tools.run_all                                # asks which division
     python -m scout.analysis_tools.run_all --division Minors
     python -m scout.analysis_tools.run_all --division Minors --no-scrape   # reuse games already saved
 """
@@ -34,14 +35,31 @@ def scrape(division):
     return True
 
 
+def pick_division(cfg):
+    """Ask which league division to run (only divisions with a league scorebook qualify)."""
+    leagues = [name for name, d in cfg["divisions"].items() if "scorebooks" in d]
+    if not leagues:
+        raise SystemExit(f"No league divisions in config/{SEASON_ID}.yaml")
+    if not sys.stdin.isatty():
+        raise SystemExit(f"--division is required (one of: {', '.join(leagues)})")
+    print(f"\nWhich division? ({SEASON_ID})")
+    for i, name in enumerate(leagues, 1):
+        print(f"  [{i}] {name}")
+    while True:
+        choice = input("Enter number: ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(leagues):
+            return leagues[int(choice) - 1]
+        print(f"  Please enter 1–{len(leagues)}.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--division", default="Minors")
+    ap.add_argument("--division", help="league division (asked interactively if omitted)")
     ap.add_argument("--no-scrape", action="store_true", help="skip downloading; use games already saved")
     args = ap.parse_args()
-    division = args.division
 
     _sid, cfg = load_season_yaml()
+    division = args.division or pick_division(cfg)
     dcfg = cfg["divisions"].get(division)
     if not dcfg or "scorebooks" not in dcfg:
         raise SystemExit(f"{division} is not a league division in config/{SEASON_ID}.yaml")

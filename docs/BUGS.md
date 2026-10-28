@@ -23,6 +23,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-036 — Kids with similar first names merged into one roster entry](#bug-036--status-rv)
 - (RV) [BUG-034 — Nightly run fired at 2 PM instead of 10 AM](#bug-034--status-rv)
 - (RV) [BUG-022 — GameChanger blocks the scraper's headless browser](#bug-022--status-rv)
 - (RV) [BUG-021 — Logged-out page text saved as game data](#bug-021--status-rv)
@@ -59,6 +60,8 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-038 (Enh) — Analysis command asks which division](#bug-038-enh--status-rv)
+- (RV) [BUG-037 (Enh) — Draft report card: late additions, Majors setup, multi-word surnames](#bug-037-enh--status-rv)
 - (RV) [BUG-035 (Enh) — One command builds all three analysis reports](#bug-035-enh--status-rv)
 - (RV) [BUG-032 (Enh) — Draft report card: grades, ROI, steals and busts](#bug-032-enh--status-rv)
 - (RV) [BUG-031 (Enh) — Tournament futures ("Vegas odds") board](#bug-031-enh--status-rv)
@@ -123,7 +126,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Resolved or Closed
 
-- (RV) [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
+- (RV) [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
   [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
   [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
   [BUG-016](#bug-016--status-rv) · [BUG-015](#bug-015--status-rv) ·
@@ -166,6 +169,75 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 -->
 
 ### Detailed Entries
+
+## BUG-036 · [STATUS: RV]
+
+**Title:** Kids with similar first names merged into one roster entry
+
+**Severity:** Medium
+
+**Reported Date:** 2026-10-28
+
+**Release Found:** v5.2.1
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-28
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.2 (commit pending, tag pushed 2026-10-28)
+
+### Observable Problem
+
+Carson B. (Royals, Majors) was missing from the roster and draft report even though he played
+every game; his teammate Carter B. absorbed his entry. One Minors kid listed by GC as both "DJ" and
+"Dheeraj" (#2) was treated as two kids.
+
+### Expected Behavior
+
+Every kid gets exactly one roster entry; two kids with the same initials stay separate.
+
+### Steps to Reproduce
+
+1. Two teammates share initials and the first 3 letters of their first name (Carter / Carson B).
+2. Run `scrape_gc_boxscores --division Majors --force`. 3. Expected two entries; actual one `Car B`
+   entry listed 17 times in `_collision_map`.
+
+### Root Cause Analysis (RCA)
+
+`_disambig_key()` always used the first 3 letters of the first name, so "Carter" and "Carson" both
+became `Car B`; each new game re-added the key, overwriting the other kid. Matching used only the
+first name, so a nickname with the same jersey looked like a different kid.
+
+### Fix Explanation (Exec Level — No Code)
+
+When two kids share initials, Scout now uses as many letters of the first name as needed, and uses
+jersey numbers: same jersey = same kid; identical first names are told apart by jersey.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/scraping/scrape_gc_boxscores.py`</span>: `_disambig_key(init, first,
+taken, jersey)` grows the prefix until unique (`Car B` / `Cars B`), then `First L #jersey`;
+new `_same_kid()` (jersey decides when both present, else first name) used in `_accum_player()`;
+`_first_name_from()` handles longer keys. New <span style="color:red">`dev/tests/test_roster_collisions.py`</span>.
+
+### Verification
+
+5 new tests; suite 27/27 OK. Fall Majors + Minors rosters rebuilt (`--force`): Carter #2 / Carson #1
+separate, DJ/Dheeraj #2 merged (14 games), Tristan/Troy L and Charlie/Charlier C separate. Hitting,
+pitching and analysis reports rebuilt for both divisions.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Play-by-play still uses initials only, so PAs for kids sharing initials are split by batting order
+(KC-004). Spring 2026 rosters (3 affected teams) were not rebuilt — deferred to a later session.
+
+---
 
 ## BUG-034 · [STATUS: RV]
 
@@ -1430,7 +1502,8 @@ BUG-001–004 were fixed before the repo existed; the fixes first appear in the 
 
 ### Resolved or Closed
 
-- (RV) [BUG-035 (Enh)](#bug-035-enh--status-rv) · [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
+- (RV) [BUG-038 (Enh)](#bug-038-enh--status-rv) · [BUG-037 (Enh)](#bug-037-enh--status-rv) ·
+  [BUG-035 (Enh)](#bug-035-enh--status-rv) · [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
   [BUG-030 (Enh)](#bug-030-enh--status-rv) · [BUG-023 (Enh)](#bug-023-enh--status-rv)
 
 <!-- template: same as Bugs, heading `## BUG-000 (Enh) · [STATUS: …]`, Severity `Enh`,
@@ -1438,6 +1511,122 @@ Release Found `N/A — Enhancement`, RCA `N/A — Enhancement` when there is no 
 Integrated Release `N/A — Open` until shipped. -->
 
 ### Detailed Entries
+
+## BUG-038 (Enh) · [STATUS: RV]
+
+**Title:** Analysis command asks which division
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-28
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-28
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.2 (commit pending, tag pushed 2026-10-28)
+
+### Observable Problem
+
+`run_analysis.sh` silently defaulted to Minors when no division was given.
+
+### Expected Behavior
+
+With no `--division`, the command lists the season's league divisions and asks which one to run.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Running the analysis command without a division now shows a numbered list (e.g. Majors / Minors)
+and asks. Unattended runs stop with a clear message instead of waiting for an answer.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/run_all.py`</span>: `pick_division()` (league divisions =
+those with `scorebooks`; non-TTY → exit listing choices); `--division` no longer defaults.
+<span style="color:red">`launchers/run_analysis.sh`</span>, <span style="color:red">`README.md`</span>: usage text.
+
+### Verification
+
+Simulated input (`x` then `2`) re-prompts then picks Minors; `< /dev/null` exits with the choices listed.
+
+### Workaround
+
+Pass `--division`.
+
+---
+
+## BUG-037 (Enh) · [STATUS: RV]
+
+**Title:** Draft report card: late additions, Majors setup, multi-word surnames
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-28
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-28
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.2.2 (commit pending, tag pushed 2026-10-28)
+
+### Observable Problem
+
+Kids who joined after the draft (e.g. Giancarlos V., Samuel C. in Majors) got no value or grade;
+drafted kids with multi-word surnames ("De La Mora", "la Cour") could fail to match; Majors had no
+draft sheet or bracket configured.
+
+### Expected Behavior
+
+Late additions are valued and slotted like picks (no ADP/ROI); all draftees match; all three
+analysis reports build for Majors.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+New "Late Additions — Not Drafted" section: kids not on the draft sheet who played 3+ games get
+the same value measures and the slot their production earns, without affecting team grades
+(one-game subs are left out). Majors now has its draft sheet and playoff bracket, including the
+10/17 Padres–Royals forfeit in the official records.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/draft_roi.py`</span>: `_late_additions()`
+(`LATE_MIN_GAMES = 3`), `steals_busts()` returns the late list, new `SECTIONS` / `METHOD` entries,
+row builders handle late adds; `match_pick()` accepts any surname word's initial.
+<span style="color:red">`config/2026-Fall.yaml`</span>: Majors `postseason:` (bracket, order, finals,
+if-necessary, `official_records` for the forfeit). Draft sheet
+`Majors/Reports/2026 Fall Draft Results.xlsx - Majors.csv` added on the data root (Henning moved
+to the Twins' round-11 slot, matching who he played for).
+
+### Verification
+
+`run_all --division Majors` and `--division Minors` build 4 files each; Majors seeds match the real
+bracket; 5 late additions found across both divisions. Suite 27/27 OK.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Aaron Jordan (Twins) is drafted but appears in no Majors game or box score — listed as not found.
+
+---
 
 ## BUG-035 (Enh) · [STATUS: RV]
 

@@ -14,6 +14,28 @@ divisions:
     csv_overrides: {}
     roster_additions: {}
     teams: []
+    postseason:
+      start: 2026-10-21
+      official_records:
+        Padres-Midkiff: [6, 5, 0]
+        Royals-Hall: [3, 8, 0]
+      winners_final: 5
+      final: 10
+      if_necessary:
+        game: 11
+        date: 2026-11-04
+      order: [2, 1, 4, 3, 6, 7, 5, 8, 9, 10]
+      bracket:
+        1: [2026-10-22, Rays-Madero, Reds-Arnold]
+        2: [2026-10-21, Royals-Hall, Padres-Midkiff]
+        3: [2026-10-24, Twins-Ewart, W1]
+        4: [2026-10-24, Mariners-Schick, W2]
+        6: [2026-10-26, L3, L2]
+        7: [2026-10-26, L4, L1]
+        5: [2026-10-28, W3, W4]
+        8: [2026-10-29, W6, W7]
+        9: [2026-10-31, W8, L5]
+        10: [2026-11-02, W5, W9]
   Minors:
     type: league
     age: 9U

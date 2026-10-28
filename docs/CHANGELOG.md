@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.2] - 2026-10-28
+
+### Added
+
+- [(RV) BUG-037 (Enh) — Draft report card: late additions, Majors setup, multi-word surnames](BUGS.md#bug-037-enh--status-rv)
+- [(RV) BUG-038 (Enh) — Analysis command asks which division](BUGS.md#bug-038-enh--status-rv)
+
+### Fixed
+
+- [(RV) BUG-036 — Kids with similar first names merged into one roster entry](BUGS.md#bug-036--status-rv)
+
+---
+
 ## [5.2.1] - 2026-10-28
 
 ### Added

@@ -77,9 +77,12 @@ def roster_index(rosters):
 
 
 def match_pick(pick, idx):
-    first, last = pick["name"].split()[0], pick["name"].split()[-1]
+    parts = pick["name"].split()
+    first = parts[0]
+    # Multi-word surnames ("De La Mora", "la Cour"): GC may use any word's initial.
+    inits = {w[0].upper() for w in parts[1:]}
     def hits(team):
-        return [k for k, e in idx.get(team, {}).items() if e["last_init"] == last[0].upper() and _same_first(e["first"], first)]
+        return [k for k, e in idx.get(team, {}).items() if e["last_init"] in inits and _same_first(e["first"], first)]
     own = hits(pick["team"])
     if own:
         return pick["team"], own
@@ -209,11 +212,36 @@ def analyze(division):
 
     undrafted = sorted({(team, e["display"]) for team, es in idx.items() for k, e in es.items()
                         if (team, canon[team].get(k, k)) not in matched_keys and canon[team].get(k, k) == k})
-    return {"picks": picks, "teams": dict(teams), "slot_value": slot_value, "undrafted": undrafted,
+    late = _late_additions(rosters, idx, canon, matched_keys, vals, graded, slot_value,
+                           len({q["team"] for q in picks}))
+    return {"picks": picks, "teams": dict(teams), "slot_value": slot_value, "undrafted": undrafted, "late": late,
             "unmatched": [p for p in picks if not p["matched"]], "reports": reports, "R": R}
 
 
 # ── Output ─────────────────────────────────────────────────────────────────
+
+LATE_MIN_GAMES = 3  # fewer = a one-game sub, not a roster addition
+
+
+def _late_additions(rosters, idx, canon, matched_keys, vals, graded, slot_value, n_teams):
+    """Kids not on the draft sheet who played LATE_MIN_GAMES+: valued and slotted like picks, but no ADP/ROI."""
+    late = []
+    for team, es in idx.items():
+        for k, e in es.items():
+            ck = canon[team].get(k, k)
+            if ck != k or (team, ck) in matched_keys or rosters[team][k].get("games_seen", 0) < LATE_MIN_GAMES:
+                continue
+            v = vals.get((team, ck)) or {"bat": 0.0, "pitch": 0.0, "pa": 0, "ip": 0.0, "ops": None}
+            value = v["bat"] + v["pitch"]
+            slot = 1 + sum(1 for q in graded if q["value"] > value)
+            vround = math.ceil(slot / n_teams)
+            late.append({"name": e["display"], "team": team, "played_for": team, "late": True,
+                         "coach_kid": False, "matched": True, "pick": None, "round": None, "roi": None,
+                         "roi_adp": slot, "value_round": vround, "bat": v["bat"], "pitch": v["pitch"],
+                         "pa": v["pa"], "ip": v["ip"], "ops": v["ops"], "value": value,
+                         "over_slot": value - slot_value[min(vround, max(slot_value))]})
+    return sorted(late, key=lambda p: -p["value"])
+
 
 def add_sheets(wb, division):
     """Draft Board / Draft Grades / Steals & Busts tabs (called by pitching_usage.build_workbook)."""
@@ -239,10 +267,11 @@ def add_sheets(wb, division):
     mur.write_sheet(grades, hg, rows, {})
 
     sb = wb.create_sheet("Steals & Busts")
-    steals, busts, kids = steals_busts(res)
+    steals, busts, kids, late = steals_busts(res)
     hs = ["Type", "Player", "Drafted By", "Pick", "Round", "ROI ADP", "ROI (picks)", "Total Value"]
     rows = [[kind, p["name"], p["team"], p["pick"], p["round"], p["roi_adp"], p["roi"], round(p["value"], 1)]
-            for kind, lst in (("STEAL", steals), ("BUST", busts), ("COACH KID", kids)) for p in lst]
+            for kind, lst in (("STEAL", steals), ("BUST", busts), ("COACH KID", kids), ("LATE ADD", late))
+            for p in lst]
     mur.write_sheet(sb, hs, rows, {})
     return res
 
@@ -252,7 +281,7 @@ def steals_busts(res, n=8):
     steals = sorted([p for p in g if p["roi_adp"] <= 22], key=lambda p: -p["roi"])[:n]
     busts = sorted([p for p in g if p["round"] <= 4], key=lambda p: p["roi"])[:n]
     kids = sorted([p for p in g if p["coach_kid"]], key=lambda p: -p["roi"])
-    return steals, busts, kids
+    return steals, busts, kids, res["late"]
 
 
 # Report card text — shared by the PDF and the XLSX so both say exactly the same thing.
@@ -266,6 +295,10 @@ SECTIONS = [
     ("Commissioner Slotting Check — Coaches' Kids", 2,
      "Coaches' kids are slotted by the commissioner. Positive ROI = slotted too low; negative = too high.",
      "Coaches' Kids"),
+    ("Late Additions — Not Drafted", 3,
+     f"Kids who joined after the draft and played {LATE_MIN_GAMES}+ games (one-game subs left out). ROI ADP = where "
+     "their production would have slotted them; no actual pick, so no ROI. Not counted in team grades.",
+     "Late Additions"),
 ]
 METHOD_TITLE = "How the Grades Were Made"
 METHOD = [
@@ -280,6 +313,8 @@ METHOD = [
     ("Grades.", "Each pick is compared with the average value of its round; team grade = total value over slot, "
      "converted to a letter by how far above/below the league average it is."),
     ("Kids sharing initials", "(play-by-play uses initials) split shared pitching value evenly; see KC-004."),
+    ("Late additions.", f"Kids not on the draft sheet who played {LATE_MIN_GAMES}+ games get the same value "
+     "measures and a would-be slot, but no ROI and no effect on team grades."),
 ]
 FUN_NOTE = "For fun only — they're 9. Every kid improved this season. 🙂"
 
@@ -304,6 +339,10 @@ def _grade_rows(res):
 def _player_rows(lst):
     r = [["Player", "Drafted by", "Pick (Rd)", "ADP", "ROI ADP", "ROI", "Value", "Bat / Pitch runs"]]
     for p in lst:
+        if p.get("late"):
+            r.append([p["name"], p["team"], "Late add", "—", str(p["roi_adp"]), "—", f"{p['value']:+.1f}",
+                      f"{p['bat']:+.1f} / {p['pitch']:+.1f}"])
+            continue
         head = [p["name"] + (" *" if p["coach_kid"] else ""), p["team"], f"#{p['pick']} (Rd {p['round']})", str(p["pick"])]
         if not p["matched"]:
             r.append(head + ["—"] * 4)
@@ -331,11 +370,15 @@ def _player_rows_xlsx(lst):
     """Same table as the PDF, but numbers stay numbers and Bat / Pitch runs get a column each."""
     r = [["Player", "Drafted by", "Pick (Rd)", "ADP", "ROI ADP", "ROI", "Value", "Bat runs", "Pitch runs"]]
     for p in lst:
+        nums = [round(p["value"], 1), round(p["bat"], 1), round(p["pitch"], 1)]
+        if p.get("late"):
+            r.append([p["name"], p["team"], "Late add", None, p["roi_adp"], None] + nums)
+            continue
         head = [p["name"] + (" *" if p["coach_kid"] else ""), p["team"], f"#{p['pick']} (Rd {p['round']})", p["pick"]]
         if not p["matched"]:
             r.append(head + [None] * 5)
             continue
-        r.append(head + [p["roi_adp"], p["roi"], round(p["value"], 1), round(p["bat"], 1), round(p["pitch"], 1)])
+        r.append(head + [p["roi_adp"], p["roi"]] + nums)
     return r, {5: SIGNED_INT, 6: SIGNED_1, 7: SIGNED_1, 8: SIGNED_1}
 
 
