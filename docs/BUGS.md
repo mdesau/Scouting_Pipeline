@@ -188,7 +188,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.3.0 (commit pending, tag pushed 2026-10-29)
+**Integrated Release:** v5.3.0 (commit aecfb6a, tag pushed 2026-10-29)
 
 ### Observable Problem
 
@@ -1604,7 +1604,7 @@ Integrated Release `N/A — Open` until shipped. -->
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.3.0 (commit pending, tag pushed 2026-10-29)
+**Integrated Release:** v5.3.0 (commit aecfb6a, tag pushed 2026-10-29)
 
 ### Observable Problem
 
