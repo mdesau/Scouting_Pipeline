@@ -1,6 +1,6 @@
 # WCWAA Scout
 
-![Version](https://img.shields.io/badge/version-5.2.2-blue)
+![Version](https://img.shields.io/badge/version-5.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -318,15 +318,18 @@ python -m scout.analysis_tools.tourney_odds --division Minors
 ```
 
 **Output:** `<season>_Minors_Tournament_Futures_asof_<date of last game>.pdf` — each team's odds to
-win the tournament, plus a betting line for the next games.
+win the tournament, plus a betting line for the next games. Each game line also shows how many
+of each team's top 3 pitchers are rested, who's out (with the day they're back), and the line if
+everyone were fully rested.
 
 **How it works:**
 
 1. **Rate every team and pitcher.** Runs scored and allowed, adjusted for who they played
    (scoring 8 on the best staff counts more than 8 on the worst).
 2. **Play the tournament 20,000 times** on the computer, inning by inning, using the real
-   bracket. Each sim follows league rules: 2-inning / 50-pitch limits and required rest days
-   (21–35 pitches = 1 day, 36–50 = 2 days), so tired aces can't pitch.
+   bracket. Each sim follows Little League rules: 2-inning / 50-pitch limits, required rest days
+   (21–35 pitches = 1 day, 36–50 = 2 days), and no one pitches 3 days in a row, so tired aces
+   can't pitch. Pitch counts are the official ones from each game's GameChanger box score.
 3. **Turn results into odds.** If a team wins 30% of the simulated tournaments, its fair odds
    are about +233. A 25% "sportsbook" margin is added, like a real Vegas board.
 4. **Self-check.** The model tests itself on games it hasn't seen and tunes how confident it is

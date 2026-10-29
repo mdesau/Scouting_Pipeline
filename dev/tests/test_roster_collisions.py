@@ -40,5 +40,34 @@ class AccumulateTests(unittest.TestCase):
         self.assertEqual(rosters["Cubs"]["D B"]["games_seen"], 2)
 
 
+class BoxPitchingTests(unittest.TestCase):
+    BLOCK = {"pitchers": [{"name": "Grayson L", "jersey": "5", "ip": "1.0"},
+                          {"name": "Tristan L", "jersey": "7", "ip": "2.0"},
+                          {"name": "TEAM", "jersey": "", "ip": "3.0"}],
+             "extra": "WP: Tristan L\nPitches-Strikes: Tristan L 27-13, Grayson L 16-12\n"
+                      "Batters Faced: Tristan L 8, Grayson L 7"}
+
+    def test_parse_pitching_order_counts_and_outs(self):
+        rows = bx.parse_pitching(self.BLOCK)
+        self.assertEqual([r["name"] for r in rows], ["Grayson L", "Tristan L"])
+        self.assertEqual((rows[1]["pitches"], rows[1]["strikes"], rows[1]["bf"], rows[1]["outs"]), (27, 13, 8, 6))
+
+    def test_box_fixes_starter_shared_initials_and_pitch_counts(self):
+        from collections import defaultdict
+        from scout.analysis_tools import pitching_usage as mur
+        rosters = {"Rays": {"Tri L": {"display": "Tristan L. #7", "jersey": "7"},
+                            "Tro L": {"display": "Troy L. #4", "jersey": "4"},
+                            "G L": {"display": "Grayson L. #5", "jersey": "5"},
+                            "_collision_map": {"T L": ["Tri L", "Tro L"]}}}
+        apps = defaultdict(mur.new_app)
+        apps[("Rays", "G L", "g")]["pitches"] = 14
+        apps[("Rays", "T L", "g")]["pitches"] = 25
+        mur._apply_box(apps, "g", "Rays", bx.parse_pitching(self.BLOCK), rosters)
+        self.assertNotIn(("Rays", "T L", "g"), apps)
+        self.assertEqual(apps[("Rays", "Tri L", "g")]["pitches"], 27)
+        self.assertEqual(apps[("Rays", "G L", "g")]["pitches"], 16)
+        self.assertTrue(apps[("Rays", "G L", "g")]["start"])
+
+
 if __name__ == "__main__":
     unittest.main()

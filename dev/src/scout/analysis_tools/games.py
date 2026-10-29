@@ -1,5 +1,6 @@
 """Shared game-level data for the analysis tools: runs per half-inning, final scores, dates, postseason config."""
 
+import json
 import re
 from collections import defaultdict
 from datetime import date
@@ -25,7 +26,12 @@ def division_data(division):
     Shared read-only by all three tools, so running them together parses every file only once.
     """
     sb, post = scorebooks_dir(division), postseason(division)
-    return sb, post, load_games(sb, post), mur.analyze(sb)
+    _sid, cfg = load_season_yaml()
+    dcfg = cfg["divisions"][division]
+    verify_path, roster_path = SEASON_DIR / dcfg.get("verify_json", ""), SEASON_DIR / dcfg.get("roster_json", "")
+    verify = json.loads(verify_path.read_text(encoding="utf-8")) if verify_path.is_file() else {}
+    rosters = json.loads(roster_path.read_text(encoding="utf-8")) if roster_path.is_file() else {}
+    return sb, post, load_games(sb, post), mur.analyze(sb, mur.box_pitching(verify), rosters)
 
 
 def postseason(division):

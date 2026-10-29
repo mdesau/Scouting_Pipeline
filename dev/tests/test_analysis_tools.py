@@ -39,6 +39,26 @@ class TourneyRuleTests(unittest.TestCase):
     def test_rest_days_rule(self):
         self.assertEqual([tourney_odds.rest_days(p) for p in (20, 21, 35, 36, 50)], [0, 1, 1, 2, 2])
 
+    def test_rest_days_map_to_calendar(self):
+        avail, k, mon = {}, ("T", "P"), date(2026, 10, 26)
+        tourney_odds.record_outing(avail, k, mon, 30)  # 1 day rest: sits Tue, back Wed
+        self.assertFalse(tourney_odds.eligible(avail, k, date(2026, 10, 27)))
+        self.assertTrue(tourney_odds.eligible(avail, k, date(2026, 10, 28)))
+
+    def test_two_straight_days_sits_the_third(self):
+        avail, k = {}, ("T", "P")
+        tourney_odds.record_outing(avail, k, date(2026, 10, 26), 12)
+        self.assertTrue(tourney_odds.eligible(avail, k, date(2026, 10, 27)))
+        tourney_odds.record_outing(avail, k, date(2026, 10, 27), 12)
+        self.assertFalse(tourney_odds.eligible(avail, k, date(2026, 10, 28)))
+        self.assertTrue(tourney_odds.eligible(avail, k, date(2026, 10, 29)))
+
+    def test_same_day_pitches_add_up(self):
+        avail, k, d = {}, ("T", "P"), date(2026, 10, 26)
+        tourney_odds.record_outing(avail, k, d, 15)
+        tourney_odds.record_outing(avail, k, d, 15)  # 30 that day -> 1 day rest
+        self.assertFalse(tourney_odds.eligible(avail, k, date(2026, 10, 27)))
+
     def test_american_odds(self):
         self.assertEqual(tourney_odds.american(0.5), "-100")
         self.assertEqual(tourney_odds.american(0.25), "+300")

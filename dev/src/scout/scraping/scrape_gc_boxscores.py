@@ -196,14 +196,64 @@ EXTRACT_BOXSCORE_JS = """
         return { players };
     }
 
+    // Pitching table rows (name, jersey, IP) + the extras text holding Pitches-Strikes / Batters Faced.
+    function extractPitching(container, extra) {
+        const pitchers = [];
+        if (container) {
+            container.querySelectorAll('.BoxScoreComponents__playerCell').forEach(cell => {
+                const row = cell.closest('[role="row"]');
+                const nameEl = cell.querySelector('.BoxScoreComponents__playerName');
+                const infoEl = cell.querySelector('.BoxScoreComponents__playerInfo');
+                const name = nameEl ? nameEl.innerText.trim() : '';
+                if (!row || !name) return;
+                const cells = [...row.querySelectorAll('[role="gridcell"]')].slice(1).map(c => c.innerText.trim());
+                const jm = (infoEl ? infoEl.innerText : '').match(/#(\d+)/);
+                pitchers.push({ name, jersey: jm ? jm[1] : '', ip: cells[0] || '' });
+            });
+        }
+        return { pitchers, extra: extra ? extra.innerText : '' };
+    }
+
     return {
         away_team: awayName.trim(),
         home_team: homeName.trim(),
         away: extractLineup(awayDiv),
-        home: extractLineup(homeDiv)
+        home: extractLineup(homeDiv),
+        away_pitching: extractPitching(document.querySelector('.BoxScore__awayPitching'),
+                                       document.querySelector('.BoxScore__awayPitchingExtra')),
+        home_pitching: extractPitching(document.querySelector('.BoxScore__homePitching'),
+                                       document.querySelector('.BoxScore__homePitchingExtra'))
     };
 }
 """
+
+PITCH_STRIKES_RE = re.compile(r"Pitches-Strikes:\s*(.+)")
+BATTERS_FACED_RE = re.compile(r"Batters Faced:\s*(.+)")
+NAME_NUMS_RE = re.compile(r"^(.+?)\s+(\d+)(?:-(\d+))?$")
+
+
+def parse_pitching(block):
+    """Box-score pitching block → [{name, jersey, outs, pitches, strikes, bf}] in order pitched."""
+    def per_name(regex):
+        m = regex.search(block.get("extra", ""))
+        out = {}
+        for item in (m.group(1).split(",") if m else []):
+            nm = NAME_NUMS_RE.match(item.strip())
+            if nm:
+                out[nm.group(1)] = (int(nm.group(2)), int(nm.group(3)) if nm.group(3) else None)
+        return out
+
+    ps, bf = per_name(PITCH_STRIKES_RE), per_name(BATTERS_FACED_RE)
+    rows = []
+    for p in block.get("pitchers", []):
+        if p["name"] == "TEAM":
+            continue
+        whole, _, frac = p.get("ip", "").partition(".")
+        outs = int(whole) * 3 + int(frac or 0) if whole.isdigit() else None
+        pitches, strikes = ps.get(p["name"], (None, None))
+        rows.append({"name": p["name"], "jersey": p["jersey"], "outs": outs, "pitches": pitches,
+                     "strikes": strikes, "bf": bf.get(p["name"], (None,))[0]})
+    return rows
 
 # ─────────────────────────────────────────────────────────────
 # HELPERS
@@ -586,6 +636,8 @@ def scrape_division(page, div_name, cfg, log, force=False):
                       "bb": p["bb"], "so": p["so"]} for p in away_players],
             "home": [{"initials": p["initials"], "ab": p["ab"],
                       "bb": p["bb"], "so": p["so"]} for p in home_players],
+            "away_pitching": parse_pitching(data.get("away_pitching") or {}),
+            "home_pitching": parse_pitching(data.get("home_pitching") or {}),
         }
 
         scraped += 1

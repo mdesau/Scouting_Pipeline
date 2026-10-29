@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.0] - 2026-10-29
+
+### Added
+
+- [(RV) BUG-039 (Enh) — Game lines show which quality pitchers are available](BUGS.md#bug-039-enh--status-rv)
+
+### Fixed
+
+- [(RV) BUG-040 — Wrong pitcher credited when the starter isn't named in play-by-play](BUGS.md#bug-040--status-rv)
+
+---
+
 ## [5.2.2] - 2026-10-28
 
 ### Added

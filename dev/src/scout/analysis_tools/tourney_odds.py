@@ -6,6 +6,7 @@ block in the season YAML. Run from the repo root with the venv active:
 """
 
 import argparse
+import json
 import math
 from collections import defaultdict
 from datetime import date, timedelta
@@ -13,7 +14,8 @@ from datetime import date, timedelta
 import numpy as np
 
 from scout.analysis_tools import games as td
-from scout.season_config import SEASON_DIR, SEASON_ID
+from scout.analysis_tools.pitching_usage import pitcher_display
+from scout.season_config import SEASON_DIR, SEASON_ID, load_season_yaml
 
 N_SIMS = 20000
 RUN_CAP = 5             # run rule for every inning except the last
@@ -44,7 +46,36 @@ def configure(post):
 
 
 def rest_days(pitches):
+    """Little League: 1–20 pitches = 0 days, 21–35 = 1, 36–50 = 2 (over 50 isn't allowed)."""
     return 0 if pitches <= 20 else 1 if pitches <= 35 else 2
+
+
+def record_outing(avail, key, day, pitches):
+    """Update a pitcher's availability after pitching on `day`.
+
+    avail[key] = (first eligible date, last day pitched, consecutive days pitched, pitches that day).
+    Rest days follow `rest_days`; pitching 2 days in a row also sits the 3rd day.
+    """
+    prev = avail.get(key)
+    last, streak = (prev[1], prev[2]) if prev else (None, 0)
+    if last == day:
+        pitches += prev[3]
+    else:
+        streak = streak + 1 if last == day - timedelta(days=1) else 1
+    back = day + timedelta(days=1 + rest_days(pitches))
+    if streak >= 2:
+        back = max(back, day + timedelta(days=2))
+    avail[key] = (back, day, streak, pitches)
+
+
+def eligible(avail, key, day):
+    v = avail.get(key)
+    return v is None or v[0] <= day
+
+
+def quality_pitchers(R, team, n=3, min_ip=3):
+    """A team's top `n` arms by opponent-adjusted rating (min `min_ip` innings)."""
+    return [p for p in R["staffs"].get(team, []) if p["ip"] >= min_ip][:n]
 
 
 # ── Ratings ────────────────────────────────────────────────────────────────
@@ -155,7 +186,7 @@ class Sim:
     def pick(self, team, day, avail, used, today):
         for p in self.R["staffs"][team]:
             key = (team, p["name"])
-            if key not in used and avail.get(key, day) <= day and today.get(key, 0) == 0:
+            if key not in used and eligible(avail, key, day) and today.get(key, 0) == 0:
                 return p
         self.emergency_uses += 1
         self.emergency_by_team[team] += 1
@@ -202,7 +233,7 @@ class Sim:
         for t in (a, b):
             for name, pc in sts[t]["pc"].items():
                 if name != EMERGENCY["name"]:
-                    avail[(t, name)] = day + timedelta(days=1 + rest_days(pc))
+                    record_outing(avail, (t, name), day, pc)
         return (a, b) if score[a] > score[b] else (b, a)
 
 
@@ -336,15 +367,34 @@ def actual_results(games, through):
 
 
 def availability(apps, games, through):
-    """Earliest available date per (team, pitcher) from real pitch counts on games <= through."""
+    """Real availability per (team, pitcher) from pitch counts in games on or before `through`."""
     gdate = {g["id"]: g["date"] for g in games}
-    avail = {}
+    daily = defaultdict(float)
     for (team, p, gid), a in apps.items():
         d = gdate.get(gid)
         if d and d <= through and p != "UNKNOWN":
-            nxt = d + timedelta(days=1 + rest_days(a["pitches"]))
-            avail[(team, p)] = max(avail.get((team, p), nxt), nxt)
+            daily[(team, p, d)] += a["pitches"]
+    avail = {}
+    for (team, p, d), pc in sorted(daily.items(), key=lambda kv: kv[0][2]):
+        record_outing(avail, (team, p), d, pc)
     return avail
+
+
+def qp_status(R, avail, team, day, name_of):
+    """(available count, total, notes on each unavailable quality pitcher) for `team` on `day`."""
+    qps = quality_pitchers(R, team)
+    notes = []
+    for p in qps:
+        key = (team, p["name"])
+        if eligible(avail, key, day):
+            continue
+        back, last, streak, pc = avail[key]
+        if streak >= 2 and rest_days(pc) == 0:
+            why = f"pitched {last - timedelta(days=1):%-m/%-d} & {last:%-m/%-d}"
+        else:
+            why = f"{pc:.0f} pitches {last:%-m/%-d}"
+        notes.append(f"{name_of(team, p['name'])}: {why} → back {back:%-m/%-d}")
+    return len(qps) - len(notes), len(qps), notes
 
 
 def records(games):
@@ -514,13 +564,22 @@ def build_pdf(path, R, recs, opening, updated, fixed, lines, alpha, scale, nb, g
              board(updated, status), Spacer(1, 10)]
     if lines:
         story.append(Paragraph(f"Next Games — {lines[0][4]:%a %-m/%-d} (moneyline, standard -110-style hold)", h2))
-    gl = [["Game", "Matchup", "Moneyline", "Win %"]]
-    for gnum, a, b, p, _day in lines:
+    gl = [["Game", "Matchup", "Moneyline", "Win %", "Win % if fully rested", "Quality arms available"]]
+    outs = []
+    for gnum, a, b, p, _day, p_full, qa, qb in lines:
         ma, mb = moneyline(p)
-        gl.append([f"G{gnum}", f"{a}  vs  {b}", f"{ma}  /  {mb}", f"{p:.0%} / {1 - p:.0%}"])
-    story += [style(Table(gl, colWidths=[0.6 * 72, 3.6 * 72, 1.6 * 72, 1.2 * 72]), 0), Spacer(1, 6),
+        gl.append([f"G{gnum}", f"{a}  vs  {b}", f"{ma}  /  {mb}", f"{p:.0%} / {1 - p:.0%}",
+                   f"{p_full:.0%} / {1 - p_full:.0%}", f"{qa[0]} of {qa[1]}  /  {qb[0]} of {qb[1]}"])
+        outs += [f"G{gnum} {t}: {n}" for t, q in ((a, qa), (b, qb)) for n in q[2]]
+    story += [style(Table(gl, colWidths=[w * 72 for w in (0.5, 3.3, 1.4, 1.0, 1.5, 1.6)]), 0), Spacer(1, 6)]
+    if lines:
+        story.append(Paragraph("<b>Unavailable quality arms:</b> " + ("; ".join(outs) if outs else "none — every "
+                               "team has its top 3 rested."), body))
+    story += [Spacer(1, 4),
               Paragraph(f"Game lines use each staff's real rest status from pitch counts through "
-                        f"{as_of:%-m/%-d}.", small),
+                        f"{as_of:%-m/%-d}. Quality arms = each team's top 3 pitchers by rating (3+ innings). "
+                        "'If fully rested' = the same game with every pitcher available, so the gap shows what "
+                        "fatigue is costing.", small),
               PageBreak(),
               Paragraph("How the Book Was Made", h2)]
     method = [
@@ -535,8 +594,9 @@ def build_pdf(path, R, recs, opening, updated, fixed, lines, alpha, scale, nb, g
         f"{RUN_CAP} runs. Game length follows the real mix of innings played; ties go to extra innings.",
         "<b>Pitching rules.</b> Each coach starts their best <i>rested</i> arm. A pitcher may pitch at most "
         f"{MAX_INN_PER_GAME} innings and {PITCH_CAP} pitches in a game; pitches per inning come from his real average "
-        "(+2 per run allowed beyond 2). Rest follows the league rule on calendar days: ≤20 pitches = no rest, "
-        "21–35 = 1 day, 36–50 = 2 days. If no one is eligible, the team uses an emergency arm rated well below "
+        "(+2 per run allowed beyond 2). Rest follows Little League rules on calendar days: 1–20 pitches = no rest, "
+        "21–35 = 1 day, 36–50 = 2 days, and no one pitches more than 2 days in a row. If no one is eligible, the "
+        "team uses an emergency arm rated well below "
         "average — that's where depth pays off on back-to-back game days.",
         f"<b>Bracket.</b> The real {max(BRACKET)}-game bracket and calendar from the season config"
         + (f", including the if-necessary G{IF_NECESSARY[0]} on {IF_NECESSARY[1]:%-m/%-d}." if IF_NECESSARY else "."),
@@ -588,10 +648,18 @@ def run(division):
 
     avail_now = availability(apps, games, upd_day)
     lines = []
+    rosters = json.loads((SEASON_DIR / load_season_yaml()[1]["divisions"][division]["roster_json"])
+                         .read_text(encoding="utf-8"))
+    name_of = lambda team, init: pitcher_display(rosters, team, init)  # noqa: E731
     for gnum, a, b, day in next_games(fixed):
         p = game_line(R, nb, inning_dist, alpha, scale, a, b, day, avail_now)
-        lines.append((gnum, a, b, p, day))
-        print(f"G{gnum} {day} {a} vs {b}: {p:.1%}  {moneyline(p)}")
+        p_full = game_line(R, nb, inning_dist, alpha, scale, a, b, day, {})
+        qa, qb = (qp_status(R, avail_now, t, day, name_of) for t in (a, b))
+        lines.append((gnum, a, b, p, day, p_full, qa, qb))
+        print(f"G{gnum} {day} {a} vs {b}: {p:.1%}  {moneyline(p)}  (full rest {p_full:.1%})  "
+              f"QPs {qa[0]}/{qa[1]} vs {qb[0]}/{qb[1]}")
+        for note in qa[2] + qb[2]:
+            print(f"    out: {note}")
 
     out = (sb.parent / f"{SEASON_ID}_{division}_Tournament_Futures_asof_{as_of:%Y-%m-%d}.pdf")
     build_pdf(out, R, records(games), opening, updated, fixed, lines, alpha, scale, nb, games, as_of, division)

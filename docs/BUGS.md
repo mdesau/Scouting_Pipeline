@@ -23,6 +23,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-040 — Wrong pitcher credited when the starter isn't named in play-by-play](#bug-040--status-rv)
 - (RV) [BUG-036 — Kids with similar first names merged into one roster entry](#bug-036--status-rv)
 - (RV) [BUG-034 — Nightly run fired at 2 PM instead of 10 AM](#bug-034--status-rv)
 - (RV) [BUG-022 — GameChanger blocks the scraper's headless browser](#bug-022--status-rv)
@@ -60,6 +61,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-039 (Enh) — Game lines show which quality pitchers are available](#bug-039-enh--status-rv)
 - (RV) [BUG-038 (Enh) — Analysis command asks which division](#bug-038-enh--status-rv)
 - (RV) [BUG-037 (Enh) — Draft report card: late additions, Majors setup, multi-word surnames](#bug-037-enh--status-rv)
 - (RV) [BUG-035 (Enh) — One command builds all three analysis reports](#bug-035-enh--status-rv)
@@ -126,7 +128,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Resolved or Closed
 
-- (RV) [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
+- (RV) [BUG-040](#bug-040--status-rv) · [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
   [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
   [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
   [BUG-016](#bug-016--status-rv) · [BUG-015](#bug-015--status-rv) ·
@@ -169,6 +171,80 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 -->
 
 ### Detailed Entries
+
+## BUG-040 · [STATUS: RV]
+
+**Title:** Wrong pitcher credited when the starter isn't named in play-by-play
+
+**Severity:** Medium
+
+**Reported Date:** 2026-10-29
+
+**Release Found:** v5.2.2
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-29
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.3.0 (commit pending, tag pushed 2026-10-29)
+
+### Observable Problem
+
+Minors 10/28 Rays: the odds board said "T L" threw 37 pitches (back 10/31) and couldn't say whether
+it was Tristan or Troy. The box score shows Grayson L. started (16 pitches) and Tristan L. threw 27
+(back 10/30).
+
+### Expected Behavior
+
+Every appearance is credited to the right kid with the official pitch count.
+
+### Steps to Reproduce
+
+1. Game where the starter records no walk/strikeout (play-by-play never says "X pitching").
+2. Run `pitching_usage` / `tourney_odds`. 3. Expected the starter's batters credited to him; actual
+   they went to the first pitcher named later.
+
+### Root Cause Analysis (RCA)
+
+Play-by-play only names a pitcher on some events. Batters before the first naming were credited to
+the first pitcher named — usually the reliever. Pitch counts were rebuilt from pitch sequences (can
+drift), and kids sharing initials couldn't be told apart.
+
+### Fix Explanation (Exec Level — No Code)
+
+Scout now also reads each GameChanger box score's pitching table (names, jersey numbers, pitches,
+batters faced, in order pitched). It uses it to credit the starter correctly, to name the right kid
+when two share initials, and for official pitch counts. Play-by-play still provides the pitch-level
+detail (swings, misses, strikes).
+
+### Fix Details (Technical)
+
+<span style="color:red">`scrape_gc_boxscores.py`</span>: `EXTRACT_BOXSCORE_JS` reads `BoxScore__{away,home}Pitching`
+(+ `PitchingExtra`); `parse_pitching()` → `box_verify.json` `away_pitching` / `home_pitching`.
+<span style="color:red">`pitching_usage.py`</span>: `analyze(scorebooks, box, rosters)` credits pre-naming
+batters to the box starter; `_apply_box()` renames shared-initial apps via `roster_key()` (name +
+jersey), sets official pitches/strikes and starter; `_split_shared()` splits one "C B" app when both
+kids pitched. <span style="color:red">`games.py`</span>: `division_data()` loads box + rosters.
+
+### Verification
+
+2 new tests (parse, reconcile); suite 32/32 OK. Fall box scores re-downloaded (Majors 38, Minors 74,
+all with pitching). Reconciled per-team pitch totals match the box score in 148/148 Minors and 75/76
+Majors team-games; every team-game has one starter.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Remaining Majors mismatch (game 2faefe96, Rays): play-by-play credits "C D" with 5 pitches; the box
+score doesn't list him — a GC inconsistency. The scouting-report pitching cards (`gen_pitching`) still
+use play-by-play attribution only — candidate follow-up.
+
+---
 
 ## BUG-036 · [STATUS: RV]
 
@@ -1502,7 +1578,7 @@ BUG-001–004 were fixed before the repo existed; the fixes first appear in the 
 
 ### Resolved or Closed
 
-- (RV) [BUG-038 (Enh)](#bug-038-enh--status-rv) · [BUG-037 (Enh)](#bug-037-enh--status-rv) ·
+- (RV) [BUG-039 (Enh)](#bug-039-enh--status-rv) · [BUG-038 (Enh)](#bug-038-enh--status-rv) · [BUG-037 (Enh)](#bug-037-enh--status-rv) ·
   [BUG-035 (Enh)](#bug-035-enh--status-rv) · [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
   [BUG-030 (Enh)](#bug-030-enh--status-rv) · [BUG-023 (Enh)](#bug-023-enh--status-rv)
 
@@ -1511,6 +1587,63 @@ Release Found `N/A — Enhancement`, RCA `N/A — Enhancement` when there is no 
 Integrated Release `N/A — Open` until shipped. -->
 
 ### Detailed Entries
+
+## BUG-039 (Enh) · [STATUS: RV]
+
+**Title:** Game lines show which quality pitchers are available
+
+**Severity:** Enh
+
+**Reported Date:** 2026-10-29
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-29
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.3.0 (commit pending, tag pushed 2026-10-29)
+
+### Observable Problem
+
+Game lines priced in rest, but didn't show which of a team's best arms were unavailable, and the
+Little League "no more than 2 consecutive days" rule wasn't applied.
+
+### Expected Behavior
+
+Each game line shows each team's top-3 quality pitchers available, who's out (why, and the date back),
+and the line if fully rested; all simulations follow Little League rest rules.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Rest follows Little League: 1–20 pitches = no rest, 21–35 = 1 day, 36–50 = 2 days, and a kid who
+pitched 2 days in a row sits the 3rd. Game lines list available quality arms ("2 of 3"), each
+unavailable one (e.g. "Tristan L. #7: 27 pitches 10/28 → back 10/30") and a full-rest comparison.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/tourney_odds.py`</span>: `record_outing()` /
+`eligible()` (availability tuple: back date, last day, consecutive days, pitches that day; same-day
+pitches add), used by `availability()`, `Sim.pick()`, `Sim.game()`; `quality_pitchers()`, `qp_status()`;
+game lines carry full-rest odds + QP status into console and PDF.
+<span style="color:red">`pitching_usage.py`</span>: `pitcher_display()` and QP tab use `quality_pitchers()`.
+
+### Verification
+
+3 new tests (calendar mapping, 2-straight-days, same-day sum); suite 32/32 OK. 10/29 lines rebuilt
+for Majors G8 and Minors G16/G17.
+
+### Workaround
+
+None.
+
+---
 
 ## BUG-038 (Enh) · [STATUS: RV]
 

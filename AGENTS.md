@@ -21,14 +21,14 @@ handling, and code style. Follow those guidelines throughout.
 
 ## Current State
 
-| Field             | Value                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------------ |
-| **Version**       | 5.2.2                                                                                      |
-| **Last commit**   | `fix: v5.2.2 — roster name collisions, late additions, Majors analysis` (tag `v5.2.2`)      |
-| **Branch**        | `main`                                                                                     |
+| Field             | Value                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Version**       | 5.3.0                                                                                                             |
+| **Last commit**   | `feat: v5.3.0 — pitcher availability on game lines; box-score pitch counts` (tag `v5.3.0`)                        |
+| **Branch**        | `main`                                                                                                            |
 | **Uncommitted**   | User's web UI edits (`web/index.html`, `web/js/app.js`); Spring 2026 roster rebuild (BUG-036 note) — next session |
-| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                      |
-| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`) |
+| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                             |
+| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)                        |
 
 ### Session Handoff Protocol
 
@@ -61,6 +61,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.3.0  feat: quality-pitcher availability on game lines + LL consecutive-days rule (BUG-039 Enh); box-score pitching = official starter/pitch counts (BUG-040)
 v5.2.2  fix: roster name collisions + jersey rule (BUG-036); late additions + Majors draft/bracket (BUG-037 Enh); division prompt (BUG-038 Enh)
 v5.2.1  feat: one command for all three analysis tools (run_all / run_analysis.sh, BUG-035 Enh)
 v5.2.0  feat: analysis tools — usage workbook, tournament odds, draft report card (BUG-030/031/032 Enh); README rewrite; nightly 10 AM fix
@@ -415,7 +416,10 @@ parses games once via the cached `games.division_data()`, then builds every repo
 
 **Model notes:** runs per half-inning come from GC's running score strings (match every final score).
 Pitcher ratings (`tourney_odds.build_ratings`) are opponent-adjusted runs-allowed indexes; the odds
-sim enforces 2-inning / 50-pitch limits and rest days (≤20 = 0, 21–35 = 1, 36–50 = 2). Draft value =
+sim enforces 2-inning / 50-pitch limits, rest days (1–20 = 0, 21–35 = 1, 36–50 = 2) and no 3 straight days
+(`record_outing` / `eligible`); game lines list each team's top-3 quality arms available. Who pitched and
+pitch counts come from box-score pitching tables (`box_verify.json` `*_pitching`, reconciled in
+`pitching_usage._apply_box`); play-by-play supplies pitch-level detail. Draft value =
 batting linear-weight runs above average + pitching runs saved, per team game.
 
 ---

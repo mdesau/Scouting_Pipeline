@@ -112,7 +112,94 @@ def new_app():
             "bb_by_inning": defaultdict(int), "bf_by_inning": defaultdict(int), "start": False}
 
 
-def analyze(scorebooks):
+def _initials(key):
+    parts = key.split()
+    return f"{parts[0][0]} {parts[-1][0].upper()}"
+
+
+def roster_key(rosters, team, name, jersey):
+    """Box-score pitcher name → the team's roster key ("Tri L" when initials are shared, else "T L")."""
+    ini = _initials(name)
+    r = rosters.get(team, {})
+    first = name.split()[0]
+    for k in r.get("_collision_map", {}).get(ini, []):
+        e = r.get(k, {})
+        if (jersey and e.get("jersey") == jersey) or e.get("display", "").split()[:1] == [first]:
+            return k
+    return ini
+
+
+def box_pitching(verify):
+    """{game_id: {team: [box pitchers in order pitched]}} from box_verify.json."""
+    out = {}
+    for gid, g in verify.items():
+        teams = {g["away_team"]: g.get("away_pitching"), g["home_team"]: g.get("home_pitching")}
+        teams = {t: v for t, v in teams.items() if v}
+        if teams:
+            out[gid] = teams
+    return out
+
+
+def _split_shared(apps, team, game_id, key, kids):
+    """Two kids with the same initials both pitched: split the play-by-play app by box-score order.
+
+    Innings go to each kid in turn until his box-score batters faced are used; counts (K, BB, H, swings)
+    split by share of batters faced; pitches/strikes/outs are the box score's.
+    """
+    a = apps.pop((team, key, game_id))
+    tot_bf = sum(bp["bf"] or 0 for _rk, bp in kids) or 1
+    order = sorted(a["bf_by_inning"].items())
+    i = used = 0
+    for n, (rk, bp) in enumerate(kids):
+        b = apps[(team, rk, game_id)]
+        share = (bp["bf"] or 0) / tot_bf
+        for k in ("k", "bb", "hbp", "h", "swings", "whiffs"):
+            b[k] += round(a[k] * share)
+        b["pitches"], b["strikes"] = bp["pitches"] or 0, bp["strikes"] or 0
+        b["outs"], b["bf"], b["start"] = bp["outs"] or 0, bp["bf"] or 0, n == 0 and a["start"]
+        while i < len(order) and (used < (bp["bf"] or 0) or n == len(kids) - 1):
+            inn, cnt = order[i]
+            b["bf_by_inning"][inn] += cnt
+            b["bb_by_inning"][inn] += a["bb_by_inning"].get(inn, 0)
+            b["innings"].add(inn)
+            used += cnt
+            i += 1
+        used = 0
+
+
+def _apply_box(apps, game_id, team, box_list, rosters):
+    """Official names + pitch counts from the box score; rename shared-initial apps to the kid who pitched."""
+    by_ini = defaultdict(list)
+    for bp in box_list:
+        by_ini[_initials(bp["name"])].append(bp)
+    for i, bp in enumerate(box_list):
+        ini = _initials(bp["name"])
+        rk = roster_key(rosters, team, bp["name"], bp["jersey"])
+        cands = [k for (t, k, g) in apps if t == team and g == game_id and k != "UNKNOWN" and _initials(k) == ini]
+        if len(by_ini[ini]) > 1:
+            if len(cands) == 1 and by_ini[ini][0] is bp:
+                _split_shared(apps, team, game_id, cands[0],
+                              [(roster_key(rosters, team, x["name"], x["jersey"]), x) for x in by_ini[ini]])
+            continue
+        if len(cands) == 1 and cands[0] != rk:
+            apps[(team, rk, game_id)] = apps.pop((team, cands[0], game_id))
+        a = apps[(team, rk, game_id)]
+        if bp["pitches"] is not None:
+            a["pitches"] = bp["pitches"]
+            a["strikes"] = bp["strikes"] if bp["strikes"] is not None else a["strikes"]
+        if not a["bf"] and bp["bf"]:
+            a["bf"], a["outs"] = bp["bf"], bp["outs"] or 0
+        a["start"] = i == 0
+    first = roster_key(rosters, team, box_list[0]["name"], box_list[0]["jersey"]) if box_list else None
+    for (t, k, g), a in apps.items():
+        if t == team and g == game_id:
+            a["start"] = k == first
+
+
+def analyze(scorebooks, box=None, rosters=None):
+    """Pitching appearances from play-by-play; `box` ({game: {team: pitchers}}) supplies the official
+    starter, pitch counts, and which kid pitched when two share initials."""
+    box, rosters = box or {}, rosters or {}
     files = sorted(scorebooks.glob("*.txt"), key=game_date_key)
     apps = defaultdict(new_app)            # (team, pitcher, game_id) -> appearance
     team_games = defaultdict(list)         # team -> [game_id] chronological
@@ -173,8 +260,11 @@ def analyze(scorebooks):
                     continue
                 if pitching not in first_seen:
                     first_seen[pitching] = pitcher
+                # Batters before any pitcher is named belong to the box score's starter.
+                starter = (box.get(game_id, {}).get(pitching) or [{}])[0].get("name")
+                pend_to = _initials(starter) if starter and _initials(starter) != _initials(pitcher) else pitcher
                 for p in pending.pop(pitching, []):
-                    _credit(apps, team_innings, pitching, pitcher, game_id, p)
+                    _credit(apps, team_innings, pitching, pend_to, game_id, p)
                 _credit(apps, team_innings, pitching, pitcher, game_id, rec)
 
         for team, recs in pending.items():
@@ -182,6 +272,9 @@ def analyze(scorebooks):
                 _credit(apps, team_innings, team, "UNKNOWN", game_id, p)
         for team, starter in first_seen.items():
             apps[(team, starter, game_id)]["start"] = True
+        for team, box_list in box.get(game_id, {}).items():
+            if team in teams:
+                _apply_box(apps, game_id, team, box_list, rosters)
 
     return apps, team_games, batting_orders, batter_pa, team_innings
 
@@ -278,6 +371,15 @@ def div(a, b):
     return a / b if b else None
 
 
+def pitcher_display(rosters, team, init):
+    r = rosters.get(team, {})
+    coll = r.get("_collision_map", {}).get(init)
+    if coll:
+        return f"{init} (shared initials: {', '.join(sorted(set(coll)))})"
+    e = r.get(init)
+    return e["display"] if isinstance(e, dict) else init
+
+
 def build_workbook(division):
     from scout.analysis_tools import games as td  # local: games imports this module
     reports = SEASON_DIR / division / "Reports"
@@ -285,12 +387,7 @@ def build_workbook(division):
     scorebooks, _post, game_list, (apps, team_games, orders, batter_pa, team_innings) = td.division_data(division)
 
     def display(team, init):
-        r = rosters.get(team, {})
-        coll = r.get("_collision_map", {}).get(init)
-        if coll:
-            return f"{init} (shared initials: {', '.join(sorted(set(coll)))})"
-        e = r.get(init)
-        return e["display"] if isinstance(e, dict) else init
+        return pitcher_display(rosters, team, init)
 
     # Per-pitcher totals
     per_pitcher = defaultdict(lambda: {"apps": 0, "starts": 0, "pitches": 0, "bf": 0, "outs": 0,
@@ -392,14 +489,14 @@ def build_workbook(division):
                                  "BB/9": "0.0", "WHIP": "0.00"})
 
     # Tab 4 — Team Comparison QP (pitching = each team's top 3 quality pitchers only)
-    from scout.analysis_tools.tourney_odds import build_ratings
+    from scout.analysis_tools.tourney_odds import build_ratings, quality_pitchers
     ratings = build_ratings(game_list, apps)
     ws_qp = wb.create_sheet("Team Comparison QP")
     h_qp = h3[:12] + ["Top 3 Quality Pitchers", "Quality (≤ Lg Avg)", "% Team Pitches", "IP"] + h3[12:]
     rows_qp = []
     for row in rows3:
         team = row[0]
-        top3 = [p for p in ratings["staffs"].get(team, []) if p["ip"] >= 3][:3]
+        top3 = quality_pitchers(ratings, team)
         names = {p["name"] for p in top3}
         q = defaultdict(int)
         zero_bb = innings_pitched = 0
