@@ -210,12 +210,8 @@ def _disambiguate_pas(pas, collision_map):
     if not active_collisions:
         return pas
 
-    # Tag each PA with its position in the original list for stable sort
-    for i, pa in enumerate(pas):
-        pa["_orig_idx"] = i
-
-    # Sort chronologically: inning first, then original file order within inning
-    sorted_pas = sorted(pas, key=lambda p: (p["inning"], p["_orig_idx"]))
+    # Sort chronologically (GC files are usually newest-first)
+    sorted_pas = [pas[i] for i in _chrono_order(pas)]
 
     # Count occurrences of each collided initials and assign disambiguated key
     counters = {init: 0 for init in active_collisions}
@@ -226,11 +222,28 @@ def _disambiguate_pas(pas, collision_map):
             pa["initials"] = keys[counters[init] % len(keys)]
             counters[init] += 1
 
-    # Clean up temporary field
-    for pa in pas:
-        pa.pop("_orig_idx", None)
-
     return pas
+
+
+def file_key(team_key):
+    """Team key as it appears in game filenames (scrape_gc_playbyplay.safe: drop A's apostrophe, spaces → _)."""
+    return re.sub(r"[/\\:*?\"<>|']", "", team_key).replace(" ", "_")
+
+
+def _chrono_order(pas):
+    """Indices of one game's PAs in the order they happened (GC files are usually newest-first)."""
+    rev = len(pas) > 1 and pas[0]["inning"] > pas[-1]["inning"]
+    return sorted(range(len(pas)), key=lambda i: (pas[i]["inning"], -i if rev else i))
+
+
+def _assign_lineup_slots(pas, game_id):
+    """Tag every PA with its game and the batter's lineup slot (order of first trip to the plate)."""
+    slot = {}
+    for i in _chrono_order(pas):
+        slot.setdefault(pas[i]["initials"], len(slot) + 1)
+    for pa in pas:
+        pa["game_id"] = game_id
+        pa["game_seq"] = slot[pa["initials"]]
 
 
 def verify_box_score(team_key, batters, box_verify):
@@ -667,12 +680,15 @@ def compute_stats(pas, roster):
         sm_pct   = _ds["sm_pct"];  cstr_pct = _ds["cstr_pct"]; fpt_pct = _ds["fpt_pct"]
         k_total  = k_sw + b["k_lk"]  # retained for batting_positions block below
 
-        # Batting order: compute average first-appearance position across games
+        # Batting order: typical (median) first-appearance slot across games; mean breaks ties.
         batting_positions = b["batting_positions"]
         if batting_positions:
-            avg_batting_pos = sum(batting_positions.values()) / len(batting_positions)
+            slots = sorted(batting_positions.values())
+            avg_batting_pos = sum(slots) / len(slots)
+            mid = len(slots) // 2
+            typical_pos = slots[mid] if len(slots) % 2 else (slots[mid - 1] + slots[mid]) / 2
         else:
-            avg_batting_pos = 999  # default if no batting order data
+            avg_batting_pos = typical_pos = 999  # default if no batting order data
 
         results.append({
             "initials":init,"display":display,"pa":b["pa"],
@@ -681,7 +697,7 @@ def compute_stats(pas, roster):
             "avg":avg,"obp":obp,"slg":slg,"c_pct":c_pct,
             "gb_pct":gb_pct,"fb_pct":fb_pct,
             "swing_pct":swing_pct,"sm_pct":sm_pct,"cstr_pct":cstr_pct,"fpt_pct":fpt_pct,
-            "avg_batting_pos":avg_batting_pos,
+            "avg_batting_pos":avg_batting_pos, "typical_batting_pos":typical_pos,
             "zones_sorted":sorted(b["zones"].items(), key=lambda x:-x[1]),
             "zone_detail":dict(b["zone_detail"]),
             "singles":b["singles"],"doubles":b["doubles"],
@@ -697,7 +713,7 @@ def compute_stats(pas, roster):
             "fpt_takes":    b["fpt_takes"],
             "fpt_swings":   b["fpt_swings"],
         })
-    results.sort(key=lambda x:(x.get("avg_batting_pos", 999), x["display"]))
+    results.sort(key=lambda x:(x.get("typical_batting_pos", 999), x.get("avg_batting_pos", 999), x["display"]))
     return results
 
 
@@ -1777,7 +1793,7 @@ def build_league_context(game_files, rosters, config, all_collision_maps=None):
 
     for team_name, coach_last in teams:
         team_key      = f"{team_name}-{coach_last}"
-        file_team_key = team_key.replace("'", "")   # filenames strip apostrophes (e.g. A's → As)
+        file_team_key = file_key(team_key)
         csv_team = csv_overrides.get(team_name, team_name)
         roster   = rosters.get(f"{csv_team}-{coach_last}", {})
         cmap     = coll_maps.get(team_key, {})
@@ -1855,7 +1871,7 @@ def run_league(division, teams_filter=None):
     for team_name, coach_last in targets:
         t_start = time.time()
         team_key = f"{team_name}-{coach_last}"
-        file_team_key = team_key.replace("'", "")   # filenames strip apostrophes
+        file_team_key = file_key(team_key)
         csv_team = csv_overrides.get(team_name, team_name)
         roster = rosters.get(f"{csv_team}-{coach_last}", {})
         logger.info(f"\n=== {team_key} ===")
@@ -1885,10 +1901,7 @@ def run_league(division, teams_filter=None):
                     fpath = reviewed_fpath
             try:
                 pas = parse_game_for_team(fpath, team_key, collision_map=cmap)
-                # Annotate PAs with game_id and game_seq for batting order tracking
-                for i, pa in enumerate(pas, 1):
-                    pa["game_id"] = fname
-                    pa["game_seq"] = i
+                _assign_lineup_slots(pas, fname)
                 all_game_pas.append((fname, pas))
                 parsed_paths.append(fpath)
                 nw = verify_game(fpath, team_key, pas, fname)
@@ -1993,9 +2006,7 @@ def run_wild(teams_filter=None, division="Wild"):
                 fpath = os.path.join(games_dir, fname)
                 try:
                     pas = parse_game_for_team(fpath, opponent_name)
-                    for i, pa in enumerate(pas, 1):
-                        pa["game_id"]  = fname
-                        pa["game_seq"] = i
+                    _assign_lineup_slots(pas, fname)
                     all_game_pas.append((fname, pas))
                     parsed_paths.append(fpath)
                     nw = verify_game(fpath, opponent_name, pas, fname)

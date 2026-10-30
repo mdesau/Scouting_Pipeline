@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.1] - 2026-10-29
+
+### Fixed
+
+- [(RV) BUG-041 — Hitting report blank for teams with a space in the name](BUGS.md#bug-041--status-rv)
+- [(RV) BUG-042 — Hitting cards ordered by a partly reversed batting order](BUGS.md#bug-042--status-rv)
+
+---
+
 ## [5.3.0] - 2026-10-29
 
 ### Added

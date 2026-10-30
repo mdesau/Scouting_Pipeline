@@ -23,6 +23,8 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-042 — Hitting cards ordered by a partly reversed batting order](#bug-042--status-rv)
+- (RV) [BUG-041 — Hitting report blank for teams with a space in the name](#bug-041--status-rv)
 - (RV) [BUG-040 — Wrong pitcher credited when the starter isn't named in play-by-play](#bug-040--status-rv)
 - (RV) [BUG-036 — Kids with similar first names merged into one roster entry](#bug-036--status-rv)
 - (RV) [BUG-034 — Nightly run fired at 2 PM instead of 10 AM](#bug-034--status-rv)
@@ -128,7 +130,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Resolved or Closed
 
-- (RV) [BUG-040](#bug-040--status-rv) · [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
+- (RV) [BUG-042](#bug-042--status-rv) · [BUG-041](#bug-041--status-rv) · [BUG-040](#bug-040--status-rv) · [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
   [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
   [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
   [BUG-016](#bug-016--status-rv) · [BUG-015](#bug-015--status-rv) ·
@@ -171,6 +173,134 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 -->
 
 ### Detailed Entries
+
+## BUG-042 · [STATUS: RV]
+
+**Title:** Hitting cards ordered by a partly reversed batting order
+
+**Severity:** Medium
+
+**Reported Date:** 2026-10-29
+
+**Release Found:** v5.3.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-29
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.3.1 (commit pending, tag pushed 2026-10-29)
+
+### Observable Problem
+
+Player cards in the hitting reports weren't in the team's usual batting order (e.g. the Blue Jays' leadoff
+and cleanup hitters out of place compared with the box scores).
+
+### Expected Behavior
+
+Cards follow the team's typical batting order.
+
+### Steps to Reproduce
+
+1. Build any league hitting report. 2. Compare the card order with the box-score lineups.
+3. Expected the usual order; actual a shuffled order.
+
+### Root Cause Analysis (RCA)
+
+Each batter's lineup spot was his first plate appearance's position in the game file. GC files are
+newest-first, and only the innings were re-sorted — within an inning the batters stayed reversed. The
+same partly reversed order drove the batting-order split of at-bats between kids sharing initials.
+
+### Fix Explanation (Exec Level — No Code)
+
+Scout now puts each game back in the order it happened before reading the lineup, and orders the cards by
+each kid's most common (typical) spot. Card order now matches the box-score lineups.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/hitting/gen_hitting.py`</span>: new `_chrono_order()` (detects newest-first
+files) and `_assign_lineup_slots()` (game_seq = lineup slot) used by `run_league()` / `run_wild()`;
+`_disambiguate_pas()` uses `_chrono_order()`; `compute_stats()` adds `typical_batting_pos` (median) and
+sorts by it, mean as tie-break. New <span style="color:red">`dev/tests/test_hitting_order.py`</span>.
+
+### Verification
+
+Computed card order for Blue Jays and Expos matches the box-score lineups exactly; 3 new tests (suite 35/35
+OK). Fall Minors + Majors hitting reports rebuilt.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Travel-team reports pick up the fix on their next build (nightly).
+
+---
+
+## BUG-041 · [STATUS: RV]
+
+**Title:** Hitting report blank for teams with a space in the name
+
+**Severity:** High
+
+**Reported Date:** 2026-10-29
+
+**Release Found:** v4.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-10-29
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.3.1 (commit pending, tag pushed 2026-10-29)
+
+### Observable Problem
+
+The Blue Jays (Minors) hitting report showed 0 games; their pitching report was fine.
+
+### Expected Behavior
+
+Every league team's hitting report includes all of its games.
+
+### Steps to Reproduce
+
+1. Build Minors hitting reports. 2. Open the Blue Jays report. 3. Expected 13 games; actual 0.
+
+### Root Cause Analysis (RCA)
+
+Games are found by looking for the team key in game filenames. The scraper writes filenames with spaces
+turned into underscores (`Blue_Jays-Patel`), but the hitting code only stripped apostrophes, so a team
+name containing a space matched no files. It also left that team out of league percentiles and LG RANK.
+
+### Fix Explanation (Exec Level — No Code)
+
+The hitting report now looks for games using the same file naming the downloader uses. The Blue Jays
+report has all 13 games, and every team's league comparisons now include the Blue Jays.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/hitting/gen_hitting.py`</span>: new `file_key()` (mirrors
+`scrape_gc_playbyplay.safe()`), used in `build_league_context()` and `run_league()`;
+<span style="color:red">`stat_analysis.py`</span> uses it too.
+
+### Verification
+
+Minors rebuild: league context 11 of 11 team totals (was 10); Blue Jays 13 games / 343 PA. 2 tests in
+`test_hitting_order.py`.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+The old matching dates to the v4.0.0 package move. Only team names with a space were affected (2026 Fall
+Minors: Blue Jays).
+
+---
 
 ## BUG-040 · [STATUS: RV]
 

@@ -23,8 +23,8 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field             | Value                                                                                                             |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Version**       | 5.3.0                                                                                                             |
-| **Last commit**   | `feat: v5.3.0 — pitcher availability on game lines; box-score pitch counts` (tag `v5.3.0`)                        |
+| **Version**       | 5.3.1                                                                                                             |
+| **Last commit**   | `fix: v5.3.1 — blank hitting report for spaced team names; true batting order for cards` (tag `v5.3.1`)           |
 | **Branch**        | `main`                                                                                                            |
 | **Uncommitted**   | User's web UI edits (`web/index.html`, `web/js/app.js`); Spring 2026 roster rebuild (BUG-036 note) — next session |
 | **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                             |
@@ -61,6 +61,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.3.1  fix: hitting report blank for team names with a space (BUG-041); cards in true typical batting order (BUG-042)
 v5.3.0  feat: quality-pitcher availability on game lines + LL consecutive-days rule (BUG-039 Enh); box-score pitching = official starter/pitch counts (BUG-040)
 v5.2.2  fix: roster name collisions + jersey rule (BUG-036); late additions + Majors draft/bracket (BUG-037 Enh); division prompt (BUG-038 Enh)
 v5.2.1  feat: one command for all three analysis tools (run_all / run_analysis.sh, BUG-035 Enh)

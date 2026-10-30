@@ -54,6 +54,7 @@ from datetime import datetime
 #   Importing keeps stat_analysis.py as a pure *consumer* of the parsed data.
 from scout.season_config import SCOUT_ROOT, SEASON_DIR, build_hitting_divisions
 from scout.hitting.gen_hitting import (
+    file_key,
     parse_game_for_team, compute_stats, compute_team_totals,
     get_wild_opponents, load_wild_roster,
     load_box_rosters, build_rosters,
@@ -129,7 +130,7 @@ def collect_division_batters(division_name, min_pa):
 
         for team_name, coach_last in teams:
             team_key = f"{team_name}-{coach_last}"
-            file_team_key = team_key.replace("'", "")
+            file_team_key = file_key(team_key)
             csv_team = csv_overrides.get(team_name, team_name)
             roster = rosters.get(f"{csv_team}-{coach_last}", {})
             cmap = all_collision_maps.get(team_key, {})
