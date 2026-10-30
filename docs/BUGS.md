@@ -190,7 +190,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.3.1 (commit pending, tag pushed 2026-10-29)
+**Integrated Release:** v5.3.1 (commit 5084ab3, tag pushed 2026-10-29)
 
 ### Observable Problem
 
@@ -255,7 +255,7 @@ Travel-team reports pick up the fix on their next build (nightly).
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.3.1 (commit pending, tag pushed 2026-10-29)
+**Integrated Release:** v5.3.1 (commit 5084ab3, tag pushed 2026-10-29)
 
 ### Observable Problem
 
