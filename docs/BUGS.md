@@ -191,7 +191,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.4.0 (commit pending, tag pushed 2026-11-04)
+**Integrated Release:** v5.4.0 (commit 711bf12, tag pushed 2026-11-04)
 
 ### Observable Problem
 
