@@ -23,10 +23,10 @@ handling, and code style. Follow those guidelines throughout.
 
 | Field             | Value                                                                                                             |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Version**       | 5.3.1                                                                                                             |
-| **Last commit**   | `fix: v5.3.1 — blank hitting report for spaced team names; true batting order for cards` (tag `v5.3.1`)           |
+| **Version**       | 5.4.0                                                                                                             |
+| **Last commit**   | `feat: v5.4.0 — download GameChanger video clips (whole games, per player) + montage` (tag `v5.4.0`)              |
 | **Branch**        | `main`                                                                                                            |
-| **Uncommitted**   | User's web UI edits (`web/index.html`, `web/js/app.js`); Spring 2026 roster rebuild (BUG-036 note) — next session |
+| **Uncommitted**   | Web UI edits (`web/`); tourney rollback pitch counts (CHANGELOG [Unreleased]); 2026-Fall.yaml; gen_hitting        |
 | **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                             |
 | **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)                        |
 
@@ -61,6 +61,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.4.0  feat: GC video clips — download whole games / one player / share links, optional montage (BUG-043 Enh)
 v5.3.1  fix: hitting report blank for team names with a space (BUG-041); cards in true typical batting order (BUG-042)
 v5.3.0  feat: quality-pitcher availability on game lines + LL consecutive-days rule (BUG-039 Enh); box-score pitching = official starter/pitch counts (BUG-040)
 v5.2.2  fix: roster name collisions + jersey rule (BUG-036); late additions + Majors draft/bracket (BUG-037 Enh); division prompt (BUG-038 Enh)
@@ -163,10 +164,11 @@ All paths below are under `dev/src/scout/`.
 | `analysis_tools/draft_roi.py`      | ~420  | Analysis     | Draft grades, per-pick ROI, steals/busts → PDF + workbook tabs                                                                                                      |
 | `analysis_tools/games.py`          | ~110  | Analysis     | Shared: runs per half-inning from GC score strings, dates, postseason config, weather rollbacks; cached `division_data()`, `rerun_commands()`                       |
 | `analysis_tools/run_all.py`        | ~80   | Analysis     | One command for all three tools: scrape once, parse once, build workbook + odds PDF + draft card                                                                    |
+| `video/gc_clips.py`                | ~600  | Video        | GC game galleries / clip share links → .mp4 downloads (Scout Chrome + ffmpeg), `--player` filter, montage (BUG-043 Enh)                                             |
 
 > **Web front-end assets** (not Python): `web/index.html` (~250 lines), `web/css/style.css` (~260 lines), `web/js/app.js` (~770 lines).
 >
-> **Tests:** `dev/tests/test_fall_league_readiness.py` (play-by-play validation, session classification, league team discovery, folder reconcile) and `dev/tests/test_analysis_tools.py` (draft snake order, name matching, rest rules, odds, rollbacks).
+> **Tests:** `dev/tests/test_fall_league_readiness.py` (play-by-play validation, session classification, league team discovery, folder reconcile) and `dev/tests/test_analysis_tools.py` (draft snake order, name matching, rest rules, odds, rollbacks), and `dev/tests/test_gc_clips.py` (game/clip link parsing, file naming, player filter, manifest).
 
 ### Shell Launchers (all in `launchers/`)
 
@@ -179,6 +181,7 @@ All paths below are under `dev/src/scout/`.
 | `launchers/run_pitching.sh`                   | Standalone manual launcher for pitching PDFs only                                                                                                                                                                                              |
 | `launchers/run_pitching_nightly.sh`           | Standalone headless launcher for pitching PDFs only                                                                                                                                                                                            |
 | `launchers/run_analysis.sh`                   | All three analysis tools for a league division (`--division`, `--no-scrape`) → `scout.analysis_tools.run_all`                                                                                                                                  |
+| `launchers/gc_clips.sh`                       | Download GC video clips — whole games or share links (`--player`, `--montage`, `--list`, `--out`) → `scout.video.gc_clips`                                                                                                                                  |
 | `launchers/com.wcwaa.scout_pipeline.plist`    | launchd schedule config (symlinked to `~/Library/LaunchAgents/`)                                                                                                                                                                               |
 
 ---
@@ -227,6 +230,8 @@ Scout/                               <- git repo root (~/Documents/VSCode/Person
 |       |   |-- pitching_usage.py     <- league workbook (usage, team comparison, QP, draft tabs)
 |       |   |-- tourney_odds.py       <- tournament futures PDF
 |       |   +-- draft_roi.py          <- draft report card PDF
+|       |-- video/
+|       |   +-- gc_clips.py           <- GC game/clip links -> .mp4 + montage (launchers/gc_clips.sh)
 |       +-- web/                      <- HTML front-end
 |           |-- server.py             <- Flask server (build/view/add + live log SSE)
 |           |-- index.html            <- single-page app shell
@@ -422,6 +427,35 @@ sim enforces 2-inning / 50-pitch limits, rest days (1–20 = 0, 21–35 = 1, 36�
 pitch counts come from box-score pitching tables (`box_verify.json` `*_pitching`, reconciled in
 `pitching_usage._apply_box`); play-by-play supplies pitch-level detail. Draft value =
 batting linear-weight runs above average + pitching runs saved, per team game.
+
+---
+
+## Video Clips (`scout.video.gc_clips`) — on demand (BUG-043 Enh)
+
+`bash launchers/gc_clips.sh "<game or share URL>" ... [--file F] [--out DIR] [--player NAME] [--montage NAME] [--list] [--jobs N] [--force]`
+(default out: `~/Movies/GameChanger Clips`; videos are large, so not on the Drive data root).
+
+- **Game link** (`…/schedule/<event_id>[/videos/clips]`, `parse_link` → gallery URL): `GameGallery` opens the
+  gallery, captures the page's own `POST /clips/search/v2` (body `{"select":{"kind":"player"},"match_all":{"event_id":…},
+  "paging":"page","offset":<page index>}`; `next_offset` absent on the last page) and reuses its `gc-*`
+  auth headers to page through every clip (limit 100), then `GET /clips/<id>/playback-data?kind=player`
+  per clip — no share token needed when signed in. All calls run via `fetch()` inside the page
+  (`_FETCH_JS`) so the WAF sees real Chrome; a 401 reloads the gallery for a fresh token and retries once.
+- **Share link** (`…/videos/clips/<id>?token=…`): captures the page's
+  `GET /clips/<id>/standalone-playback-data?kind=player&shareToken=<token>` (tokenless → 400, logged with a hint).
+- Playback data = `url` (HLS `.m3u8`, fMP4 segments on `vod-archive.gc.com`, 720p30) + CloudFront signed
+  `cookies` (~24 h). ffmpeg downloads with `-headers "Cookie: …"` and `-c copy`, `--jobs` (4) in parallel.
+- Search hits carry the same metadata as playback data (`name`, `timestamp`, `sport_metadata`
+  inning/half/`play_side`, `player_metadata.player_id`, `play_metadata.play_type`); `--player` matches
+  the player's name. A "player" clip can be a defensive play (`play_side: defensive`).
+- File name `<Team>_vs_<Opponent>_<T|B><inning>_<play>_<Player>_<YYYYMMDD-HHMMSS>.mp4` (no `:` — Finder
+  shows it as `/`). Team = `GET /teams/<event.team_id>` `name` (the team in the link); opponent =
+  `GET /events/<event_id>` `pregame_data.opponent_name`; players from `/players`. Missing parts are dropped.
+- Re-runs skip via `<out>/.gc_clips.json` (clip ID → file name); `unique_path` adds `_2` rather than
+  overwrite a different clip with the same name.
+- Montage: each clip is re-encoded in parallel to 1280×720/30 fps H.264 + 48 kHz stereo AAC (silent
+  clips get a silent track), then joined with the concat demuxer (`-c copy`) — no input-count limit.
+  Game clips in game order; share links in the order given.
 
 ---
 

@@ -63,6 +63,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-043 (Enh) — Download GameChanger video clips and build a montage](#bug-043-enh--status-rv)
 - (RV) [BUG-039 (Enh) — Game lines show which quality pitchers are available](#bug-039-enh--status-rv)
 - (RV) [BUG-038 (Enh) — Analysis command asks which division](#bug-038-enh--status-rv)
 - (RV) [BUG-037 (Enh) — Draft report card: late additions, Majors setup, multi-word surnames](#bug-037-enh--status-rv)
@@ -173,6 +174,73 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 -->
 
 ### Detailed Entries
+
+## BUG-043 (Enh) · [STATUS: RV]
+
+**Title:** Download GameChanger video clips and build a montage
+
+**Severity:** Enh
+
+**Reported Date:** 2026-11-04
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-04
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.4.0 (commit pending, tag pushed 2026-11-04)
+
+### Observable Problem
+
+GC video clips can only be watched one at a time in the web app; there's no way to save them or
+put several into one highlight video.
+
+### Expected Behavior
+
+Paste a game's clip-gallery link (or individual clip share links) and get every clip saved as an
+.mp4 — optionally only one player's clips — and joined into one montage.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+New `gc_clips.sh` command. Give it a game's video gallery link and it saves every clip of that game
+(or just one kid's with `--player`); clip share links also work. Clips go to
+`~/Movies/GameChanger Clips`, named by teams, inning, play, player and date/time; clips already saved
+are skipped, `--list` previews, and `--montage` joins them in game order into one video.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/video/gc_clips.py`</span> (new), run via `run_with_session`:
+game links → `GameGallery` reuses the gallery page's `POST /clips/search/v2` auth headers to page
+through all clips, then `GET /clips/<id>/playback-data?kind=player` per clip (in-page `fetch`, 401 →
+reload + retry). Share links → capture `/clips/<id>/standalone-playback-data?shareToken=…`
+(tokenless → 400 with a hint). Playback = HLS `.m3u8` on `vod-archive.gc.com` + CloudFront signed
+cookies (~24 h). `/players`, `/teams/<id>`, `/events/<id>` responses supply names (`record_lookup`).
+After Chrome closes, ffmpeg remuxes clips 4 at a time (`-c copy`). Downloaded clips are tracked in
+`<out>/.gc_clips.json` (clip ID → file). Montage: per-clip parallel re-encode to 1280×720/30 fps +
+48 kHz stereo (silent clips get a silent track), then concat demuxer `-c copy`.
+<span style="color:red">`launchers/gc_clips.sh`</span>,
+<span style="color:red">`dev/tests/test_gc_clips.py`</span> (new).
+
+### Verification
+
+Real share link → `Expos-Esau_vs_Blue-Jays-Patel_T1_Single_Cole-Plunkett_20261103-180054.mp4`
+(720p H.264/AAC, 60 s); re-run skips it, `--force` replaces the same file. Game link `--list` → all
+137 clips named. `--player harper --montage` → 26 clips downloaded in ~20 s, 25.6 min 720p30 montage
+in 51 s; re-run skips all 26. Montage with a silent 1080p60 test clip → 720p30 with audio.
+Suite 49/49 OK.
+
+### Workaround
+
+None.
+
+---
 
 ## BUG-042 · [STATUS: RV]
 

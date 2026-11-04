@@ -22,8 +22,9 @@ every day.
 5. [Running Scout](#running-scout)
 6. [Teams, Seasons and Scrimmages](#teams-seasons-and-scrimmages)
 7. [Analysis Tools (Minors / Majors extras)](#analysis-tools-minors--majors-extras)
-8. [Troubleshooting](#troubleshooting)
-9. [For Developers](#for-developers)
+8. [Video Clips and Montages](#video-clips-and-montages)
+9. [Troubleshooting](#troubleshooting)
+10. [For Developers](#for-developers)
 
 ---
 
@@ -359,6 +360,73 @@ in the workbook above.
 
 The draft sheet is a CSV saved in the division's `Reports/` folder; its file name is set under the
 division's `csv:` in the season YAML.
+
+---
+
+## Video Clips and Montages
+
+Download GameChanger video clips as .mp4 files: a whole game, one kid's plays, or single clips.
+You can also join them into one highlight video (montage).
+
+**Run it** from the Scout folder (keep the quotes around links):
+
+```bash
+cd ~/Documents/VSCode/Personal/Scout
+bash launchers/gc_clips.sh "<link>" [more links…] [options]
+```
+
+**Links it accepts** (you can mix them):
+
+| Link                                                                          | Downloads           |
+| ----------------------------------------------------------------------------- | ------------------- |
+| Game → **Videos → Video Clips**, copy the address bar (`…/schedule/<game>/videos/clips`) | Every clip in the game |
+| Clip → **Share → Copy link** (`…/videos/clips/<id>?token=…`)                  | That one clip       |
+
+**Options:**
+
+| Option                 | What it does                                                              | Default                      |
+| ---------------------- | ------------------------------------------------------------------------- | ---------------------------- |
+| `-l`, `--list`         | Preview the clips; download nothing                                       | off                          |
+| `-p`, `--player NAME`  | Only a game's clips for players whose name contains NAME (repeatable)     | all players                  |
+| `-m`, `--montage NAME` | Also join the clips into `NAME.mp4` (game order / order listed)           | off                          |
+| `-o`, `--out FOLDER`   | Where clips are saved                                                     | `~/Movies/GameChanger Clips` |
+| `-f`, `--file FILE`    | Read links from a text file, one per line (`#` = comment)                 | —                            |
+| `-j`, `--jobs N`       | Clips downloaded / converted at once                                      | 4                            |
+| `--force`              | Re-download clips you already have                                        | off                          |
+| `-v`, `--verbose`      | Detailed progress                                                         | off                          |
+
+**Examples:**
+
+```bash
+# Preview a game's clips
+bash launchers/gc_clips.sh "https://web.gc.com/teams/lIgsauxSLdBC/2026-fall-expos-esau/schedule/87bccfbe-7385-4f68-ac05-a4d53c28220b/videos/clips" --list
+
+# Download every clip in the game
+bash launchers/gc_clips.sh "https://web.gc.com/teams/lIgsauxSLdBC/2026-fall-expos-esau/schedule/87bccfbe-7385-4f68-ac05-a4d53c28220b/videos/clips"
+
+# One kid's clips, joined into one video
+bash launchers/gc_clips.sh "<game link>" -p Harper -m "Harper Nov 3"
+
+# A season highlight reel: put several game links in games.txt
+bash launchers/gc_clips.sh -f games.txt -p Harper -m "Harper Fall 2026"
+
+# A single shared clip
+bash launchers/gc_clips.sh "https://web.gc.com/teams/…/videos/clips/<id>?token=…"
+```
+
+**Good to know:**
+
+- **File names:** `<team>_vs_<opponent>_<inning>_<play>_<player>_<date-time>.mp4`, e.g.
+  `Expos-Esau_vs_Blue-Jays-Patel_T1_Single_Cole-Plunkett_20261103-180054.mp4`.
+- **Re-runs:** clips you already have are skipped, so re-running a game only gets new clips. The
+  hidden `.gc_clips.json` file in the output folder tracks this; leave it there.
+- **Size:** each clip is about 60 seconds and ~16 MB, so a full game (~140 clips) is about 2 GB.
+  Montages are long too, since each clip adds a minute.
+- **`--player` includes defense:** a kid's clips include plays where they were fielding, e.g. a
+  stolen base against them while catching.
+- **While it runs:** a second Chrome icon appears in the Dock while it looks up clips; don't close it.
+- **Needs:** `ffmpeg` (`brew install ffmpeg`) and the GameChanger sign-in from
+  [Step 4](#step-4--sign-in-to-gamechanger-one-time). "Session expired" means redo that step.
 
 ---
 
