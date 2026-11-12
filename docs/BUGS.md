@@ -201,7 +201,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -317,7 +317,7 @@ Rename the folder and the team's `name:` in the season YAML by hand.
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -393,7 +393,7 @@ Release Found is v2.5.0 (Pitching Savant v0.1.0, commit cdc4f02), where the trav
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -456,7 +456,7 @@ history; the logic may predate it.
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -2067,7 +2067,7 @@ Integrated Release `N/A — Open` until shipped. -->
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -2143,7 +2143,7 @@ Weddington WAR Dawgz → 9U); Wild/Storm/Mavs names dropped. Web UI hint texts s
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -2216,7 +2216,7 @@ bracket (`postseason:`) stays a hand edit once the regular season ends.
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
@@ -2940,7 +2940,7 @@ Harmless as-is; play-by-play never names "TEAM".
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+**Integrated Release:** v5.5.0 (commit d860674, tag pushed 2026-11-12)
 
 ### Observable Problem
 
