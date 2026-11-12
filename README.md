@@ -1,6 +1,6 @@
 # WCWAA Scout
 
-![Version](https://img.shields.io/badge/version-5.3.1-blue)
+![Version](https://img.shields.io/badge/version-5.5.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -21,10 +21,9 @@ every day.
 4. [Setting Up Scout on a New Mac](#setting-up-scout-on-a-new-mac)
 5. [Running Scout](#running-scout)
 6. [Teams, Seasons and Scrimmages](#teams-seasons-and-scrimmages)
-7. [Analysis Tools (Minors / Majors extras)](#analysis-tools-minors--majors-extras)
-8. [Video Clips and Montages](#video-clips-and-montages)
-9. [Troubleshooting](#troubleshooting)
-10. [For Developers](#for-developers)
+7. [Bonus Features](#bonus-features)
+8. [Troubleshooting](#troubleshooting)
+9. [For Developers](#for-developers)
 
 ---
 
@@ -47,8 +46,8 @@ Inside a season folder on Google Drive (example: `seasons/2026-Fall/`):
 |   |-- Scorebooks/                               <- downloaded games (one text file per game)
 |   |-- rosters.json                              <- player names + jersey numbers
 |   +-- *_Draft_Report_Card.pdf/.xlsx, *_Tournament_Futures_*.pdf,
-|       *_Pitching_Usage_and_Team_Comparison.xlsx  <- Analysis Tools output
-+-- Mavs/, Wild/ ...                              <- travel / tournament divisions
+|       *_Pitching_Usage_and_Team_Comparison.xlsx  <- Bonus Features output
++-- 9U/, 10U/, 11U/, 12U/                         <- travel divisions by age (ours + opponents)
     +-- <Team Name>/
         |-- <Team>-Scout-Hitting_2026.pdf
         |-- <Team>-Scout-Pitching_2026.pdf
@@ -81,12 +80,13 @@ flowchart LR
 
 **Two kinds of divisions** (set per season):
 
-| Type                    | Examples                  | Scout downloads…                          | Reports for…                       |
-| ----------------------- | ------------------------- | ----------------------------------------- | ---------------------------------- |
-| **League**              | Majors (11U), Minors (9U) | The whole league's schedule               | Every team in the league           |
-| **Travel / Tournament** | Wild, Mavs, Storm         | Each team you've added, one schedule each | Each added team (ours + opponents) |
+| Type       | Examples                  | Scout downloads…                          | Reports for…                       |
+| ---------- | ------------------------- | ----------------------------------------- | ---------------------------------- |
+| **League** | Majors (11U), Minors (9U) | The whole league's schedule               | Every team in the league           |
+| **Travel** | 9U, 10U, 11U, 12U         | Each team you've added, one schedule each | Each added team (ours + opponents) |
 
-Active season: **2026 Fall** — Majors, Minors, Wild, Mavs.
+Travel teams go in the division matching the age in their name (Weddington Mavericks 10U → 10U,
+Weddington Wild 12U → 12U). Active season: **2026 Fall** — Majors, Minors, 9U, 10U, 11U, 12U.
 
 **Why a Chrome window pops up:** GameChanger blocks hidden/automated browsers, so Scout uses a real
 Chrome window with its own separate profile (your everyday Chrome is untouched). It sits off-screen
@@ -101,17 +101,54 @@ itself when done.
 
 - **Stats** — AVG, OBP, SLG, how often they make contact, swing, swing-and-miss, and take the first pitch.
 - **Spray chart** — where they hit the ball.
-- **Hitter type** — two words: their **approach** (Aggressive / Passive / Disciplined) and their
-  **result** (Power / Contact / Walker / Overmatched), compared with the rest of the league. A `*`
-  means fewer than 10 plate appearances (use with care); `--` means fewer than 5.
+- **Hitter type** — two words: their **approach** + their **result** (see
+  [Hitter types](#hitter-types-archetypes) below). A `*` means 5–9 plate appearances (use with
+  care); `—` means fewer than 5.
 - **How to pitch to them** — a one-line plan based on the hitter type (e.g. "Climb the Ladder").
 - **LG RANK** — where the team ranks in the division on each stat (needs at least 2 teams).
 
 **Pitching report** (Baseball Savant–style, 4 pitchers per page):
 
+- Header: **GP** (games pitched), **GS** (games started), **IP**. League cards use the official
+  box-score numbers. GS can be higher than IP when a starter is pulled early.
 - 13 stats per pitcher (strikeouts, walks, contact allowed, ground balls, etc.).
 - Each stat has a colored bar: **red = worse than most pitchers in the division, green = better**.
   The number in the bubble is the percentile (90 = better than 90% of pitchers).
+
+### Hitter types (archetypes)
+
+Each kid is compared only with **kids his age**: league (Majors/Minors) and travel separately, by
+the division's `age:` in the season settings (travel divisions are 9U–12U, so that's the team's age).
+The cutoffs are frozen in `config/archetype_baselines.yaml` (built from Spring + Fall 2026, 1,004 kids
+with 15+ PA) and reused every season. Travel baselines group kids by the age in their **team name**
+("QC Crushers 10U" = 10U); teams that play up/down can be listed under `ignore_team_name_age` in that
+file.
+
+"p67" = higher than about two-thirds of kids that age.
+
+| Approach        | Definition                                                                              |
+| --------------- | --------------------------------------------------------------------------------------- |
+| **Aggressive**  | Swings a lot: Swing% ≥ p67, or swings at the first pitch often (≥ p75) and Swing% ≥ p50 |
+| **Passive**     | Freezes on strikes: called strikes + called strike threes rank ≥ p60                    |
+| **Disciplined** | Everyone else — doesn't chase, doesn't freeze                                           |
+
+| Result          | Definition                                                                      |
+| --------------- | ------------------------------------------------------------------------------- |
+| **Overmatched** | Swings and misses + strikes out a lot: combined rank ≥ p75                      |
+| **Power**       | Extra bases (ISO ≥ p67) **and** fly balls / line drives to the outfield (≥ p50) |
+| **Walker**      | Rarely swings (≤ p33) and walks a lot or works long at-bats                     |
+| **Contact**     | Everyone else — puts the ball in play                                           |
+
+Typical mix (kids with 15+ PA): about 42% Contact, 23% Overmatched, 22% Power, 14% Walker; Approach
+splits roughly 38% Aggressive / 31% Passive / 31% Disciplined.
+
+- **Small samples:** for the _label only_, a kid's numbers are pulled toward the average for his
+  age (strongest for stats that bounce around most, like walks). Card stats are never changed.
+- **Most to least reliable:** swing-and-miss, strikeouts, extra bases → walks (in youth ball, walks
+  depend a lot on the pitcher, so **Walker** is the least predictive label).
+- **Rebuilding the baselines** (only when you want to, e.g. after adding teams of a new age — a group
+  needs 60+ kids with 15+ PA, else it uses the next younger age): `python -m scout.hitting.build_archetype_baselines`, then
+  rebuild the hitting reports.
 
 ---
 
@@ -227,7 +264,7 @@ Shortcuts without the menu:
 ```bash
 bash launchers/run_scout.sh --all
 bash launchers/run_scout.sh --division Minors
-bash launchers/run_scout.sh --division Mavs --team "Weddington Mavericks 10U"
+bash launchers/run_scout.sh --division 10U --team "Weddington Mavericks 10U"
 ```
 
 ### Option C — Automatic daily run
@@ -248,19 +285,25 @@ the GameChanger login expired, a Mac notification tells you.
 Fast (seconds) — useful after adding a team so everyone's LG RANK and percentiles update:
 
 ```bash
-python -m scout.hitting.gen_hitting --division Mavs
-python -m scout.pitching.gen_pitching --division Mavs
+python -m scout.hitting.gen_hitting --division 10U
+python -m scout.pitching.gen_pitching --division 10U
 ```
 
 ---
 
 ## Teams, Seasons and Scrimmages
 
-- **Add a travel/tournament team:** web page → **Add Team** → paste the team's GC schedule link.
-  After its first game downloads, Scout automatically fixes small spelling differences between
-  the folder name and GameChanger's team name.
-- **New season:** web page → **Seasons** → **Create New Season** (you'll need the new GC league
-  IDs for Majors/Minors). Restart the web page after switching seasons.
+- **Add a travel team:** terminal menu `[3]`, or web page → **Add Team** → paste the team's GC
+  schedule link. The terminal suggests the age division from the team name (ENTER to accept) and asks
+  when the name has no age. After its first game downloads, Scout automatically fixes small spelling
+  differences between the folder name and GameChanger's team name.
+- **New season:** in the terminal, `bash launchers/run_scout.sh` → `[4]` Manage seasons → `[2]`
+  Create a new season (or web page → **Seasons** → **Create New Season**). You'll need the new GC
+  league IDs for Majors/Minors (optional, can be added later). The terminal wizard also asks for
+  each division's **draft results CSV** (drag the file into the Terminal window); if you don't have
+  it yet, add it later with `[4]` → `[3]` Add draft results. Restart after switching seasons.
+  **It also asks the league divisions' ages** (9U–12U travel divisions are created automatically and
+  use their own age) — the age picks the hitter-type baseline.
 - **Skip a scrimmage:** copy the game ID from its GC link (`.../schedule/<game-id>/plays`) and add
   it under the team in `config/<season>.yaml`:
 
@@ -277,23 +320,34 @@ new season.
 
 ---
 
-## Analysis Tools (Minors / Majors extras)
+## Bonus Features
 
-Three extra, just-for-fun reports for a league division. They aren't part of the daily run —
-run them when you want them. **One command builds all three** (it downloads the latest games first,
-then reads each game only once, about 20 seconds after downloading):
+Four extra tools on top of the scouting reports. None of them are part of the daily run; run
+them whenever you want them.
+
+| #   | Feature                                                        | What you get                                              | Works on                 |
+| --- | -------------------------------------------------------------- | --------------------------------------------------------- | ------------------------ |
+| 1   | [Pitching Usage & Comparisons](#1-pitching-usage--comparisons) | Excel workbook: every pitcher's usage + team side-by-side | League (Majors / Minors) |
+| 2   | [Tournament Futures](#2-tournament-futures-vegas-odds)         | PDF "Vegas odds" board for the playoffs                   | League (Majors / Minors) |
+| 3   | [Draft Report Card](#3-draft-report-card)                      | PDF + Excel: draft grades, steals and busts               | League (Majors / Minors) |
+| 4   | [Video Clip Downloader](#4-video-clip-downloader)              | GameChanger video clips saved as .mp4 files               | Any GameChanger game     |
+
+**Features 1–3 in one command** (downloads the latest games first, then reads each game only
+once, about 20 seconds after downloading):
 
 ```bash
-bash launchers/run_analysis.sh --division Minors
-# leave off --division and it asks which division (Majors / Minors)
-# same thing: python -m scout.analysis_tools.run_all --division Minors
+bash launchers/run_analysis.sh
+# asks which season (ENTER = the active one) and which division (Majors / Minors)
+# or say it up front: bash launchers/run_analysis.sh --season 2026-Fall --division Minors
+# same thing: python -m scout.analysis_tools.run_all --season 2026-Fall --division Minors
 # add --no-scrape to skip downloading and use the games already saved
 ```
 
-Every output includes this rerun command at the top. Each tool can also be run on its own with
-the command shown below (download the latest games first).
+Every output includes this rerun command at the top. Each one can also be run on its own with
+the command shown below (download the latest games first). Each asks which season you're running
+it for unless you add `--season`.
 
-### 1. Pitching Usage & Team Comparison workbook
+### 1. Pitching Usage & Comparisons
 
 ```bash
 python -m scout.analysis_tools.pitching_usage --division Minors
@@ -330,14 +384,18 @@ everyone were fully rested.
 2. **Play the tournament 20,000 times** on the computer, inning by inning, using the real
    bracket. Each sim follows Little League rules: 2-inning / 50-pitch limits, required rest days
    (21–35 pitches = 1 day, 36–50 = 2 days), and no one pitches 3 days in a row, so tired aces
-   can't pitch. Pitch counts are the official ones from each game's GameChanger box score.
+   can't pitch. Pitch counts are the official ones from each game's GameChanger box score; for rest,
+   the count rolls back to the first pitch of the pitcher's last batter (Little League rule), and two
+   games on the same day count as pitching back-to-back days.
 3. **Turn results into odds.** If a team wins 30% of the simulated tournaments, its fair odds
    are about +233. A 25% "sportsbook" margin is added, like a real Vegas board.
 4. **Self-check.** The model tests itself on games it hasn't seen and tunes how confident it is
    so its predictions line up with what actually happened.
 
 The bracket, playoff dates, official records and weather-shortened games are set in the season's
-`config/<season>.yaml` under `postseason:`.
+`config/<season>.yaml` under `postseason:` — add it once the regular season ends and the bracket is
+known (copy the layout from `config/2026-Fall.yaml`). Until then, the one-command run skips this
+report.
 
 ### 3. Draft Report Card
 
@@ -358,15 +416,14 @@ in the workbook above.
    slots, turned into a letter grade (A+ to F) by comparing teams with each other.
 4. Also lists the biggest **steals**, **busts**, and a check on how coaches' kids were slotted.
 
-The draft sheet is a CSV saved in the division's `Reports/` folder; its file name is set under the
-division's `csv:` in the season YAML.
+The draft sheet is a CSV (first row = coaches, one row per round starting with the round number,
+last row = team names). Add it when you create the season, or any time later with
+`bash launchers/run_scout.sh` → `[4]` → `[3]` Add draft results; Scout copies it into the division's
+`Reports/` folder and records it under the division's `csv:` in the season YAML.
 
----
-
-## Video Clips and Montages
+### 4. Video Clip Downloader
 
 Download GameChanger video clips as .mp4 files: a whole game, one kid's plays, or single clips.
-You can also join them into one highlight video (montage).
 
 **Run it** from the Scout folder (keep the quotes around links):
 
@@ -377,23 +434,22 @@ bash launchers/gc_clips.sh "<link>" [more links…] [options]
 
 **Links it accepts** (you can mix them):
 
-| Link                                                                          | Downloads           |
-| ----------------------------------------------------------------------------- | ------------------- |
+| Link                                                                                     | Downloads              |
+| ---------------------------------------------------------------------------------------- | ---------------------- |
 | Game → **Videos → Video Clips**, copy the address bar (`…/schedule/<game>/videos/clips`) | Every clip in the game |
-| Clip → **Share → Copy link** (`…/videos/clips/<id>?token=…`)                  | That one clip       |
+| Clip → **Share → Copy link** (`…/videos/clips/<id>?token=…`)                             | That one clip          |
 
 **Options:**
 
-| Option                 | What it does                                                              | Default                      |
-| ---------------------- | ------------------------------------------------------------------------- | ---------------------------- |
-| `-l`, `--list`         | Preview the clips; download nothing                                       | off                          |
-| `-p`, `--player NAME`  | Only a game's clips for players whose name contains NAME (repeatable)     | all players                  |
-| `-m`, `--montage NAME` | Also join the clips into `NAME.mp4` (game order / order listed)           | off                          |
-| `-o`, `--out FOLDER`   | Where clips are saved                                                     | `~/Movies/GameChanger Clips` |
-| `-f`, `--file FILE`    | Read links from a text file, one per line (`#` = comment)                 | —                            |
-| `-j`, `--jobs N`       | Clips downloaded / converted at once                                      | 4                            |
-| `--force`              | Re-download clips you already have                                        | off                          |
-| `-v`, `--verbose`      | Detailed progress                                                         | off                          |
+| Option                | What it does                                                          | Default                      |
+| --------------------- | --------------------------------------------------------------------- | ---------------------------- |
+| `-l`, `--list`        | Preview the clips; download nothing                                   | off                          |
+| `-p`, `--player NAME` | Only a game's clips for players whose name contains NAME (repeatable) | all players                  |
+| `-o`, `--out FOLDER`  | Where clips are saved                                                 | `~/Movies/GameChanger Clips` |
+| `-f`, `--file FILE`   | Read links from a text file, one per line (`#` = comment)             | —                            |
+| `-j`, `--jobs N`      | Clips downloaded at once                                              | 4                            |
+| `--force`             | Re-download clips you already have                                    | off                          |
+| `-v`, `--verbose`     | Detailed progress                                                     | off                          |
 
 **Examples:**
 
@@ -404,11 +460,11 @@ bash launchers/gc_clips.sh "https://web.gc.com/teams/lIgsauxSLdBC/2026-fall-expo
 # Download every clip in the game
 bash launchers/gc_clips.sh "https://web.gc.com/teams/lIgsauxSLdBC/2026-fall-expos-esau/schedule/87bccfbe-7385-4f68-ac05-a4d53c28220b/videos/clips"
 
-# One kid's clips, joined into one video
-bash launchers/gc_clips.sh "<game link>" -p Harper -m "Harper Nov 3"
+# One kid's clips from a game
+bash launchers/gc_clips.sh "<game link>" -p Harper
 
-# A season highlight reel: put several game links in games.txt
-bash launchers/gc_clips.sh -f games.txt -p Harper -m "Harper Fall 2026"
+# One kid's clips from several games: put the game links in games.txt
+bash launchers/gc_clips.sh -f games.txt -p Harper
 
 # A single shared clip
 bash launchers/gc_clips.sh "https://web.gc.com/teams/…/videos/clips/<id>?token=…"
@@ -421,7 +477,6 @@ bash launchers/gc_clips.sh "https://web.gc.com/teams/…/videos/clips/<id>?token
 - **Re-runs:** clips you already have are skipped, so re-running a game only gets new clips. The
   hidden `.gc_clips.json` file in the output folder tracks this; leave it there.
 - **Size:** each clip is about 60 seconds and ~16 MB, so a full game (~140 clips) is about 2 GB.
-  Montages are long too, since each clip adds a minute.
 - **`--player` includes defense:** a kid's clips include plays where they were fielding, e.g. a
   stolen base against them while catching.
 - **While it runs:** a second Chrome icon appears in the Dock while it looks up clips; don't close it.
@@ -461,7 +516,8 @@ Scout/
 |   |-- scraping/                <- GameChanger download (Steps 0–2)
 |   |-- hitting/  pitching/      <- report builders (Steps 3–4)
 |   |-- orchestrator/run_menu.py <- runs the steps; terminal menu
-|   |-- analysis_tools/          <- usage workbook, tournament odds, draft report card
+|   |-- analysis_tools/          <- Bonus Features 1–3: usage workbook, tournament odds, draft report card
+|   |-- video/gc_clips.py        <- Bonus Feature 4: GameChanger video clip downloader
 |   +-- web/                     <- web page (Flask server + HTML/JS)
 |-- dev/tests/                   <- python -m unittest discover -s dev/tests
 |-- docs/                        <- CHANGELOG.md, BUGS.md, Principles and Practices.md

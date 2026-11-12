@@ -1,10 +1,10 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# gc_clips.sh — download GameChanger video clips (whole games or share links) + montage
+# gc_clips.sh — download GameChanger video clips (whole games or share links)
 #
 # USAGE (quote every URL — they contain & characters)
 #   bash launchers/gc_clips.sh "https://web.gc.com/teams/.../schedule/<game>/videos/clips"
-#   bash launchers/gc_clips.sh "<game link>" --player Harper --montage "Harper Nov 3"
+#   bash launchers/gc_clips.sh "<game link>" --player Harper
 #   bash launchers/gc_clips.sh "<game link>" --list          # preview only
 #   bash launchers/gc_clips.sh "https://web.gc.com/.../videos/clips/<id>?token=..."
 #   bash launchers/gc_clips.sh --help

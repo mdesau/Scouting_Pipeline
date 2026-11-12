@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.5.0] - 2026-11-12
+
+### Added
+
+- [(RV) BUG-047 (Enh) — New seasons ready for the Bonus Features from the terminal](BUGS.md#bug-047-enh--status-rv)
+
+### Changed
+
+- [(RV) BUG-050 (Enh) — Travel divisions by age (9U–12U) instead of Wild / Storm / Mavs](BUGS.md#bug-050-enh--status-rv)
+- [(RV) BUG-024 (Enh) — Dynamic, percentile-driven archetypes](BUGS.md#bug-024-enh--status-rv)
+- [(RV) BUG-044 (Enh) — Remove the montage option from the video clip downloader](BUGS.md#bug-044-enh--status-rv)
+
+### Fixed
+
+- [(RV) BUG-045 — Tournament futures rest pitchers longer than the rollback rule allows](BUGS.md#bug-045--status-rv)
+- [(RV) BUG-046 — Empty spray-chart zones shaded like hot zones](BUGS.md#bug-046--status-rv)
+- [(RV) BUG-048 — Pitching cards: travel "GS" was games pitched; league GS/IP not official](BUGS.md#bug-048--status-rv)
+- [(RV) BUG-051 — Team with a "/" in its GameChanger name gets an empty report](BUGS.md#bug-051--status-rv)
+
+---
+
 ## [5.4.0] - 2026-11-04
 
 ### Added

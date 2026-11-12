@@ -214,63 +214,90 @@ divisions:
         - 2026-11-03
         - W10
         - W19
-  Wild:
-    type: travel
-    age: 11U
-    output_base: Wild
-    label_suffix: Weddington Wild
-    fixed_thresholds:
-      slg_top33: 0.45
-      c_bot33: 0.5
-      bb_top33: 0.2
-    teams:
-    - name: Weddington Wild 12U
-      gc_id: Hde2xKyXcu4r
-      gc_slug: 2026-fall-weddington-wild-12u
-    active: true
-  Storm:
+  9U:
     type: travel
     age: 9U
-    output_base: Storm
-    label_suffix: Weddington Storm
-    fixed_thresholds:
-      slg_top33: 0.45
-      c_bot33: 0.5
-      bb_top33: 0.2
-    teams: []
-    active: false
-  Mavs:
-    type: travel
-    output_base: Mavs
-    label_suffix: Mavs
-    fixed_thresholds:
-      slg_top33: 0.45
-      c_bot33: 0.5
-      bb_top33: 0.2
+    output_base: 9U
+    label_suffix: Travel 9U
     teams:
+    - name: Mara Cobras 9U
+      gc_id: GNL8nUWHAKGx
+      gc_slug: 2026-fall-mara-cobras-9u
+    - name: Weddington Wreckers 9U
+      gc_id: SLOR259N85iT
+      gc_slug: 2026-fall-weddington-wreckers-9u
+    - name: Weddington Diamond Warriors 9U
+      gc_id: 6J3tLgkbJHnB
+      gc_slug: 2026-fall-weddington-diamond-warriors-9u
+  10U:
+    type: travel
+    age: 10U
+    output_base: 10U
+    label_suffix: Travel 10U
+    teams:
+    - name: Carolina Locos White 10U
+      gc_id: BGgPgmLnuHMT
+      gc_slug: 2026-fall-carolina-locos-white-10u
+    - name: Dilworth 10U Challenge - Navy
+      gc_id: hhrC9i19O1LQ
+      gc_slug: 2026-fall-dilworth-10u-challenge---navy
+    - name: Mara Outlaws 10U
+      gc_id: 1RqshEWRvtf5
+      gc_slug: 2026-fall-mara-outlaws-10u
+    - name: QC Crushers 10U
+      gc_id: BLE9kFjmgagD
+      gc_slug: 2026-summer-qc-crushers-10u
+    - name: South Park Spartans 10U
+      gc_id: gph34hZhCr4q
+      gc_slug: 2026-fall-south-park-spartans-10u
     - name: Weddington Mavericks 10U
       gc_id: P6jwWo3uwTln
       gc_slug: 2026-fall-weddington-mavericks-10u
       exclude_games:
       - 1f0e0307-13db-4031-8533-57cddeb36db1
       - e4b8f571-98cc-4e53-9165-7b36653829ea
-    - name: Carolina Locos White 10U
-      gc_id: BGgPgmLnuHMT
-      gc_slug: 2026-fall-carolina-locos-white-10u
-    - name: QC Crushers 10U
-      gc_id: BLE9kFjmgagD
-      gc_slug: 2026-summer-qc-crushers-10u
+    - name: Waxhaw Militia 10U
+      gc_id: EPmvdLHFPJNq
+      gc_slug: 2026-fall-waxhaw-militia-10u
+  11U:
+    type: travel
+    age: 11U
+    output_base: 11U
+    label_suffix: Travel 11U
+    teams:
     - name: OC Crushers - Blue 11U
       gc_id: iU0Brg2DoVfx
       gc_slug: 2026-fall-oc-crushers---blue-11u
-    - name: Mara Cobras 9U
-      gc_id: GNL8nUWHAKGx
-      gc_slug: 2026-fall-mara-cobras-9u
-    - name: Mara Outlaws 10U
-      gc_id: 1RqshEWRvtf5
-      gc_slug: 2026-fall-mara-outlaws-10u
-    - name: Dilworth 10U Challenge - Navy
-      gc_id: hhrC9i19O1LQ
-      gc_slug: 2026-fall-dilworth-10u-challenge---navy
-    tournament_team: true
-    active: true
+  12U:
+    type: travel
+    age: 12U
+    output_base: 12U
+    label_suffix: Travel 12U
+    teams:
+    - name: Weddington Wild 12U
+      gc_id: Hde2xKyXcu4r
+      gc_slug: 2026-fall-weddington-wild-12u
+    - name: South CLT Revolution Dudney 12U
+      gc_id: ptDwwByb5188
+      gc_slug: 2026-fall-south-clt-revolution-dudney-12u
+    - name: QC Flight Baseball 12U
+      gc_id: 9p5ixxpjYISr
+      gc_slug: 2026-fall-qc-flight-baseball-12u
+    - name: Crowns Baseball 12U
+      gc_id: kRXPYtfWUYSU
+      gc_slug: 2026-fall-crowns-baseball-12u
+    - name: RED Clay Athletics 12U Laidlaw
+      gc_id: 6NPYgTncm2BD
+      gc_slug: 2026-fall-red-clay-athletics-12u-laidlaw
+    - name: South Charlotte Revolution - Keller 12U
+      gc_id: nWzM2LB2ib7v
+      gc_slug: 2026-fall-south-charlotte-revolution---keller-12u
+    - name: ON Deck Mennitt Kirkpatrick 12U
+      gc_id: SkMGBh5Lmvas
+      gc_slug: 2026-fall-on-deck---mennitt-kirkpatrick-12u
+    - name: Carolina Bearcats 12U
+      gc_id: 6hW8VyYhN1yf
+      gc_slug: 2026-fall-carolina-bearcats-12u
+    - name: Waxhaw Militia 12U
+      gc_id: 5kglXqwn6oiO
+      gc_slug: 2026-fall-waxhaw-militia-12u

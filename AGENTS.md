@@ -1,9 +1,15 @@
 # WCWAA Scout Pipeline
 
-This file is the authoritative reference for the WCWAA Scout pipeline.
-Load it at the start of every new AI coding session (GitHub Copilot, Claude, etc.).
-It covers every design decision, known bug, and operational detail accumulated
-across the full build history of this project.
+Primary context file for AI coding agents (e.g. GitHub Copilot) working in this repo. Read it
+top-to-bottom before making changes. It is intentionally self-contained and repeats README
+material where that helps an agent act — the README is the human narrative; this file is the
+agent's working reference. docs/Principles and Practices.md (PnP) is the governing standard;
+if this file and PnP disagree, PnP wins. Before doing any prjoect work always
+
+do a pull from the repo.. always, always, always
+review the PnP file before touching any code
+never make assumptions, only evidence based decisions
+ask any clarifying questions needed at anytime.
 
 **Code root (all repo-relative paths below are relative to this):**
 `~/Documents/VSCode/Personal/Scout/`
@@ -21,14 +27,14 @@ handling, and code style. Follow those guidelines throughout.
 
 ## Current State
 
-| Field             | Value                                                                                                             |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Version**       | 5.4.0                                                                                                             |
-| **Last commit**   | `feat: v5.4.0 — download GameChanger video clips (whole games, per player) + montage` (tag `v5.4.0`)              |
-| **Branch**        | `main`                                                                                                            |
-| **Uncommitted**   | Web UI edits (`web/`); tourney rollback pitch counts (CHANGELOG [Unreleased]); 2026-Fall.yaml; gen_hitting        |
-| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                             |
-| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)                        |
+| Field             | Value                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Version**       | 5.5.0                                                                                                      |
+| **Last commit**   | `feat: v5.5.0 — per-age archetypes, age divisions, new-season setup, pitching GP/GS/IP` (tag `v5.5.0`)     |
+| **Branch**        | `main`                                                                                                     |
+| **Uncommitted**   | None                                                                                                       |
+| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                      |
+| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)                 |
 
 ### Session Handoff Protocol
 
@@ -61,6 +67,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.5.0  feat: per-age archetypes (BUG-024 Enh), 9U–12U travel divisions (BUG-050 Enh), terminal new-season setup + season picker (BUG-047 Enh), no montage (BUG-044 Enh); fixes BUG-045/046/048/051
 v5.4.0  feat: GC video clips — download whole games / one player / share links, optional montage (BUG-043 Enh)
 v5.3.1  fix: hitting report blank for team names with a space (BUG-041); cards in true typical batting order (BUG-042)
 v5.3.0  feat: quality-pitcher availability on game lines + LL consecutive-days rule (BUG-039 Enh); box-score pitching = official starter/pitch counts (BUG-040)
@@ -110,7 +117,7 @@ v0.1.0  initial commit
 | 2   | Build a user-friendly HTML front end ("HTML-based app")               | ✅ Done  | v3.1.0         | Local Flask web UI (`src/web/`): build reports with live log, view PDFs, add teams. Double-click `launchers/Start Scout.command`. Build on Mac, view anywhere (incl. mobile via Google Drive). |
 | 3   | Season management — create/switch seasons without manual YAML editing | ✅ Done  | v3.2.0         | `season_config.list_seasons/create_season/set_active_season`; terminal wizard `[4] Manage seasons`; web UI Seasons tab + header season picker                                                  |
 | 4   | Per-tab season selectors in web UI (BUG-018)                          | ✅ Done  | v3.3.0         | Build/View/Add Team each have their own season dropdown; View Reports has an "All seasons" option                                                                                              |
-| 5   | Dynamic archetypes                                                    | ➡️ Moved | —              | [BUG-024 (Enh)](docs/BUGS.md#bug-024-enh--status-o)                                                                                                                                            |
+| 5   | Dynamic archetypes                                                    | ➡️ Moved | —              | [BUG-024 (Enh)](docs/BUGS.md#bug-024-enh--status-r)                                                                                                                                            |
 | 6   | Drop the `TEAM` row from travel `roster.txt`                          | ➡️ Moved | —              | [BUG-025 (Enh)](docs/BUGS.md#bug-025-enh--status-o)                                                                                                                                            |
 | 7   | Rebuild the whole travel division on single-team runs                 | ➡️ Moved | —              | [BUG-026 (Enh)](docs/BUGS.md#bug-026-enh--status-o)                                                                                                                                            |
 
@@ -131,15 +138,17 @@ Both components share the same virtual environment, game file data, and scraping
 
 Two division **types**, set per season in the YAML:
 
-| Type                    | Examples                  | Scraped from                      | Reports                                 |
-| ----------------------- | ------------------------- | --------------------------------- | --------------------------------------- |
-| **League** (`league`)   | Majors (11U), Minors (9U) | GC organization schedule (org ID) | Every team in the league                |
-| **Travel / Tournament** | Wild, Storm, Mavs         | Each listed team's GC schedule    | Each listed team (our team + opponents) |
+| Type                  | Examples                  | Scraped from                      | Reports                                 |
+| --------------------- | ------------------------- | --------------------------------- | --------------------------------------- |
+| **League** (`league`) | Majors (11U), Minors (9U) | GC organization schedule (org ID) | Every team in the league                |
+| **Travel** (`travel`) | 9U, 10U, 11U, 12U         | Each listed team's GC schedule    | Each listed team (our team + opponents) |
 
 > Divisions are **per season** — the season YAML is the only list. Code never hardcodes
-> Majors/Minors/Wild/Storm; it reads `DIVISIONS` and dispatches on type (`org`/league vs.
-> travel). Travel divisions can be switched off with `active: false`. 2026-Fall: Majors, Minors,
-> Wild, and the tournament division **Mavs** (Storm inactive). See "Teams Reference".
+> division names; it reads `DIVISIONS` and dispatches on type (`org`/league vs. travel).
+> **Travel divisions are by age (BUG-050 Enh, 2026-11-12):** a team goes in the division matching the
+> age in its name (Weddington Mavericks 10U → 10U); names without an age are asked. The old
+> Wild/Storm/Mavs divisions were migrated in both 2026 seasons. Tournament divisions (`tournament_team`,
+> web UI Modify Season) still work but aren't used. See "Teams Reference".
 
 ---
 
@@ -147,28 +156,31 @@ Two division **types**, set per season in the YAML:
 
 All paths below are under `dev/src/scout/`.
 
-| Script                             | Lines | Component    | Role                                                                                                                                                                |
-| ---------------------------------- | ----- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ---------------------------------- | ---- | -------- | ------------------------------------------------------------------------------------ |
-| `hitting/gen_hitting.py`           | ~2140 | Hitting      | Stat engine + PDF generator                                                                                                                                         |
-| `pitching/gen_pitching.py`         | ~1300 | Pitching     | Stat engine + PDF generator                                                                                                                                         |
-| `orchestrator/run_menu.py`         | ~1160 | Orchestrator | Pipeline orchestrator (preflight + 4 steps) + add-team wizard + season management                                                                                   |
-| `season_config.py`                 | ~960  | Config       | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()`, season lifecycle (`list_seasons`, `create_season`, `set_active_season`) |
-| `scraping/scrape_gc_boxscores.py`  | ~780  | Scraping     | GC box scores → rosters                                                                                                                                             |
-| `web/server.py`                    | ~760  | Web          | Flask server backing the HTML front-end (build/view/add/seasons/logs)                                                                                               |
-| `hitting/stat_analysis.py`         | ~600  | Hitting      | Distribution/percentile analysis → HTML report (feeds dynamic archetypes, BUG-024 Enh)                                                                              |
-| `scraping/scrape_gc_playbyplay.py` | ~590  | Scraping     | GC schedule → .txt game files; `--login` / `--check-session` entry points                                                                                           |
-| `scraping/parse_gc_text.py`        | ~270  | Parser       | Raw GC text → WCWAA format (utility)                                                                                                                                |
-| `scraping/gc_browser.py`           | ~210  | Scraping     | Launch/drive real Chrome (Scout profile) + GC session check (v5.0.0)                                                                                                |
-| `scraping/diag_schedule.py`        | ~144  | Scraping     | Schedule diagnostics (legacy utility — still headless, non-functional since BUG-022)                                                                                |     | `analysis_tools/pitching_usage.py` | ~500 | Analysis | League workbook: pitcher usage, team usage, team comparison (+ top-3 QP), draft tabs |
-| `analysis_tools/tourney_odds.py`   | ~640  | Analysis     | Monte Carlo tournament futures → dated PDF board (bracket from season YAML `postseason:`)                                                                           |
-| `analysis_tools/draft_roi.py`      | ~420  | Analysis     | Draft grades, per-pick ROI, steals/busts → PDF + workbook tabs                                                                                                      |
-| `analysis_tools/games.py`          | ~110  | Analysis     | Shared: runs per half-inning from GC score strings, dates, postseason config, weather rollbacks; cached `division_data()`, `rerun_commands()`                       |
-| `analysis_tools/run_all.py`        | ~80   | Analysis     | One command for all three tools: scrape once, parse once, build workbook + odds PDF + draft card                                                                    |
-| `video/gc_clips.py`                | ~600  | Video        | GC game galleries / clip share links → .mp4 downloads (Scout Chrome + ffmpeg), `--player` filter, montage (BUG-043 Enh)                                             |
+| Script                                 | Lines | Component    | Role                                                                                                                                                                |
+| -------------------------------------- | ----- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hitting/gen_hitting.py`               | ~2140 | Hitting      | Stat engine + PDF generator                                                                                                                                         |
+| `pitching/gen_pitching.py`             | ~1300 | Pitching     | Stat engine + PDF generator                                                                                                                                         |
+| `orchestrator/run_menu.py`             | ~1160 | Orchestrator | Pipeline orchestrator (preflight + 4 steps) + add-team wizard + season management                                                                                   |
+| `season_config.py`                     | ~960  | Config       | Central loader: reads `config/<season>.yaml`, builds DIVISIONS dicts, `add_team_to_yaml()`, season lifecycle (`list_seasons`, `create_season`, `set_active_season`) |
+| `scraping/scrape_gc_boxscores.py`      | ~780  | Scraping     | GC box scores → rosters                                                                                                                                             |
+| `web/server.py`                        | ~760  | Web          | Flask server backing the HTML front-end (build/view/add/seasons/logs)                                                                                               |
+| `hitting/stat_analysis.py`             | ~600  | Hitting      | Distribution/percentile analysis → HTML report                                                                                                                      |
+| `hitting/archetypes.py`                | ~150  | Hitting      | Hitter Approach x Result labels from per-age baselines (BUG-024)                                                                                                    |
+| `hitting/build_archetype_baselines.py` | ~310  | Hitting      | Builds `config/archetype_baselines.yaml` (percentiles, shrinkage, commented spec)                                                                                   |
+| `scraping/scrape_gc_playbyplay.py`     | ~590  | Scraping     | GC schedule → .txt game files; `--login` / `--check-session` entry points                                                                                           |
+| `scraping/parse_gc_text.py`            | ~270  | Parser       | Raw GC text → WCWAA format (utility)                                                                                                                                |
+| `scraping/gc_browser.py`               | ~210  | Scraping     | Launch/drive real Chrome (Scout profile) + GC session check (v5.0.0)                                                                                                |
+| `scraping/diag_schedule.py`            | ~144  | Scraping     | Schedule diagnostics (legacy utility — still headless, non-functional since BUG-022)                                                                                |
+| `analysis_tools/pitching_usage.py`     | ~590  | Bonus        | Bonus Feature 1 — league workbook: pitcher usage, team usage, team comparison (+ top-3 QP), draft tabs                                                              |
+| `analysis_tools/tourney_odds.py`       | ~680  | Bonus        | Bonus Feature 2 — Monte Carlo tournament futures → dated PDF board (bracket from season YAML `postseason:`)                                                         |
+| `analysis_tools/draft_roi.py`          | ~540  | Bonus        | Bonus Feature 3 — draft grades, per-pick ROI, steals/busts → PDF + workbook tabs                                                                                    |
+| `analysis_tools/games.py`              | ~120  | Bonus        | Shared: runs per half-inning from GC score strings, dates, postseason config, weather rollbacks; cached `division_data()`, `rerun_commands()`                       |
+| `analysis_tools/run_all.py`            | ~100  | Bonus        | Bonus Features 1–3 in one command: scrape once, parse once, build workbook + odds PDF + draft card                                                                  |
+| `video/gc_clips.py`                    | ~520  | Bonus        | Bonus Feature 4 — GC game galleries / clip share links → .mp4 downloads (Scout Chrome + ffmpeg), `--player` filter (BUG-043/044 Enh)                                |
 
 > **Web front-end assets** (not Python): `web/index.html` (~250 lines), `web/css/style.css` (~260 lines), `web/js/app.js` (~770 lines).
 >
-> **Tests:** `dev/tests/test_fall_league_readiness.py` (play-by-play validation, session classification, league team discovery, folder reconcile) and `dev/tests/test_analysis_tools.py` (draft snake order, name matching, rest rules, odds, rollbacks), and `dev/tests/test_gc_clips.py` (game/clip link parsing, file naming, player filter, manifest).
+> **Tests:** `dev/tests/test_fall_league_readiness.py` (play-by-play validation, session classification, league team discovery, folder reconcile) and `dev/tests/test_analysis_tools.py` (draft snake order, name matching, rest rules, odds, rollbacks), and `dev/tests/test_gc_clips.py` (game/clip link parsing, file naming, player filter, manifest), and `dev/tests/test_season_setup.py` (draft-results CSV, season picker, dragged paths), `dev/tests/test_pitching_cards.py` (GP/GS/IP), and `dev/tests/test_archetypes.py` (ranks, shrinkage, rules, group fallback, shipped baselines).
 
 ### Shell Launchers (all in `launchers/`)
 
@@ -180,8 +192,8 @@ All paths below are under `dev/src/scout/`.
 | `~/Library/LaunchAgents/run_wcwaa_nightly.sh` | **Actual nightly launcher** (local disk): called by the launchd plist; `cd`s into the code root and runs `caffeinate -i python -m scout.orchestrator.run_menu --all`. Lives outside the repo — **update its `SCOUT=` path if the repo moves.** |
 | `launchers/run_pitching.sh`                   | Standalone manual launcher for pitching PDFs only                                                                                                                                                                                              |
 | `launchers/run_pitching_nightly.sh`           | Standalone headless launcher for pitching PDFs only                                                                                                                                                                                            |
-| `launchers/run_analysis.sh`                   | All three analysis tools for a league division (`--division`, `--no-scrape`) → `scout.analysis_tools.run_all`                                                                                                                                  |
-| `launchers/gc_clips.sh`                       | Download GC video clips — whole games or share links (`--player`, `--montage`, `--list`, `--out`) → `scout.video.gc_clips`                                                                                                                                  |
+| `launchers/run_analysis.sh`                   | Bonus Features 1–3 for a league division (`--division`, `--no-scrape`) → `scout.analysis_tools.run_all`                                                                                                                                        |
+| `launchers/gc_clips.sh`                       | Bonus Feature 4 — download GC video clips, whole games or share links (`--player`, `--list`, `--out`) → `scout.video.gc_clips`                                                                                                                 |
 | `launchers/com.wcwaa.scout_pipeline.plist`    | launchd schedule config (symlinked to `~/Library/LaunchAgents/`)                                                                                                                                                                               |
 
 ---
@@ -211,8 +223,10 @@ Scout/                               <- git repo root (~/Documents/VSCode/Person
 |       |                               list_divisions(), add_team_to_yaml(), season lifecycle.
 |       |-- hitting/
 |       |   |-- gen_hitting.py        <- Step 3: stat engine + hitting PDFs
+|       |   |-- archetypes.py         <- hitter labels from config/archetype_baselines.yaml (BUG-024)
+|       |   |-- build_archetype_baselines.py <- builds that YAML (run on purpose only)
 |       |   |-- stat_analysis.py      <- distribution/percentile analysis -> HTML report
-|       |   +-- archetype_reference.txt
+|       |   +-- archetype_reference.txt  <- legacy (pre-BUG-024 rules)
 |       |-- pitching/
 |       |   |-- gen_pitching.py       <- Step 4: stat engine + pitching PDFs
 |       |   +-- pitcher_icon.png      <- Savant-style pitcher silhouette
@@ -231,7 +245,7 @@ Scout/                               <- git repo root (~/Documents/VSCode/Person
 |       |   |-- tourney_odds.py       <- tournament futures PDF
 |       |   +-- draft_roi.py          <- draft report card PDF
 |       |-- video/
-|       |   +-- gc_clips.py           <- GC game/clip links -> .mp4 + montage (launchers/gc_clips.sh)
+|       |   +-- gc_clips.py           <- GC game/clip links -> .mp4 (launchers/gc_clips.sh)
 |       +-- web/                      <- HTML front-end
 |           |-- server.py             <- Flask server (build/view/add + live log SSE)
 |           |-- index.html            <- single-page app shell
@@ -261,7 +275,7 @@ Google Drive (data root -- set by SCOUT_DATA_ROOT; default shown):
     +-- 2026-Fall/  2026-spring/ ...
         |-- Majors/Reports/          <- Scorebooks/, Scouting_Reports/, rosters.json, box_verify.json
         |-- Minors/Reports/          <- same structure
-        |-- <TravelDiv>/[TeamName]/  <- Wild/, Storm/, Mavs/ ...: Games/, roster.txt, *-Scout-*.pdf
+        |-- <TravelDiv>/[TeamName]/  <- 9U/, 10U/, 11U/, 12U/: Games/, roster.txt, *-Scout-*.pdf
         |-- AllStars/                <- one-time AllStars builds (9U, 12U)
         +-- Coach_Pitch/
 ```
@@ -335,7 +349,7 @@ launchctl start com.wcwaa.scout_pipeline  # trigger immediately
 bash launchers/run_scout.sh --all
 
 # Single division
-bash launchers/run_scout.sh --division Wild
+bash launchers/run_scout.sh --division 12U
 
 # Single team
 bash launchers/run_scout.sh --division Majors --team "Cubs-Holtzer"
@@ -348,10 +362,10 @@ bash launchers/run_pitching.sh --division Majors
 
 ```bash
 python -m scout.scraping.scrape_gc_playbyplay --check-session  # Preflight
-python -m scout.scraping.scrape_gc_playbyplay --division Mavs   # Step 1 (--check = dry run)
-python -m scout.scraping.scrape_gc_boxscores --division Mavs    # Step 2
-python -m scout.hitting.gen_hitting --division Mavs             # Step 3
-python -m scout.pitching.gen_pitching --division Mavs           # Step 4
+python -m scout.scraping.scrape_gc_playbyplay --division 10U    # Step 1 (--check = dry run)
+python -m scout.scraping.scrape_gc_boxscores --division 10U     # Step 2
+python -m scout.hitting.gen_hitting --division 10U              # Step 3
+python -m scout.pitching.gen_pitching --division 10U            # Step 4
 ```
 
 ---
@@ -398,12 +412,21 @@ a manual run overlapping the 10am nightly would fail fast with "port in use".
 
 ---
 
-## Analysis Tools (`scout.analysis_tools`) — on demand, not in the nightly pipeline
+## Bonus Features 1–3: Analysis Tools (`scout.analysis_tools`) — on demand, not in the nightly pipeline
+
+README groups these with the video clip downloader as **Bonus Features** (1 Pitching Usage & Comparisons,
+2 Tournament Futures, 3 Draft Report Card, 4 Video Clip Downloader).
 
 League-division analysis built on the same game files. **All three at once** (scrapes Steps 1–2 once,
 parses games once via the cached `games.division_data()`, then builds every report):
 `bash launchers/run_analysis.sh --division Minors` = `python -m scout.analysis_tools.run_all --division Minors`
 (`--no-scrape` to reuse saved games). Individually (after scraping):
+
+**Season picker (BUG-047 Enh):** every entry point (`run_all`, `pitching_usage`, `tourney_odds`, `draft_roi`)
+takes `--season`; without it, an interactive run asks "Which season are you running this for?" (ENTER = the
+loaded season). `games.choose_season()` re-execs the same module with `SCOUT_SEASON=<id>` + `--season <id>` when
+the pick differs, because `SEASON_ID`/`SEASON_DIR` are fixed at import. The scrapers launched by `run_all`
+inherit `SCOUT_SEASON`. Non-interactive runs (no TTY) use the loaded season without asking.
 
 | Command                                                           | Output (in `<Div>/Reports/` on the data root)                                                     |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -414,8 +437,11 @@ parses games once via the cached `games.division_data()`, then builds every repo
 **Season inputs (no code edits needed):**
 
 - **Draft:** the division's `csv:` path in the season YAML (rows = rounds, columns = coaches, last row =
-  team names; snake order in round-1 column order).
-- **Playoffs:** the division's `postseason:` block — `start`, `bracket` (`game: [date, slotA, slotB]`,
+  team names; snake order in round-1 column order). Set by the terminal Create Season wizard or
+  Manage seasons → [3] Add draft results (`season_config.set_draft_results()` validates, copies the CSV into
+  `<Div>/Reports/`, and updates `csv:`).
+- **Playoffs:** the division's `postseason:` block — added by hand once the regular season ends (not in the
+  template; copy `config/2026-Fall.yaml`) — `start`, `bracket` (`game: [date, slotA, slotB]`,
   slots are team keys or `W#`/`L#`), `order`, `winners_final`, `final`, `if_necessary`, plus
   `seeding_games` / `seeding_games_by_team`, `official_records` (W/L/T overrides) and `rollbacks`
   (`game-uuid: last official inning`, e.g. weather). Games on/after `start` count as playoffs.
@@ -430,14 +456,14 @@ batting linear-weight runs above average + pitching runs saved, per team game.
 
 ---
 
-## Video Clips (`scout.video.gc_clips`) — on demand (BUG-043 Enh)
+## Bonus Feature 4: Video Clip Downloader (`scout.video.gc_clips`) — on demand (BUG-043/044 Enh)
 
-`bash launchers/gc_clips.sh "<game or share URL>" ... [--file F] [--out DIR] [--player NAME] [--montage NAME] [--list] [--jobs N] [--force]`
+`bash launchers/gc_clips.sh "<game or share URL>" ... [--file F] [--out DIR] [--player NAME] [--list] [--jobs N] [--force]`
 (default out: `~/Movies/GameChanger Clips`; videos are large, so not on the Drive data root).
 
 - **Game link** (`…/schedule/<event_id>[/videos/clips]`, `parse_link` → gallery URL): `GameGallery` opens the
   gallery, captures the page's own `POST /clips/search/v2` (body `{"select":{"kind":"player"},"match_all":{"event_id":…},
-  "paging":"page","offset":<page index>}`; `next_offset` absent on the last page) and reuses its `gc-*`
+"paging":"page","offset":<page index>}`; `next_offset` absent on the last page) and reuses its `gc-*`
   auth headers to page through every clip (limit 100), then `GET /clips/<id>/playback-data?kind=player`
   per clip — no share token needed when signed in. All calls run via `fetch()` inside the page
   (`_FETCH_JS`) so the WAF sees real Chrome; a 401 reloads the gallery for a fresh token and retries once.
@@ -453,9 +479,7 @@ batting linear-weight runs above average + pitching runs saved, per team game.
   `GET /events/<event_id>` `pregame_data.opponent_name`; players from `/players`. Missing parts are dropped.
 - Re-runs skip via `<out>/.gc_clips.json` (clip ID → file name); `unique_path` adds `_2` rather than
   overwrite a different clip with the same name.
-- Montage: each clip is re-encoded in parallel to 1280×720/30 fps H.264 + 48 kHz stereo AAC (silent
-  clips get a silent track), then joined with the concat demuxer (`-c copy`) — no input-count limit.
-  Game clips in game order; share links in the order given.
+- No montage: the `--montage` option shipped in v5.4.0 was removed (BUG-044 Enh); `ffprobe` is no longer required.
 
 ---
 
@@ -542,8 +566,7 @@ Reads game `.txt` files, parses every plate appearance, computes batting stats +
 | `generate_notes()`           | Full narrative scouting note for a batter                                                                 |
 | `generate_notes_short()`     | Compact note for summary page                                                                             |
 | `get_pitching_approach()`    | Archetype -> pitching recommendation lookup                                                               |
-| `get_archetype()`            | Applies Approach x Result label using percentiles                                                         |
-| `_roster_percentiles()`      | Computes league-wide percentile thresholds                                                                |
+| `get_archetype()`            | Approach x Result label via `archetypes.get_label(b, arch_group)` (per-age baselines, BUG-024)            |
 | `_rank_stat()`               | Dense rank helper for LG RANK row                                                                         |
 | `PITCHING_APPROACH`          | Archetype -> pitching recommendation lookup dict                                                          |
 | **Stats**                    |                                                                                                           |
@@ -614,11 +637,14 @@ Gateway module — every script imports from here. Reads `active_season.txt` →
 | **Team Management**             |                                                                                                                       |
 | `add_team_to_yaml()`            | Adds a team to a travel division in the active season YAML (idempotent)                                               |
 | `update_season()`               | Modify Season (web UI): org IDs, display name, travel divisions                                                       |
+| `set_draft_results()`           | Validates a draft CSV, copies it into `<Div>/Reports/`, sets the league division's `csv:` (BUG-047 Enh)               |
+| `suggest_ages()` / `bump_age()` | New-season age defaults from the latest earlier season (9U–12U keep their age) + its tournament divisions             |
+| `team_name_age()`               | Age in a team name (`QC Crushers 10U` → `10U`): add-team division default + archetype baselines (BUG-050 Enh)         |
 | **Season Lifecycle**            |                                                                                                                       |
 | `list_seasons()`                | Scans `config/*.yaml` (excluding template); returns `[{id, display_name, is_active}]`                                 |
 | `set_active_season()`           | Writes a new season ID to `active_season.txt`; guards for missing config                                              |
 | `create_season()`               | Scaffolds a new season YAML from `season_template.yaml` (fills GC IDs, display name); calls `_scaffold_season_dirs()` |
-| `_scaffold_season_dirs()`       | Private helper — creates on-disk folder tree for a new season (`seasons/<id>/Majors/`, `Minors/`, `Wild/`, `Storm/`)  |
+| `_scaffold_season_dirs()`       | Private helper — creates on-disk folder tree for a new season (`seasons/<id>/Majors/`, `Minors/`, `9U/` … `12U/`)     |
 
 > **Important:** `SEASON_ID` and `SEASON_DIR` are module-level constants resolved at import time.
 > Calling `set_active_season()` updates `active_season.txt` on disk, but the **running process still
@@ -628,28 +654,31 @@ Gateway module — every script imports from here. Reads `active_season.txt` →
 
 Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subprocesses.
 
-| Function                  | Purpose                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Entry & Menu**          |                                                                                                               |
-| `main()`                  | CLI entry point -- parses `--all`, `--division`, `--team`, `--help`                                           |
-| `interactive_menu()`      | Menu: [0] Full, [1] Division, [2] Team, [3] Add a new Tournament Team, [4] Manage seasons                     |
-| **Season Management**     |                                                                                                               |
-| `manage_seasons()`        | Sub-menu: [1] Switch season, [2] Create season, [B] Back                                                      |
-| `_switch_season_wizard()` | Lists all seasons → user picks one → calls `set_active_season()` → prints restart notice                      |
-| `_create_season_wizard()` | Interactive wizard: season ID, display name, Majors/Minors GC org IDs → `create_season()` → prints next-steps |
-| **Add Team**              |                                                                                                               |
-| `add_new_team()`          | Wizard: paste GC URL → `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/`                  |
-| `_slug_to_folder_name()`  | Converts GC slug to folder name                                                                               |
-| `_parse_gc_url()`         | Extracts `team_id` and `slug` from a GC schedule URL                                                          |
-| **Pipeline**              |                                                                                                               |
-| `_run()`                  | Subprocess wrapper with exit-code handling                                                                    |
-| `_gc_session_ok()`        | Preflight: runs `--check-session`; on failure prints the fix and (nightly) calls `_notify()`                  |
-| `_notify()`               | macOS notification via `osascript`                                                                            |
-| `run_pipeline()`          | Runs steps 1->2->3->4 as subprocesses for given scope                                                         |
-| `get_team_list()`         | Travel divisions: reads DIVISIONS tuples (sorted alphabetically); league divisions: reads rosters.json keys   |
-| **UI Helpers**            |                                                                                                               |
-| `print_header()`          | Prints the menu banner; season name is dynamic from `SEASON_ID` (not hardcoded)                               |
-| `check_session()`         | Warns at menu start if the Scout Chrome profile (GC login) is missing                                         |
+| Function                              | Purpose                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Entry & Menu**                      |                                                                                                             |
+| `main()`                              | CLI entry point -- parses `--all`, `--division`, `--team`, `--help`                                         |
+| `interactive_menu()`                  | Menu: [0] Full, [1] Division, [2] Team, [3] Add a new Tournament Team, [4] Manage seasons                   |
+| **Season Management**                 |                                                                                                             |
+| `manage_seasons()`                    | Sub-menu: [1] Switch season, [2] Create season, [3] Add draft results, [B] Back                             |
+| `_switch_season_wizard()`             | Lists all seasons → user picks one → calls `set_active_season()` → prints restart notice                    |
+| `_create_season_wizard()`             | Season ID, display name, GC org IDs, draft CSVs, tournament carry-over + ages → `create_season()`           |
+| `_ask_divisions_and_ages()`           | Carry over tournament divisions; confirm each division's `age:` (defaults from `suggest_ages()`)            |
+| `_add_draft_wizard()`                 | Pick season + league division → draft CSV path → `set_draft_results()`                                      |
+| `_ask_draft_file()` / `_clean_path()` | "Do you have the draft results?" prompt; accepts dragged/quoted paths                                       |
+| **Add Team**                          |                                                                                                             |
+| `add_new_team()`                      | Wizard: paste GC URL → `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/`                |
+| `_slug_to_folder_name()`              | Converts GC slug to folder name                                                                             |
+| `_parse_gc_url()`                     | Extracts `team_id` and `slug` from a GC schedule URL                                                        |
+| **Pipeline**                          |                                                                                                             |
+| `_run()`                              | Subprocess wrapper with exit-code handling                                                                  |
+| `_gc_session_ok()`                    | Preflight: runs `--check-session`; on failure prints the fix and (nightly) calls `_notify()`                |
+| `_notify()`                           | macOS notification via `osascript`                                                                          |
+| `run_pipeline()`                      | Runs steps 1->2->3->4 as subprocesses for given scope                                                       |
+| `get_team_list()`                     | Travel divisions: reads DIVISIONS tuples (sorted alphabetically); league divisions: reads rosters.json keys |
+| **UI Helpers**                        |                                                                                                             |
+| `print_header()`                      | Prints the menu banner; season name is dynamic from `SEASON_ID` (not hardcoded)                             |
+| `check_session()`                     | Warns at menu start if the Scout Chrome profile (GC login) is missing                                       |
 
 > **Team additions** now write to `config/<season>.yaml` via `season_config.add_team_to_yaml()`
 > (the old `_insert_team_into_file()` text-replacement on Python source was removed in v3.0.0).
@@ -693,6 +722,19 @@ terminal menu + nightly cron), streaming live output to the page via Server-Sent
 device on the same Wi-Fi. The build subprocess runs with `python -u` + `PYTHONUNBUFFERED=1`
 so log lines stream live instead of arriving in one dump.
 
+### archetypes.py / build_archetype_baselines.py (Hitter labels -- BUG-024)
+
+| Function                                              | Purpose                                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `archetypes.get_label()`                              | Label for one batter + group (`None` < 5 PA or no baseline; `*` for 5–9 PA)                |
+| `archetypes.classify()`                               | Approach / Result rules from percentile ranks                                              |
+| `archetypes.ranks()` / `shrunk_rate()` / `pct_rank()` | Shrink each rate toward the group mean, then rank against stored cutoffs                   |
+| `archetypes.counts()`                                 | Raw counts behind the 10 stats, from a `compute_stats()` batter dict                       |
+| `archetypes.resolve_group()`                          | Group → its own cutoffs, its `use:` fallback, or nearest age of the same kind              |
+| `build_archetype_baselines.main()`                    | Collect each season in a subprocess (`--collect`), build, write YAML with commented header |
+| `shrink_constants()`                                  | Split-half repeatability per stat → shrinkage k                                            |
+| `build()` / `label_mix()` / `write()`                 | Group means + percentile cutoffs; label mix; YAML + header comments                        |
+
 ---
 
 ## Function Map -- Pitching Component
@@ -714,6 +756,9 @@ Reads game `.txt` files from the opponent's perspective (who was pitching), comp
 | `parse_game_for_pitching_team()` | Core parser: reads .txt file, extracts PAs attributed to each pitcher. Uses carry-forward logic for pitcher tracking + pre-scan to skip games not involving the team |
 | **Stats**                        |                                                                                                                                                                      |
 | `compute_pitcher_stats()`        | Aggregates all PAs for one pitcher -> 13-stat dict (ERA-proxy, WHIP, K/9, BB/9, K%, BB%, K/BB, BABIP, HR/9, FPSH%, GB%, FB+LD%, C%)                                  |
+| `appearances()`                  | (GP, GS) from play-by-play: a start = faced a batter in the 1st inning (travel cards; league fallback) (BUG-048)                                                     |
+| `box_usage()`                    | League: official GP / GS (first listed pitcher) / outs per pitcher from `box_verify.json` `*_pitching` (BUG-048)                                                     |
+| `apply_official_innings()`       | League: replaces play-by-play IP with box-score outs; recomputes K/9 + BB/9 before percentiles (BUG-048)                                                             |
 | `compute_percentile_rank()`      | Ranks a value against all values in the division; supports `low_is_good` flip                                                                                        |
 | `compute_all_percentiles()`      | Builds percentile rows for every pitcher across all 13 stats                                                                                                         |
 | **PDF Rendering**                |                                                                                                                                                                      |
@@ -760,7 +805,99 @@ Reads game `.txt` files from the opponent's perspective (who was pitching), comp
 - Baseball Savant pitcher silhouette PNG icon
 - Each stat row: label, raw value, colored slider bar (red->green), percentile bubble
 - Card background: 0.91 grey
-- Header fonts: 11.5pt name, 9pt team/IP line
+- Header fonts: 11.5pt name, 9pt team line `GP: x   GS: y   IP: z` (league: official box-score values;
+  kids sharing initials with a teammate (KC-004) fall back to play-by-play)
+
+---
+
+## Function Map -- Bonus Features
+
+On-demand tools (not in the nightly pipeline). Features 1–3 share parsed games via `games.division_data()`.
+
+### games.py (Shared -- game parsing for Features 1–3)
+
+| Function           | Purpose                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `division_data()`  | Parse a division's games once per process → (scorebooks, postseason, games, `pitching_usage.analyze()`) |
+| `load_games()`     | Parse every game file: dates, runs per half-inning, playoff flag, weather rollbacks                     |
+| `last_score()`     | Final score pair from the last GC score string (files are newest-first)                                 |
+| `postseason()`     | The division's `postseason:` block from the active season YAML (`{}` if none)                           |
+| `scorebooks_dir()` | Division's `Scorebooks/` folder on the data root                                                        |
+| `game_date()`      | Game date from the file name + season year                                                              |
+| `rerun_commands()` | The command(s) that refresh every report (with `--season`); printed at the top of each output           |
+| `choose_season()`  | "Which season are you running this for?" / `--season`; re-execs under `SCOUT_SEASON` if different       |
+
+### run_all.py (Features 1–3 in one command -- `launchers/run_analysis.sh`)
+
+| Function          | Purpose                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| `main()`          | CLI (`--division`, `--no-scrape`): scrape once, then workbook + odds PDF + draft card |
+| `scrape()`        | Runs Steps 1–2 for the division; False if GameChanger couldn't be reached             |
+| `pick_division()` | Prompts for a league division when `--division` is omitted                            |
+
+### pitching_usage.py (Feature 1 -- Pitching Usage & Comparisons workbook)
+
+| Function             | Purpose                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `build_workbook()`   | Entry: writes `<season>_<Div>_Pitching_Usage_and_Team_Comparison.xlsx` (+ draft tabs) |
+| `analyze()`          | Pitching appearances from play-by-play, reconciled with box-score pitching (`box`)    |
+| `parse_game()`       | One game file → (game_id, half-innings in chronological order)                        |
+| `new_app()`          | Empty per-outing accumulator (pitches, BF, outs, K/BB, `last_bf_pitches` …)           |
+| `rollback_pitches()` | Eligibility count: box-score pitches minus those thrown to the last batter faced      |
+| `box_pitching()`     | `{game: {team: [pitchers in order]}}` from `box_verify.json`                          |
+| `_apply_box()`       | Official names + pitch counts from the box score; fixes shared-initial apps           |
+| `_split_shared()`    | Splits one play-by-play app between two same-initial kids by box-score order          |
+| `roster_key()`       | Box-score pitcher name → roster key (`T L` or `Tri L` on collisions)                  |
+| `lineup_stats()`     | Distinct batting orders + game-to-game lineup changes (qualified kids)                |
+| `pitcher_display()`  | Roster display name for a pitcher key                                                 |
+
+### tourney_odds.py (Feature 2 -- Tournament Futures PDF)
+
+| Function                                          | Purpose                                                                            |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `run()` / `main()`                                | Entry: builds `<season>_<Div>_Tournament_Futures_asof_<date>.pdf`                  |
+| `configure()`                                     | Loads bracket / seeding settings from the division's `postseason:` block           |
+| `build_ratings()`                                 | Opponent-adjusted team offense + pitcher runs-allowed ratings                      |
+| `fit_run_distribution()`                          | Negative-binomial runs-per-half-inning model                                       |
+| `Sim` / `run_tournament()` / `simulate()`         | Inning-by-inning game + bracket simulation (20,000 runs) with pitcher limits       |
+| `tune()`                                          | Fits scoring scale + rating dampening (alpha) by log-loss on played games          |
+| `rest_days()` / `record_outing()` / `eligible()`  | Little League rest rules (1–20 = 0, 21–35 = 1, 36–50 = 2 days; no 3 straight days) |
+| `availability()`                                  | Real availability from played games using rolled-back pitch counts                 |
+| `quality_pitchers()` / `qp_status()`              | Each team's top-3 arms and who's unavailable on a game day (with return date)      |
+| `actual_results()` / `records()` / `seed_order()` | Played bracket results, W/L/T records, seeding tiebreaks                           |
+| `next_games()` / `game_line()` / `moneyline()`    | Next game day's matchups and betting lines                                         |
+| `american()` / `book()`                           | Probability → American odds; adds the 25% sportsbook margin                        |
+| `build_pdf()`                                     | Renders the futures board                                                          |
+
+### draft_roi.py (Feature 3 -- Draft Report Card)
+
+| Function                          | Purpose                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| `main()` / `analyze()`            | Entry: grades, ROI, steals/busts → `<season>_<Div>_Draft_Report_Card.pdf` + `.xlsx` |
+| `load_draft()`                    | Draft CSV (rows = rounds, columns = coaches, last row = teams) in snake order       |
+| `roster_index()` / `match_pick()` | Matches draft-sheet names to roster keys                                            |
+| `player_values()`                 | Per kid: batting runs + pitching runs saved, PA, IP, games (per team game)          |
+| `_late_additions()`               | Kids not on the draft sheet with enough games: valued like picks, no ADP/ROI        |
+| `steals_busts()`                  | Biggest over/under-performers vs. draft slot                                        |
+| `add_sheets()`                    | Draft Board / Draft Grades / Steals & Busts tabs for the Feature 1 workbook         |
+| `build_pdf()` / `build_xlsx()`    | Report card as PDF and as a workbook with the same content                          |
+
+### gc_clips.py (Feature 4 -- Video Clip Downloader)
+
+| Function / Class                                          | Purpose                                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `main()`                                                  | CLI: validate links, open Scout Chrome (`run_with_session`), download with ffmpeg in parallel |
+| `parse_link()`                                            | Classify a URL → game gallery or clip share link                                              |
+| `collect_targets()`                                       | Validate + de-duplicate links (`read_url_file()` for `--file`)                                |
+| `resolve_clips()`                                         | Expand targets into an ordered clip list with playback data; applies `--player`               |
+| `GameGallery`                                             | A game's clip gallery in Scout Chrome; reuses its auth headers to list clips + get playback   |
+| `fetch_shared_clip()`                                     | Capture a share link's standalone playback data                                               |
+| `record_lookup()`                                         | Fold GC `/players`, `/teams/<id>`, `/events/<id>` responses into name lookups                 |
+| `clip_filename()`                                         | `<Team>_vs_<Opp>_<T/B><inn>_<play>_<Player>_<timestamp>.mp4`                                  |
+| `matches_player()`                                        | `--player` filter (case-insensitive substring)                                                |
+| `download_clip()`                                         | ffmpeg HLS → .mp4 (`-c copy`) with CloudFront cookies                                         |
+| `load_manifest()` / `save_manifest()` / `existing_clip()` | `.gc_clips.json` clip ID → file name; skip clips already saved                                |
+| `unique_path()`                                           | Adds `_2`, `_3` … rather than overwrite a different clip with the same name                   |
 
 ---
 
@@ -809,7 +946,7 @@ T M, Tyler M. #4
 S G, Srijan G. #11
 ```
 
-> Our own teams (e.g. Mavs, where the user is staff) get full last names from GC
+> Our own teams (e.g. Weddington Mavericks 10U, where the user is staff) get full last names from GC
 > (`Atley Scott.`); opponents get last initials. Rosters include every player who appeared
 > in any box score (guests too) plus a non-player `TEAM` row (KC-003; cleanup BUG-025 Enh).
 
@@ -835,14 +972,35 @@ None stop PDF generation. Travel divisions have no box_verify.json, so Layer 4 d
 
 ---
 
-## Archetype System (Hitting Reports)
+## Archetype System (Hitting Reports) — BUG-024
 
-Each player card shows a 2-word label: **Approach x Result**.
+Each player card shows a 2-word label: **Approach x Result**, ranked against kids **the same age**
+(group = `league`/`travel` + the division's `age:`, e.g. `travel 12U`). Rules live in
+`scout/hitting/archetypes.py`; frozen per-group percentile cutoffs (every 5th percentile per stat),
+group means and small-sample constants live in `config/archetype_baselines.yaml` — its header
+comment is the human-readable spec. Rebuild only on purpose:
+`python -m scout.hitting.build_archetype_baselines [--seasons …]` (default: every season), then
+`gen_hitting --division X`.
 
-**Approach** (plate discipline): Aggressive, Passive, or Disciplined
-**Result** (league-relative): Walker, Overmatched, Power, or Contact
+- **Approach:** Aggressive = Swing% ≥ p67, or first-pitch swing ≥ p75 & Swing% ≥ p50, or Swing% ≥ p60
+  & Pitches/PA ≤ p33 · Passive = mean rank of CStr% and looking-K% ≥ p60 · Disciplined = rest.
+- **Result (in order):** Overmatched = mean rank of Whiff% and K% ≥ p75 · Power = ISO ≥ p67 & OF air%
+  (FB/LD to LF/CF/RF per BIP) ≥ p50 · Walker = Swing% ≤ p33 & (BB% ≥ p67 or Pitches/PA ≥ p75) · Contact = rest.
+- **Shrinkage (label only):** rate = (num + k·group mean) / (den + k); k per stat from split-half
+  repeatability (k = n̄(1−r)/r): Whiff% 15 swings, ISO 17 AB, K% 20 PA … BB% 85 PA, Swing% 108 pitches.
+  Card stats are never shrunk.
+- **Baseline build:** kids with 15+ PA; league kids grouped by division age, travel kids by the age in
+  the **team name** (`baseline_group()`; division age if none or the team is in `ignore_team_name_age`,
+  kept across rebuilds; entries for teams no longer present are dropped — empty today). Labels still use
+  the division's age. A group
+  needs 60+ such kids, else `use:` the nearest younger group of the same kind (all groups have their own today).
+  A division without `age:` gets no label (warning in the log). Built 2026-11-12 from Spring + Fall 2026:
+  league 9U 253, league 11U 184, travel 9U 195, 10U 123, 11U 118, 12U 131 (after adding 12U teams).
+- **Validation (2026-11-11):** half-season label repeat: Approach 46% vs 34% by chance, Result 49% vs 30%;
+  per label Contact 58%, Aggressive 52%, Passive 47%, Overmatched 47%, Power 47%, Disciplined 38%, Walker 24% (walks are
+  mostly pitcher-driven in youth ball). Study scripts: `dev/tmp/archetype_*.py` (gitignored).
 
-Cards with 5-9 PA show `*` suffix. Fewer than 5 PA: `--`.
+Cards with 5-9 PA show `*` suffix. Fewer than 5 PA: `—`.
 
 **Pitching approach matrix:**
 
@@ -869,8 +1027,8 @@ Teams live in `config/<season>.yaml` — **never** edited into Python source. Th
 
 All three call `season_config.add_team_to_yaml()` (idempotent — guards duplicates) and create the
 `Games/` folder. The folder name MUST match the GC inning-header spelling exactly; verify it after
-the first game is scraped. New travel _divisions_ (like Mavs) are added via the web UI's Modify
-Season → Tournament Divisions.
+the first game is scraped. The terminal wizard defaults the division to the age in the team name
+(`season_config.team_name_age()`); ENTER accepts, a name without an age asks for the division.
 
 ### Excluding games (scrimmages / test games)
 
@@ -902,8 +1060,15 @@ Both call `season_config.create_season()`, which:
 
 - Copies `config/season_template.yaml` to `config/<season-id>.yaml`
 - Fills in the GC org IDs you provide (Majors + Minors change each season)
-- Creates `seasons/<season-id>/Majors/`, `Minors/`, `Wild/`, `Storm/` folder tree
+- Creates `seasons/<season-id>/Majors/`, `Minors/`, `9U/`, `10U/`, `11U/`, `12U/` folder tree
 - Optionally sets the new season as active immediately
+
+The terminal wizard also asks "Do you have the <Div> draft results CSV?" for Majors and Minors and calls
+`set_draft_results()` for each one given; add it later via [4] → [3]. It then offers to carry over the
+previous season's tournament divisions (if any) and asks the other divisions' `age:`
+(`season_config.suggest_ages()`; 9U–12U travel divisions use their own age automatically) — the age picks
+the archetype baseline. The Bonus Features need nothing else until the playoffs (`postseason:` block,
+added by hand), and ask which season to run for.
 
 Travel team lists start empty — add teams via "Add Team" as games are scheduled.
 After switching seasons, **restart the terminal session or web server** so `SEASON_ID` reloads.
@@ -915,19 +1080,22 @@ After switching seasons, **restart the terminal session or web server** so `SEAS
 > Source of truth: `config/2026-Fall.yaml`. Rebuilt from scratch 2026-10-26 (old Fall data in
 > `_archive/2026-Fall_backup_2026-10-26`).
 
-| Division | Type       | Teams                                                                                            |
-| -------- | ---------- | ------------------------------------------------------------------------------------------------ |
-| Majors   | League     | GC org `tJkIoODIMpip`; teams discovered from box scores (`rosters.json`)                         |
-| Minors   | League     | GC org `aGeTxcjpQ6Y2`; teams discovered from box scores (`rosters.json`)                         |
-| Wild     | Travel     | Weddington Wild 12U                                                                              |
-| Mavs     | Tournament | Weddington Mavericks 10U (Aug 22 scrimmages excluded), Carolina Locos White 10U, QC Crushers 10U |
-| Storm    | Travel     | inactive this season                                                                             |
+| Division | Type   | Teams                                                                                                                                                                      |
+| -------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Majors   | League | GC org `tJkIoODIMpip`; teams discovered from box scores (`rosters.json`)                                                                                                   |
+| Minors   | League | GC org `aGeTxcjpQ6Y2`; teams discovered from box scores (`rosters.json`)                                                                                                   |
+| 9U       | Travel | Mara Cobras 9U, Weddington Wreckers 9U                                                                                                                                     |
+| 10U      | Travel | Weddington Mavericks 10U (Aug 22 scrimmages excluded), Carolina Locos White 10U, Dilworth 10U Challenge - Navy, Mara Outlaws 10U, QC Crushers 10U, South Park Spartans 10U |
+| 11U      | Travel | OC Crushers - Blue 11U                                                                                                                                                     |
+| 12U      | Travel | Weddington Wild 12U                                                                                                                                                        |
 
 ---
 
 ## Teams Reference (Spring 2026)
 
-> Source of truth: `config/2026-spring.yaml`. Counts: Majors 11, Minors 14, Wild 10, Storm 18.
+> Source of truth: `config/2026-spring.yaml`. Counts: Majors 11, Minors 14; travel (migrated from Wild/Storm
+> 2026-11-12) 9U 15, 10U 4, 11U 6, 12U 3. Mara Bulls 8U 8U and Sample_Opponent were archived to
+> `_archive/age_division_migration_2026-11-12/` on the data root.
 
 ### Majors (11 teams)
 
@@ -942,21 +1110,19 @@ Rangers-Leonard, Yankees-DePasquale, Marlins-Eberlin, Guardians-Plunkett,
 Angels-Casper, Braves-Brooks, Cubs-Verlinde, Brewers-Linnenkohl,
 Rays-Pearson, Mets-Hornung
 
-### Wild (10 teams, 11U travel)
+### Travel 11U / 12U (formerly Wild)
 
-Arena National Browning 11U, South Charlotte Panthers 11U, Weddington Wild 11U,
-QC Flight Baseball 11U, T24 Garnet 11U, SBA Alabama National 12U,
-TN Nationals Heichelbech 12U, Tega CAY Titans 11U, Weddington Vipers 12U,
-Mara Bulls 8U 8U
+11U: Arena National Browning 11U, QC Flight Baseball 11U, South Charlotte Panthers 11U, T24 Garnet 11U,
+Tega Cay Titans 11U, Weddington Wild 11U · 12U: SBA Alabama National 12U, TN Nationals Heichelbech 12U,
+Weddington Vipers 12U
 
-### Storm (18 teams, 9U travel)
+### Travel 9U / 10U (formerly Storm)
 
-ITAA 9U Spartans, MARA 9U Stingers, South Charlotte Challenge 9U Doggett,
-Pineville Blue Sox 9U, LKN Lightning 10U, Park Sharon Nationals 10U,
-Weddington Stormtroopers, Lake Norman Lightning 9U, Dilworth 9U - Navy,
-Crushers White 10U, Weddington 10U Gophers, Titans 9U, Mara Outlaws 9U,
-Eagles 9U, Shelby Storm 9U, Carolina River Rats 9U, LKN Storm 9U,
-Carolina Locos Black 9U
+9U: ITAA 9U Spartans, MARA 9U Stingers, South Charlotte Challenge 9U Doggett, Pineville Blue Sox 9U,
+Weddington Stormtroopers, Weddington WAR Dawgz, Lake Norman Lightning 9U, Dilworth 9U - Navy, Titans 9U,
+Mara Outlaws 9U, Eagles 9U, Shelby Storm 9U, Carolina River Rats 9U, LKN Storm 9U, Carolina Locos Black 9U
+(+ folders without config entries: 9u Challenge, MILITIA 9U) · 10U: LKN Lightning 10U,
+Park Sharon Nationals 10U, Crushers White 10U, Weddington 10U Gophers
 
 ---
 

@@ -19,10 +19,15 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Open**
 
+- (O) [BUG-049 — Team folder not renamed when only capitalization differs](#bug-049--status-o)
 - (O) [BUG-029 — Pitching cards undercount 0-BB innings across games](#bug-029--status-o)
 
 **Resolved or Closed**
 
+- (RV) [BUG-051 — Team with a "/" in its GameChanger name gets an empty report](#bug-051--status-rv)
+- (RV) [BUG-048 — Pitching cards: travel "GS" was games pitched; league GS/IP not official](#bug-048--status-rv)
+- (RV) [BUG-046 — Empty spray-chart zones shaded like hot zones](#bug-046--status-rv)
+- (RV) [BUG-045 — Tournament futures rest pitchers longer than the rollback rule allows](#bug-045--status-rv)
 - (RV) [BUG-042 — Hitting cards ordered by a partly reversed batting order](#bug-042--status-rv)
 - (RV) [BUG-041 — Hitting report blank for teams with a space in the name](#bug-041--status-rv)
 - (RV) [BUG-040 — Wrong pitcher credited when the starter isn't named in play-by-play](#bug-040--status-rv)
@@ -59,10 +64,13 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 - (O) [BUG-027 (Enh) — Box-score cross-check (Layer 4) for travel teams](#bug-027-enh--status-o)
 - (O) [BUG-026 (Enh) — Rebuild the whole travel division on single-team runs](#bug-026-enh--status-o)
 - (O) [BUG-025 (Enh) — Drop the GC `TEAM` row from travel rosters](#bug-025-enh--status-o)
-- (O) [BUG-024 (Enh) — Dynamic, percentile-driven archetypes](#bug-024-enh--status-o)
 
 **Resolved or Closed**
 
+- (RV) [BUG-050 (Enh) — Travel divisions by age (9U–12U) instead of Wild / Storm / Mavs](#bug-050-enh--status-rv)
+- (RV) [BUG-047 (Enh) — New seasons ready for the Bonus Features from the terminal](#bug-047-enh--status-rv)
+- (RV) [BUG-044 (Enh) — Remove the montage option from the video clip downloader](#bug-044-enh--status-rv)
+- (RV) [BUG-024 (Enh) — Dynamic, percentile-driven archetypes](#bug-024-enh--status-rv)
 - (RV) [BUG-043 (Enh) — Download GameChanger video clips and build a montage](#bug-043-enh--status-rv)
 - (RV) [BUG-039 (Enh) — Game lines show which quality pitchers are available](#bug-039-enh--status-rv)
 - (RV) [BUG-038 (Enh) — Analysis command asks which division](#bug-038-enh--status-rv)
@@ -127,10 +135,12 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Open
 
+- (O) [BUG-049 — Team folder not renamed when only capitalization differs](#bug-049--status-o)
 - (O) [BUG-029 — Pitching cards undercount 0-BB innings across games](#bug-029--status-o)
 
 ### Resolved or Closed
 
+- (RV) [BUG-051](#bug-051--status-rv) · [BUG-048](#bug-048--status-rv) · [BUG-046](#bug-046--status-rv) · [BUG-045](#bug-045--status-rv)
 - (RV) [BUG-042](#bug-042--status-rv) · [BUG-041](#bug-041--status-rv) · [BUG-040](#bug-040--status-rv) · [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
   [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
   [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
@@ -175,66 +185,321 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Detailed Entries
 
-## BUG-043 (Enh) · [STATUS: RV]
+## BUG-051 · [STATUS: RV]
 
-**Title:** Download GameChanger video clips and build a montage
+**Title:** Team with a "/" in its GameChanger name gets an empty report
 
-**Severity:** Enh
+**Severity:** Medium
 
-**Reported Date:** 2026-11-04
+**Reported Date:** 2026-11-12
 
-**Release Found:** N/A — Enhancement
+**Release Found:** v5.1.0
 
 **Found By:** mesau (Matt Esau)
 
-**Resolved Date:** 2026-11-04
+**Resolved Date:** 2026-11-12
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.4.0 (commit 711bf12, tag pushed 2026-11-04)
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
 
 ### Observable Problem
 
-GC video clips can only be watched one at a time in the web app; there's no way to save them or
-put several into one highlight video.
+`ON Deck Mennitt Kirkpatrick 12U` had 9 games downloaded but "No PAs found" and no report. GC calls the
+team `On Deck - Mennitt/kirkpatrick 12U`; a folder name can't contain `/`, so the folder can never match.
 
 ### Expected Behavior
 
-Paste a game's clip-gallery link (or individual clip share links) and get every clip saved as an
-.mp4 — optionally only one player's clips — and joined into one montage.
+A team whose folder differs from GC's name only by case, spaces or punctuation still gets its report.
+
+### Steps to Reproduce
+
+1. Add the team (folder `ON Deck Mennitt Kirkpatrick 12U`). 2. Scrape + `gen_hitting --division 12U`.
+3. Expected a report; actual "No PAs found" and a "could not auto-rename" warning.
 
 ### Root Cause Analysis (RCA)
 
-N/A — Enhancement
+The hitting and pitching parsers matched the inning-header team name to the folder name with a
+case-insensitive exact compare. The folder auto-rename (BUG-023) can't help because `/` is not a valid
+folder character.
 
 ### Fix Explanation (Exec Level — No Code)
 
-New `gc_clips.sh` command. Give it a game's video gallery link and it saves every clip of that game
-(or just one kid's with `--player`); clip share links also work. Clips go to
-`~/Movies/GameChanger Clips`, named by teams, inning, play, player and date/time; clips already saved
-are skipped, `--list` previews, and `--montage` joins them in game order into one video.
+Scout now matches team names ignoring capitalization, spaces and punctuation, so these teams build normally.
 
 ### Fix Details (Technical)
 
-<span style="color:red">`dev/src/scout/video/gc_clips.py`</span> (new), run via `run_with_session`:
-game links → `GameGallery` reuses the gallery page's `POST /clips/search/v2` auth headers to page
-through all clips, then `GET /clips/<id>/playback-data?kind=player` per clip (in-page `fetch`, 401 →
-reload + retry). Share links → capture `/clips/<id>/standalone-playback-data?shareToken=…`
-(tokenless → 400 with a hint). Playback = HLS `.m3u8` on `vod-archive.gc.com` + CloudFront signed
-cookies (~24 h). `/players`, `/teams/<id>`, `/events/<id>` responses supply names (`record_lookup`).
-After Chrome closes, ffmpeg remuxes clips 4 at a time (`-c copy`). Downloaded clips are tracked in
-`<out>/.gc_clips.json` (clip ID → file). Montage: per-clip parallel re-encode to 1280×720/30 fps +
-48 kHz stereo (silent clips get a silent track), then concat demuxer `-c copy`.
-<span style="color:red">`launchers/gc_clips.sh`</span>,
-<span style="color:red">`dev/tests/test_gc_clips.py`</span> (new).
+<span style="color:red">`dev/src/scout/hitting/gen_hitting.py`</span> `parse_game_for_team()` and
+<span style="color:red">`dev/src/scout/pitching/gen_pitching.py`</span> `parse_game_for_pitching_team()` compare
+`season_config.team_name_key()` values (the key the folder reconcile already uses).
 
 ### Verification
 
-Real share link → `Expos-Esau_vs_Blue-Jays-Patel_T1_Single_Cole-Plunkett_20261103-180054.mp4`
-(720p H.264/AAC, 60 s); re-run skips it, `--force` replaces the same file. Game link `--list` → all
-137 clips named. `--player harper --montage` → 26 clips downloaded in ~20 s, 25.6 min 720p30 montage
-in 51 s; re-run skips all 26. Montage with a silent 1080p60 test clip → 720p30 with audio.
-Suite 49/49 OK.
+Suite 81/81 OK. Fall 12U: 9/9 hitting + pitching reports (was 8, ON Deck 0 PAs). Majors 6/6 and Minors
+11/11 unchanged.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+The "could not auto-rename" warning for this team remains (the folder can't take a `/`), as do the
+case-only warnings tracked in BUG-049; both are cosmetic now. Release Found is v5.1.0, when the folder
+reconcile and its warning were added; the exact-match parser is older.
+
+---
+
+## BUG-049 · [STATUS: O]
+
+**Title:** Team folder not renamed when only capitalization differs
+
+**Severity:** Low
+
+**Reported Date:** 2026-11-11
+
+**Release Found:** v5.1.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** N/A — Open
+
+**Resolved By:** N/A — Open
+
+**Integrated Release:** N/A — Open
+
+### Observable Problem
+
+Every build warns "Team name mismatch: folder 'Mara Cobras 9U' vs GC header 'MARA COBRAS 9U' — could not
+auto-rename (target exists or invalid name)" (same for `Mara Outlaws 10U` / `MARA Outlaws 10U`).
+
+### Expected Behavior
+
+Case-only differences are renamed automatically like other punctuation/spacing differences (BUG-023).
+
+### Steps to Reproduce
+
+1. `gen_pitching --division Mavs` (Fall 2026). 2. Read the warnings.
+2. Expected folder + YAML renamed; actual warning every run.
+
+### Root Cause Analysis (RCA)
+
+`season_config.reconcile_team_folders()` refuses to rename when `target.exists()`. On macOS's
+case-insensitive file system the differently cased target "exists" (it is the same folder).
+
+### Fix Explanation (Exec Level — No Code)
+
+Not fixed yet. Reports still build correctly; only the warning repeats.
+
+### Workaround
+
+Rename the folder and the team's `name:` in the season YAML by hand.
+
+### Eng Note
+
+**Proposed fix:** when `target` resolves to the same folder (`samefile`), rename via a temporary name.
+
+---
+
+## BUG-048 · [STATUS: RV]
+
+**Title:** Pitching cards: travel "GS" was games pitched; league GS/IP not official
+
+**Severity:** Medium
+
+**Reported Date:** 2026-11-11
+
+**Release Found:** v2.5.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-11
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+
+### Observable Problem
+
+Pitching cards showed "GS" higher than IP (e.g. GS 6, IP 5.1), which reads as impossible. On travel
+cards (Wild, Mavs) GS was really every game the kid pitched in: Maddox B (Dilworth) showed GS 6 with 0
+real starts. League cards also showed slightly low IP (Jacob B, Rays: 0.0 vs. 0.1 official).
+
+### Expected Behavior
+
+Cards show games pitched, games started and innings separately, using official box-score numbers where
+Scout has them.
+
+### Steps to Reproduce
+
+1. Build Mavs pitching reports. 2. Compare a reliever's "GS" with the box scores.
+2. Expected 0 starts; actual GS = games pitched.
+
+### Root Cause Analysis (RCA)
+
+`run_travel_division()` labeled the count of games a pitcher appeared in as "GS".
+`run_league_division()` counted a start as "faced a batter in the 1st inning" (a 1st-inning reliever
+counted; unnamed starters missed) and took IP from play-by-play outs, while the official box-score
+pitching tables (`box_verify.json`, since v5.3.0) were unused by the cards.
+
+### Fix Explanation (Exec Level — No Code)
+
+Every card now shows `GP` (games pitched), `GS` (games started) and `IP`. League cards use the official
+box-score numbers; travel cards count a start only when the kid faced a batter in the 1st inning. GS
+higher than IP can still be real: the official Fall box scores have 7 Minors and 4 Majors pitchers
+who started more games than they have innings (starter pulled early).
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/pitching/gen_pitching.py`</span>: PAs carry `game`; new
+`appearances()` (GP/GS from play-by-play), `box_usage()` (official GP/GS/outs via
+`pitching_usage.box_pitching()` + `roster_key()`), `apply_official_innings()` (IP, K/9, BB/9 from box
+outs, applied before percentiles); `run_league_division()` uses box values with play-by-play fallback;
+`run_travel_division()` uses `appearances()` (drops the per-pitcher re-parse of every game);
+`draw_pitcher_card()` header `GP / GS / IP`. New
+<span style="color:red">`dev/tests/test_pitching_cards.py`</span> (5 tests).
+
+### Verification
+
+Suite 62/62 OK. Fall 2026 dry run (PDF writer stubbed, no files written): 26 teams, 206 cards, no card
+with GS > GP; e.g. Rays Grayson L. GP 9 / GS 5 / IP 10.2, Mara Outlaws Cash B GP 11 / GS 8 / IP 10.2.
+League box matches: Minors 78/81, Majors 42/43 pitchers.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+The 4 unmatched league pitchers share initials with a teammate (`T L`, `C C`, `C B`) or have a GC name
+variant (`D Benu`); play-by-play can't split them (KC-004), so their cards keep play-by-play GP/GS/IP.
+Release Found is v2.5.0 (Pitching Savant v0.1.0, commit cdc4f02), where the travel GS count was added.
+
+---
+
+## BUG-046 · [STATUS: RV]
+
+**Title:** Empty spray-chart zones shaded like hot zones
+
+**Severity:** Low
+
+**Reported Date:** 2026-11-11
+
+**Release Found:** v3.0.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-11
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+
+### Observable Problem
+
+On hitting cards for batters who only hit to a few zones, a zone with no balls in play could be shaded
+dark green with white text, the same as a zone they hit to often.
+
+### Expected Behavior
+
+Zones with no balls in play get the lightest shade and dark text.
+
+### Steps to Reproduce
+
+1. Build a hitting report for a team with a batter who has balls in play to only 1–2 zones.
+2. Look at that card's spray chart. 3. Expected empty zones light; actual some empty zones dark.
+
+### Root Cause Analysis (RCA)
+
+Zone shading comes from each zone's rank by ball-in-play count. Zones with 0 still get a rank, so with
+only a couple of zones hit, a 0-count zone could land in the top-3 ranks (dark fill, white text).
+
+### Fix Explanation (Exec Level — No Code)
+
+Empty zones are now always drawn in the lightest color, so the chart only highlights where the batter
+actually hits the ball.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/hitting/gen_hitting.py`</span> `draw_field_spray_chart()`:
+`_zfill()` returns the lightest `_HEAT_GREENS` shade for a 0-count zone; `_ztxt()` uses white text only
+for non-empty top-3 zones.
+
+### Verification
+
+Suite 49/49 OK. Change reviewed and approved by mesau (2026-11-11).
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Release Found is v3.0.0, the earliest tagged layout containing the rank-based shading in this repo's
+history; the logic may predate it.
+
+---
+
+## BUG-045 · [STATUS: RV]
+
+**Title:** Tournament futures rest pitchers longer than the rollback rule allows
+
+**Severity:** Medium
+
+**Reported Date:** 2026-11-11
+
+**Release Found:** v5.3.0
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-11
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+
+### Observable Problem
+
+The futures board showed some pitchers unavailable longer than Little League rules require, and a
+pitcher who threw in two games on one day had both counts added together.
+
+### Expected Behavior
+
+Rest comes from the rolled-back count (box-score pitches minus the pitches thrown to his last batter).
+Two games on one day each stand alone and count as pitching back-to-back days.
+
+### Steps to Reproduce
+
+1. Build Tournament Futures for a division where a pitcher crossed a rest threshold during his last
+   batter (e.g. 19 pitches before the batter, 26 after). 2. Read his game-line note.
+2. Expected available next day (19 → 0 rest days); actual 1 day of rest (26 pitches).
+
+### Root Cause Analysis (RCA)
+
+`tourney_odds.availability()` used the full box-score pitch count per outing and summed outings by
+date; `record_outing()` added same-day pitches together. Neither applied the rollback to the start of
+the last batter.
+
+### Fix Explanation (Exec Level — No Code)
+
+Pitcher availability on the futures board now follows the Little League rollback rule. Game-line notes
+show both counts, e.g. `41 pitches (35 rollback) 10/30 → back 11/1`. Played games only; simulated games
+are unchanged.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/analysis_tools/pitching_usage.py`</span>: `new_app()` tracks
+`last_bf_pitches` (set in `_credit()`; `_split_shared()` keeps it only for the last kid); new
+`rollback_pitches()`. <span style="color:red">`dev/src/scout/analysis_tools/tourney_odds.py`</span>:
+`availability()` records each outing separately with the rollback count; `record_outing()` takes
+`thrown` for notes, no longer sums same-day pitches, and treats a same-day second outing as a
+consecutive day; `qp_status()` notes show thrown vs. rollback and "pitched twice"; PDF rules text
+updated. <span style="color:red">`dev/tests/test_analysis_tools.py`</span>: 3 tests (same-day outings,
+rollback sets rest, end-to-end rollback from a game file + box score).
+
+### Verification
+
+Suite 49/49 OK. Futures PDF not rebuilt (Fall 2026 season complete).
 
 ### Workaround
 
@@ -272,7 +537,7 @@ Cards follow the team's typical batting order.
 ### Steps to Reproduce
 
 1. Build any league hitting report. 2. Compare the card order with the box-score lineups.
-3. Expected the usual order; actual a shuffled order.
+2. Expected the usual order; actual a shuffled order.
 
 ### Root Cause Analysis (RCA)
 
@@ -1771,12 +2036,12 @@ BUG-001–004 were fixed before the repo existed; the fixes first appear in the 
 ### Open
 
 - (O) [BUG-028 (Enh)](#bug-028-enh--status-o) · [BUG-027 (Enh)](#bug-027-enh--status-o) ·
-  [BUG-026 (Enh)](#bug-026-enh--status-o) · [BUG-025 (Enh)](#bug-025-enh--status-o) ·
-  [BUG-024 (Enh)](#bug-024-enh--status-o)
+  [BUG-026 (Enh)](#bug-026-enh--status-o) · [BUG-025 (Enh)](#bug-025-enh--status-o)
 
 ### Resolved or Closed
 
-- (RV) [BUG-039 (Enh)](#bug-039-enh--status-rv) · [BUG-038 (Enh)](#bug-038-enh--status-rv) · [BUG-037 (Enh)](#bug-037-enh--status-rv) ·
+- (RV) [BUG-050 (Enh)](#bug-050-enh--status-rv) · [BUG-047 (Enh)](#bug-047-enh--status-rv) · [BUG-044 (Enh)](#bug-044-enh--status-rv) · [BUG-024 (Enh)](#bug-024-enh--status-rv)
+- (RV) [BUG-043 (Enh)](#bug-043-enh--status-rv) · [BUG-039 (Enh)](#bug-039-enh--status-rv) · [BUG-038 (Enh)](#bug-038-enh--status-rv) · [BUG-037 (Enh)](#bug-037-enh--status-rv) ·
   [BUG-035 (Enh)](#bug-035-enh--status-rv) · [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
   [BUG-030 (Enh)](#bug-030-enh--status-rv) · [BUG-023 (Enh)](#bug-023-enh--status-rv)
 
@@ -1785,6 +2050,278 @@ Release Found `N/A — Enhancement`, RCA `N/A — Enhancement` when there is no 
 Integrated Release `N/A — Open` until shipped. -->
 
 ### Detailed Entries
+
+## BUG-050 (Enh) · [STATUS: RV]
+
+**Title:** Travel divisions by age (9U–12U) instead of Wild / Storm / Mavs
+
+**Severity:** Enh
+
+**Reported Date:** 2026-11-12
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-12
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+
+### Observable Problem
+
+Travel teams were grouped by our team (Wild, Storm, Mavs), so teams of other ages had no home and were
+parked in whichever division was handy (e.g. 9U and 11U teams in Mavs, 12U teams in Spring Wild). Their
+LG RANK, pitching percentiles and hitter-type ages mixed age groups.
+
+### Expected Behavior
+
+One travel division per age; each team goes where the age in its name says.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Travel divisions are now 9U, 10U, 11U and 12U in every season (including 2026 Spring and Fall, whose team
+folders were moved on Drive; no team was renamed). Adding a team suggests the division from its name
+(ENTER to accept) and asks when the name has no age. New seasons get all four automatically.
+
+### Fix Details (Technical)
+
+<span style="color:red">`config/season_template.yaml`</span>: Wild/Storm → `9U`–`12U` (`age:` = name,
+`label_suffix: Travel <age>`). <span style="color:red">`config/2026-spring.yaml`</span>,
+<span style="color:red">`config/2026-Fall.yaml`</span>: rewritten with age divisions (team entries incl.
+`exclude_games` carried over; Spring `Tega CAY Titans 11U` → folder spelling `Tega Cay Titans 11U`).
+<span style="color:red">`dev/src/scout/season_config.py`</span>: `team_name_age()`; `suggest_ages()` keeps
+age-named divisions' age; `list_divisions()` sorts travel divisions by age.
+<span style="color:red">`dev/src/scout/orchestrator/run_menu.py`</span>: add-team defaults the division to the
+name age; Create Season fills 9U–12U ages automatically.
+<span style="color:red">`dev/src/scout/hitting/build_archetype_baselines.py`</span>: uses `team_name_age()`;
+drops ignore-list entries for teams no longer present.
+<span style="color:red">`dev/src/scout/web/server.py`</span>: fallback division order includes 9U–12U.
+One-off migration: `dev/tmp/migrate_age_divisions.py` (gitignored; dry run, then `--apply`).
+
+### Verification
+
+Suite 81/81 OK. Migration moved 31 Spring and 10 Fall team folders with no collisions; Mara Bulls 8U 8U
+(likely a mislabeled team) and Sample_Opponent (test data) archived to
+`_archive/age_division_migration_2026-11-12/` with the old README.txt files; empty Wild/Storm/Mavs folders
+removed. Rebuilt hitting + pitching for every travel division, both seasons, no errors: Spring 9U 14,
+10U 4, 11U 6, 12U 3; Fall 9U 2, 10U 5 (South Park Spartans has no games yet), 11U 1, 12U 1. The 3 Spring
+9U teams without reports (Carolina Locos Black 9U, MILITIA 9U, Weddington WAR Dawgz) had 0 games before
+the move too. Baselines rebuilt: travel 9U 185, 10U 101, 11U 118, 12U 45 (uses 11U).
+
+### Workaround
+
+None.
+
+### Eng Note
+
+**Decisions (mesau, 2026-11-12):** names `9U`–`12U`; Spring 2026 migrated too; template always creates all
+four; names without an age → ask (migration used the old division's age: Weddington Stormtroopers and
+Weddington WAR Dawgz → 9U); Wild/Storm/Mavs names dropped. Web UI hint texts still mention Wild/Storm
+(terminal-only scope). The `tournament_team` divisions feature still exists but is unused.
+
+---
+
+## BUG-047 (Enh) · [STATUS: RV]
+
+**Title:** New seasons ready for the Bonus Features from the terminal
+
+**Severity:** Enh
+
+**Reported Date:** 2026-11-11
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-11
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+
+### Observable Problem
+
+A new season had no way to take in draft results from the terminal (the CSV had to be copied and the
+YAML edited by hand), and the Bonus Features only ran against the active season.
+
+### Expected Behavior
+
+Creating a season in the terminal asks for each division's draft results, and each Bonus Feature asks
+which season it's running for.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+Create Season (terminal) now asks "Do you have the Majors/Minors draft results CSV?" and takes the file
+(drag it into Terminal); Scout copies it into the season folder. Draft results can also be added later
+from Manage seasons → Add draft results. Running the Bonus Features asks "Which season are you running
+this for?" (ENTER = active season), or take `--season`.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/season_config.py`</span>: `set_draft_results()` (validates the
+CSV layout, copies to `<Div>/Reports/`, sets `csv:`).
+<span style="color:red">`dev/src/scout/orchestrator/run_menu.py`</span>: Create Season wizard asks for
+draft CSVs; Manage seasons → [3] `_add_draft_wizard()`; `_ask_draft_file()`, `_clean_path()`; next steps
+point at the Bonus Features. Create Season also offers to carry over the previous season's tournament
+divisions and asks every division's `age:` (`_ask_divisions_and_ages()`; defaults from
+`season_config.suggest_ages()` — travel ages +1 for a fall season; `create_season(ages=…)`). <span style="color:red">`dev/src/scout/analysis_tools/games.py`</span>:
+`choose_season()` prompts / validates `--season` and re-execs the module with `SCOUT_SEASON` when the pick
+isn't the loaded season (paths are fixed at import); `rerun_commands()` includes `--season`.
+`--season` added to <span style="color:red">`run_all.py`</span>,
+<span style="color:red">`pitching_usage.py`</span>, <span style="color:red">`tourney_odds.py`</span>,
+<span style="color:red">`draft_roi.py`</span>; <span style="color:red">`launchers/run_analysis.sh`</span>
+usage. New <span style="color:red">`dev/tests/test_season_setup.py`</span> (12 tests).
+
+### Verification
+
+Suite 57/57 OK (79/79 after the age question). `tourney_odds --season 2026-spring --division Minors` from the Fall-active repo re-ran
+under Spring and stopped at "No postseason bracket configured for Minors in config/2026-spring.yaml"
+(expected — no files written). `suggest_ages("2027-Spring")` → Wild 12U, Mavs 10U (carried over);
+`"2027-Fall"` → Wild 13U, Mavs 11U.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+Terminal only by request; the web UI's Create Season form doesn't ask for draft results. The playoff
+bracket (`postseason:`) stays a hand edit once the regular season ends.
+
+---
+
+## BUG-044 (Enh) · [STATUS: RV]
+
+**Title:** Remove the montage option from the video clip downloader
+
+**Severity:** Enh
+
+**Reported Date:** 2026-11-11
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-11
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
+
+### Observable Problem
+
+The video clip downloader carries a `--montage` option (join clips into one video) that isn't needed.
+
+### Expected Behavior
+
+The downloader only saves clips; it's simpler to use and maintain.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+The montage option is gone. Downloading whole games, one kid's clips, or shared clips works as before.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/video/gc_clips.py`</span>: removed `--montage`, `build_montage()`,
+`normalize_command()`, `_has_audio()`, the `MONTAGE_*` / `_SILENCE` constants and the `ffprobe`
+prerequisite check (only the montage used it). <span style="color:red">`launchers/gc_clips.sh`</span>
+usage text updated. README (now under Bonus Features) and AGENTS.md updated.
+
+### Verification
+
+`gc_clips --help` no longer lists `--montage`; `test_gc_clips.py` 12/12 OK.
+
+### Workaround
+
+None.
+
+---
+
+## BUG-043 (Enh) · [STATUS: RV]
+
+**Title:** Download GameChanger video clips and build a montage
+
+**Severity:** Enh
+
+**Reported Date:** 2026-11-04
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-04
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.4.0 (commit 711bf12, tag pushed 2026-11-04)
+
+### Observable Problem
+
+GC video clips can only be watched one at a time in the web app; there's no way to save them or
+put several into one highlight video.
+
+### Expected Behavior
+
+Paste a game's clip-gallery link (or individual clip share links) and get every clip saved as an
+.mp4 — optionally only one player's clips — and joined into one montage.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement
+
+### Fix Explanation (Exec Level — No Code)
+
+New `gc_clips.sh` command. Give it a game's video gallery link and it saves every clip of that game
+(or just one kid's with `--player`); clip share links also work. Clips go to
+`~/Movies/GameChanger Clips`, named by teams, inning, play, player and date/time; clips already saved
+are skipped, `--list` previews, and `--montage` joins them in game order into one video.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/video/gc_clips.py`</span> (new), run via `run_with_session`:
+game links → `GameGallery` reuses the gallery page's `POST /clips/search/v2` auth headers to page
+through all clips, then `GET /clips/<id>/playback-data?kind=player` per clip (in-page `fetch`, 401 →
+reload + retry). Share links → capture `/clips/<id>/standalone-playback-data?shareToken=…`
+(tokenless → 400 with a hint). Playback = HLS `.m3u8` on `vod-archive.gc.com` + CloudFront signed
+cookies (~24 h). `/players`, `/teams/<id>`, `/events/<id>` responses supply names (`record_lookup`).
+After Chrome closes, ffmpeg remuxes clips 4 at a time (`-c copy`). Downloaded clips are tracked in
+`<out>/.gc_clips.json` (clip ID → file). Montage: per-clip parallel re-encode to 1280×720/30 fps +
+48 kHz stereo (silent clips get a silent track), then concat demuxer `-c copy`.
+<span style="color:red">`launchers/gc_clips.sh`</span>,
+<span style="color:red">`dev/tests/test_gc_clips.py`</span> (new).
+
+### Verification
+
+Real share link → `Expos-Esau_vs_Blue-Jays-Patel_T1_Single_Cole-Plunkett_20261103-180054.mp4`
+(720p H.264/AAC, 60 s); re-run skips it, `--force` replaces the same file. Game link `--list` → all
+137 clips named. `--player harper --montage` → 26 clips downloaded in ~20 s, 25.6 min 720p30 montage
+in 51 s; re-run skips all 26. Montage with a silent 1080p60 test clip → 720p30 with audio.
+Suite 49/49 OK.
+
+### Workaround
+
+None.
+
+### Eng Note
+
+**Follow-up:** the montage option was removed in [BUG-044 (Enh)](#bug-044-enh--status-rv). Entry moved
+from `## Bugs` to `## Enhancements` (2026-11-11).
+
+---
 
 ## BUG-039 (Enh) · [STATUS: RV]
 
@@ -2387,7 +2924,7 @@ Harmless as-is; play-by-play never names "TEAM".
 
 ---
 
-## BUG-024 (Enh) · [STATUS: O]
+## BUG-024 (Enh) · [STATUS: RV]
 
 **Title:** Dynamic, percentile-driven archetypes
 
@@ -2399,33 +2936,73 @@ Harmless as-is; play-by-play never names "TEAM".
 
 **Found By:** mesau (Matt Esau)
 
-**Resolved Date:** N/A — Open
+**Resolved Date:** 2026-11-11
 
-**Resolved By:** N/A — Open
+**Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** N/A — Open
+**Integrated Release:** v5.5.0 (commit PENDING, tag pushed 2026-11-12)
 
 ### Observable Problem
 
-Archetype labels use fixed cutoffs that don't adapt to each division's distribution.
+Archetype labels used fixed cutoffs that don't adapt to each division's distribution. Measured on
+Spring + Fall 2026 (899 kids, 15+ PA): "Disciplined" went to 58–88% of kids and "Passive" to 3–10%;
+the fixed "whiff% > 50% = Overmatched" rule caught about half of 9U league kids and almost no travel kids.
+Travel labels were ranked only against the kid's own team.
 
 ### Expected Behavior
 
-Cutoffs come from percentiles of the division's own data.
+Labels come from data: each kid ranked against kids his age, with the same frozen definitions every season.
 
 ### Root Cause Analysis (RCA)
 
-N/A — Enhancement.
+N/A — Enhancement. The old `get_archetype()` mixed untraceable fixed cutoffs (FPT 40/70%, whiff 50%,
+OBP−AVG .060) with team- or division-relative tertiles recomputed every run. Youth walk rates are high
+(median 27% in 9U league), so the OBP−AVG rule made nearly everyone "Disciplined".
 
 ### Fix Explanation (Exec Level — No Code)
 
-Not built yet. `stat_analysis.py` already produces the distribution data to drive it.
+Hitter types now compare each kid with kids his age (league and travel separately, by the division's
+`age:`). The cutoffs come from Spring + Fall 2026 and are frozen in `config/archetype_baselines.yaml`,
+whose header explains every definition. Small samples are pulled toward the age-group average for the
+label only; card stats are unchanged. Typical mix: ~42% Contact, 23% Overmatched, 22% Power, 14% Walker;
+Approach ~38% Aggressive / 31% Passive / 31% Disciplined.
+
+### Fix Details (Technical)
+
+New <span style="color:red">`dev/src/scout/hitting/archetypes.py`</span> (rules, shrinkage, percentile
+rank, group fallback) and <span style="color:red">`dev/src/scout/hitting/build_archetype_baselines.py`</span>
+(per-season `--collect` subprocess → split-half repeatability → k = n̄(1−r)/r per stat → group means +
+cutoffs at every 5th percentile → YAML with commented spec; travel kids grouped by team-name age). New
+<span style="color:red">`config/archetype_baselines.yaml`</span>.
+<span style="color:red">`dev/src/scout/hitting/gen_hitting.py`</span>: `get_archetype(b, arch_group)` delegates
+to `archetypes.get_label()`; `_roster_percentiles()` removed; `generate_pdf()`/`draw_card()`/
+`generate_notes_short()` take `arch_group`. <span style="color:red">`dev/src/scout/season_config.py`</span>:
+hitting DIVISIONS carry `archetype_group`; unused `fixed_thresholds` removed (also from
+<span style="color:red">`config/2026-*.yaml`</span> and <span style="color:red">`config/season_template.yaml`</span>,
+which now explains `age:`). Fall 2026 Wild `age:` corrected to 12U, Mavs given 10U. New
+<span style="color:red">`dev/tests/test_archetypes.py`</span> (14 tests). `season_config.list_seasons()` now skips
+non-season YAMLs in `config/` (the baselines file had shown up as a season).
+
+### Verification
+
+Suite 75/75 OK. Split-half check with the final rules + shipped baselines (775 kids with 10+ PA per half):
+Approach labels repeat 46% vs 34% by chance, Result 49% vs 30%; per label Contact 58%, Aggressive 52%,
+Passive 47%, Overmatched 47%, Power 47%, Disciplined 38%, Walker 24%. Rebuilt hitting PDFs: Fall 2026 (26) and Spring 2026 (53), no errors, no
+missing-baseline warnings.
 
 ### Workaround
 
-Static cutoffs (current behavior).
+None.
 
 ### Eng Note
+
+**Design decisions (with mesau, 2026-11-11/12):** labels by division age (league 9U/11U; travel 9U–12U),
+opponents judged against the division's age; baselines group travel kids by the age in their team name
+(division age if none / listed in `ignore_team_name_age`), which grew 12U from 11 to 45 kids and 10U from
+91 to 101; groups need 60+ kids with 15+ PA, else the nearest younger
+group (travel 12U → 11U until there's more 12U data); OF air balls dropped from Overmatched (made it
+20% repeatable) but kept in Power; Walker kept despite low repeatability (walks are mostly
+pitcher-driven at this age). Study scripts in `dev/tmp/archetype_*.py` (gitignored).
 
 Migrated from AGENTS.md To Do #5.
 

@@ -306,7 +306,9 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
         if m_pre:
             teams_in_game.add(m_pre.group(3).strip())
 
-    if pitching_team_key.lower() not in {t.lower() for t in teams_in_game}:
+    # Ignore case/spaces/punctuation: GC names can hold '/' (not allowed in folder names).
+    target = team_name_key(pitching_team_key)
+    if target not in {team_name_key(t) for t in teams_in_game}:
         return {}  # This game doesn't involve our team at all
 
     # Track current state
@@ -329,7 +331,7 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
             cur_inning = int(m.group(2))
             batting_team = m.group(3).strip()
             # We are pitching when the batting team is NOT us
-            in_opponent_at_bat = (batting_team.lower() != pitching_team_key.lower())
+            in_opponent_at_bat = (team_name_key(batting_team) != target)
             cur_outcome = None
             cur_pitch_lines = []
 
@@ -392,6 +394,7 @@ def parse_game_for_pitching_team(filepath, pitching_team_key):
                 "ball_type": bt,
                 "pitch_seq": pc,
                 "inning": cur_inning,
+                "game": os.path.basename(filepath),
             }
 
             # Attribute to current pitcher (carry-forward)
@@ -536,8 +539,44 @@ def compute_pitcher_stats(pitcher_pas_all_games):
         "zero_bb_innings": zero_bb_innings,
         "gb_pct": gb_pct,
         "fb_ld_pct": fb_ld_pct,
-        # Raw counts for Games Started (counted externally)
     }
+
+
+def appearances(pas):
+    """(games pitched, games started) from play-by-play; a start = he faced a batter in the 1st inning."""
+    innings = defaultdict(set)
+    for pa in pas:
+        innings[pa["game"]].add(pa["inning"])
+    return len(innings), sum(1 for inns in innings.values() if 1 in inns)
+
+
+def box_usage(verify_json, rosters):
+    """Official {team: {pitcher key: {gp, gs, outs}}} from box-score pitching (first listed = starter)."""
+    # Imported here: pitching_usage imports this module.
+    from scout.analysis_tools.pitching_usage import box_pitching, roster_key
+    if not verify_json or not os.path.isfile(verify_json):
+        return {}
+    with open(verify_json, encoding="utf-8") as f:
+        verify = json.load(f)
+    usage = defaultdict(lambda: defaultdict(lambda: {"gp": 0, "gs": 0, "outs": 0}))
+    for teams in box_pitching(verify).values():
+        for team, pitchers in teams.items():
+            for i, bp in enumerate(pitchers):
+                u = usage[team][roster_key(rosters, team, bp["name"], bp.get("jersey"))]
+                u["gp"] += 1
+                u["gs"] += i == 0
+                u["outs"] += bp.get("outs") or 0
+    return usage
+
+
+def apply_official_innings(stats, outs):
+    """Use the box score's outs for IP; K/9 and BB/9 follow."""
+    ip = outs / 3.0
+    stats.update(
+        total_outs=outs, ip_exact=ip, ip_display=f"{outs // 3}.{outs % 3}",
+        k_per_9=stats["strikeouts"] * 9 / ip if ip else None,
+        bb_per_9=stats["walks"] * 9 / ip if ip else None,
+    )
 
 
 # ===========================================================================
@@ -812,7 +851,7 @@ def draw_pitcher_card(c, card_x, card_y, pitcher_info):
     Args:
         c:            ReportLab canvas.
         card_x, card_y: Bottom-left corner of card.
-        pitcher_info: dict with keys: name, jersey, team, gs, ip, stats (list of row dicts)
+        pitcher_info: dict with keys: name, jersey, team, gp, gs, ip, stats (list of row dicts)
     """
     # Card background
     c.setFillColor(COL_CARD_BG)
@@ -836,7 +875,8 @@ def draw_pitcher_card(c, card_x, card_y, pitcher_info):
     c.drawString(card_x + PADDING, card_y + CARD_H - HEADER_H + HEADER_H * 0.55, name_str)
 
     c.setFont(FONT_NAME, FONT_SIZE_SUBHDR)
-    sub_str = f"{pitcher_info['team']}   GS: {pitcher_info['gs']}   IP: {pitcher_info['ip']}"
+    sub_str = (f"{pitcher_info['team']}   GP: {pitcher_info['gp']}   GS: {pitcher_info['gs']}"
+               f"   IP: {pitcher_info['ip']}")
     c.drawString(card_x + PADDING, card_y + CARD_H - HEADER_H + HEADER_H * 0.15, sub_str)
 
     # Axis labels
@@ -1030,8 +1070,6 @@ def run_league_division(division_name, team_filter=None, verbose=False):
     # For each team, find all games where they are pitching
     all_pitcher_stats = {}  # {f"{team_key}|{pitcher_initials}": stats}
     team_pitcher_map = defaultdict(lambda: defaultdict(list))  # {team_key: {pitcher: [PAs]}}
-    # Track per-game PAs so we can compute GS (games where pitcher threw inning 1)
-    team_pitcher_games = defaultdict(lambda: defaultdict(list))  # {team_key: {pitcher: [per_game_pas_list]}}
 
     for team_name, coach_last in teams:
         team_key = f"{team_name}-{coach_last}"
@@ -1044,14 +1082,21 @@ def run_league_division(division_name, team_filter=None, verbose=False):
                 if pitcher == "UNKNOWN":
                     continue
                 team_pitcher_map[team_key][pitcher].extend(pas)
-                team_pitcher_games[team_key][pitcher].append(pas)
+
+    # Official games/starts/innings from the box scores; play-by-play when a pitcher isn't there.
+    official = box_usage(div_cfg.get("verify_json"), rosters)
 
     # Compute stats for every pitcher in the division
     for team_key, pitchers in team_pitcher_map.items():
         for pitcher, pas in pitchers.items():
             stats = compute_pitcher_stats(pas)
-            if stats:
-                all_pitcher_stats[f"{team_key}|{pitcher}"] = stats
+            if not stats:
+                continue
+            box = official.get(team_key, {}).get(pitcher)
+            if box:
+                apply_official_innings(stats, box["outs"])
+            stats["gp"], stats["gs"] = (box["gp"], box["gs"]) if box else appearances(pas)
+            all_pitcher_stats[f"{team_key}|{pitcher}"] = stats
 
     logger.info(f"  {division_name}: {len(all_pitcher_stats)} pitchers found across all teams")
 
@@ -1075,7 +1120,7 @@ def run_league_division(division_name, team_filter=None, verbose=False):
         cards = []
         for pitcher, pas in sorted(
             pitchers_for_team.items(),
-            key=lambda kv: compute_pitcher_stats(kv[1])["ip_exact"] if compute_pitcher_stats(kv[1]) else 0,
+            key=lambda kv: all_pitcher_stats.get(f"{team_key}|{kv[0]}", {}).get("ip_exact", 0),
             reverse=True
         ):
             full_key = f"{team_key}|{pitcher}"
@@ -1094,18 +1139,12 @@ def run_league_division(division_name, team_filter=None, verbose=False):
                 display_name = pitcher  # fallback to initials
             jersey = ""  # already embedded in display_name
 
-            # GS = Games Started: count games where this pitcher had a PA in
-            # inning 1 (meaning they were on the mound from the start).
-            gs = 0
-            for game_pas in team_pitcher_games[team_key][pitcher]:
-                if any(pa["inning"] == 1 for pa in game_pas):
-                    gs += 1
-
             cards.append({
                 "name": display_name,
                 "jersey": jersey,
                 "team": team_key,
-                "gs": gs,
+                "gp": stats["gp"],
+                "gs": stats["gs"],
                 "ip": stats["ip_display"],
                 "stats": stat_rows,
             })
@@ -1214,10 +1253,6 @@ def run_travel_division(division_name, team_filter=None, verbose=False):
         team_dir = os.path.join(base_dir, team_name) if base_dir else ""
         roster_path = os.path.join(team_dir, "roster.txt")
         roster = load_roster_txt(roster_path)
-        games_dir = os.path.join(team_dir, "Games")
-        if not os.path.isdir(games_dir):
-            games_dir = team_dir
-        game_files = find_game_files(games_dir)
 
         cards = []
         for pitcher, pas in sorted(
@@ -1236,16 +1271,13 @@ def run_travel_division(division_name, team_filter=None, verbose=False):
             if pitcher in roster:
                 jersey = f"#{roster[pitcher]['jersey']}" if roster[pitcher].get("jersey") else ""
 
-            # GS estimate
-            gs = sum(
-                1 for fpath in game_files
-                if pitcher in parse_game_for_pitching_team(fpath, team_name)
-            )
+            gp, gs = appearances(pas)
 
             cards.append({
                 "name": pitcher,
                 "jersey": jersey,
                 "team": team_name,
+                "gp": gp,
                 "gs": gs,
                 "ip": stats["ip_display"],
                 "stats": stat_rows,

@@ -1,22 +1,54 @@
 """Shared game-level data for the analysis tools: runs per half-inning, final scores, dates, postseason config."""
 
 import json
+import os
 import re
+import sys
 from collections import defaultdict
 from datetime import date
 from functools import lru_cache
 
 from scout.analysis_tools import pitching_usage as mur
-from scout.season_config import SEASON_DIR, load_season_yaml
+from scout.season_config import SEASON_DIR, SEASON_ID, list_seasons, load_season_yaml
 
 SCORE_RE = re.compile(r"([A-Z0-9\-]{2,5})\s+(\d+)\s+-\s+([A-Z0-9\-]{2,5})\s+(\d+)")
 MONTHS = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
 
 
+def choose_season(module, requested=None):
+    """Ask which season to run (ENTER = the loaded one) and re-run `module` under it if it differs.
+
+    Season paths are fixed at import (season_config), so another season needs a fresh process with
+    SCOUT_SEASON set; `--season` is appended so the re-run doesn't ask again.
+    """
+    seasons = [s["id"] for s in list_seasons()]
+    season = requested
+    if season is None:
+        if len(seasons) < 2 or not sys.stdin.isatty():
+            return SEASON_ID
+        print("\nWhich season are you running this for?")
+        for i, sid in enumerate(seasons, 1):
+            print(f"  [{i}] {sid}{'  ← active' if sid == SEASON_ID else ''}")
+        while season is None:
+            choice = input(f"Enter number (ENTER = {SEASON_ID}): ").strip()
+            if not choice:
+                season = SEASON_ID
+            elif choice.isdigit() and 1 <= int(choice) <= len(seasons):
+                season = seasons[int(choice) - 1]
+            else:
+                print(f"  Please enter 1–{len(seasons)}.")
+    if season not in seasons:
+        raise SystemExit(f"Unknown season '{season}' (one of: {', '.join(seasons)})")
+    if season != SEASON_ID:
+        argv = [sys.executable, "-m", module, *sys.argv[1:], "--season", season]
+        os.execve(sys.executable, argv, {**os.environ, "SCOUT_SEASON": season})
+    return season
+
+
 def rerun_commands(division):
     """The one command (plus setup) that refreshes every analysis report; printed in each output."""
     return ["cd ~/Documents/VSCode/Personal/Scout", "source venv/bin/activate",
-            f"python -m scout.analysis_tools.run_all --division {division}"]
+            f"python -m scout.analysis_tools.run_all --season {SEASON_ID} --division {division}"]
 
 
 @lru_cache(maxsize=None)

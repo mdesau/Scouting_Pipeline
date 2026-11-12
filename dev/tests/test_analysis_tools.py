@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scout.analysis_tools import draft_roi, tourney_odds
 from scout.analysis_tools import games as gm
+from scout.analysis_tools import pitching_usage as mur
 
 
 class DraftOrderTests(unittest.TestCase):
@@ -53,11 +54,39 @@ class TourneyRuleTests(unittest.TestCase):
         self.assertFalse(tourney_odds.eligible(avail, k, date(2026, 10, 28)))
         self.assertTrue(tourney_odds.eligible(avail, k, date(2026, 10, 29)))
 
-    def test_same_day_pitches_add_up(self):
+    def test_same_day_outings_count_as_back_to_back_days(self):
         avail, k, d = {}, ("T", "P"), date(2026, 10, 26)
         tourney_odds.record_outing(avail, k, d, 15)
-        tourney_odds.record_outing(avail, k, d, 15)  # 30 that day -> 1 day rest
+        tourney_odds.record_outing(avail, k, d, 15)  # not summed; two outings = 2 straight days
         self.assertFalse(tourney_odds.eligible(avail, k, date(2026, 10, 27)))
+        self.assertTrue(tourney_odds.eligible(avail, k, date(2026, 10, 28)))
+
+    def test_rollback_count_sets_rest(self):
+        avail, k = {}, ("T", "P")
+        tourney_odds.record_outing(avail, k, date(2026, 10, 26), 19, 26)  # started last batter at 19
+        self.assertTrue(tourney_odds.eligible(avail, k, date(2026, 10, 27)))
+
+    def test_availability_rolls_back_to_last_batter(self):
+        game = ("GAME: Oct05 | https://web.gc.com/x/schedule/11111111-2222-3333-4444-555555555555/plays\n\n"
+                "===Top 1st - Away===\n"
+                "Strikeout | 1 Out | Ball 1, Strike 1 looking, Strike 2 looking, Strike 3 looking.\n"
+                "A C strikes out looking, H P pitching.\n"
+                "Walk | 1 Out | Ball 1, Ball 2, Strike 1 looking, Ball 3, Ball 4.\n"
+                "A D walks, H P pitching.\n"
+                "===Bottom 1st - Home===\n"
+                "Walk | 0 Outs | Ball 1, Ball 2, Ball 3, Ball 4.\n"
+                "H C walks, A P pitching.\n")
+        gid = "11111111-2222-3333-4444-555555555555"
+        box = {gid: {"Home": [{"name": "Hank P", "jersey": "1", "pitches": 25, "strikes": 12,
+                               "bf": 2, "outs": 1}]}}
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "Oct05-Away_vs_Home.txt").write_text(game, encoding="utf-8")
+            games = gm.load_games(Path(d), {"start": date(2026, 10, 22)})
+            apps = mur.analyze(Path(d), box)[0]
+        self.assertEqual(mur.rollback_pitches(apps[("Home", "H P", gid)]), 20)  # 25 - 5 to last batter
+        avail = tourney_odds.availability(apps, games, date(2026, 10, 5))
+        self.assertEqual(avail[("Home", "H P")][3:5], (20, 25))
+        self.assertTrue(tourney_odds.eligible(avail, ("Home", "H P"), date(2026, 10, 6)))
 
     def test_american_odds(self):
         self.assertEqual(tourney_odds.american(0.5), "-100")

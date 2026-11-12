@@ -42,10 +42,10 @@ HOW "ADD NEW TEAM" WORKS
   1. User pastes a GC schedule URL.
   2. Script parses team_id and slug from the URL.
   3. Script suggests a folder name (derived from slug); user confirms or edits.
-  4. User picks Wild or Storm.
-  5. Script inserts one line into DIVISIONS in scrape_gc_playbyplay.py and
-     scrape_gc_boxscores.py (both files updated atomically).
-  6. Script creates Wild/<TeamName>/Games/ or Storm/<TeamName>/Games/.
+  4. Division defaults to the age in the team name (9U–12U); user confirms,
+     or picks one when the name has no age.
+  5. Team is added to config/<season>.yaml (add_team_to_yaml).
+  6. Script creates <Age>/<TeamName>/Games/.
   7. User is reminded to verify the folder name after the first game is scraped
      (folder name MUST match GC's inning header spelling exactly).
 """
@@ -67,6 +67,7 @@ from scout.season_config import (
     SCOUT_ROOT, SEASON_DIR, SEASON_ID, LOGS_DIR, SESSIONS_DIR,
     build_scraper_divisions, add_team_to_yaml,
     list_seasons, set_active_season, create_season,
+    load_season_yaml, set_draft_results, suggest_ages, team_name_age,
 )
 
 # ── Paths ───────────────────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "5.1.0"
+__version__ = "5.5.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
@@ -795,9 +796,23 @@ def add_new_team():
                       default=suggested_name)
     print()
 
-    # Choose Wild or Storm
-    division = pick_from_list("Add to which division?",
-                              [d for d, c in DIVISIONS.items() if c["type"] != "org"])
+    # Default to the age division in the team's name; ask when there's none.
+    travel = [d for d, c in DIVISIONS.items() if c["type"] != "org"]
+    suggested = team_name_age(folder_name)
+    if suggested in travel:
+        print(f"  Travel divisions: {', '.join(travel)}")
+        division = None
+        while division is None:
+            ans = ask(f'Add to division "{suggested}"? (ENTER = yes, or type another): ', default=suggested)
+            division = next((d for d in travel if d.lower() == ans.lower()), None)
+            if division is None:
+                print(f"  '{ans}' isn't a travel division ({', '.join(travel)}).")
+    else:
+        if suggested:
+            print(f"  No {suggested} division this season.")
+        else:
+            print("  No age in the team name.")
+        division = pick_from_list("Add to which age division?", travel)
     if not division:
         print("  Cancelled.")
         return
@@ -851,6 +866,7 @@ def manage_seasons():
     print(f"  Active season: {SEASON_ID}\n")
     print("  [1] Switch to a different season")
     print("  [2] Create a new season")
+    print("  [3] Add draft results to a season")
     print("  [B] Back to main menu")
     print()
 
@@ -860,8 +876,103 @@ def manage_seasons():
         _switch_season_wizard()
     elif choice == "2":
         _create_season_wizard()
+    elif choice == "3":
+        _add_draft_wizard()
     else:
         return   # Back / anything else → return to main menu
+
+
+_AGE_RE = re.compile(r"^\d{1,2}U$")
+
+
+def _ask_divisions_and_ages(season_id):
+    """Carry over tournament divisions and confirm every division's age (picks the archetype baseline).
+
+    Defaults come from season_config.suggest_ages(): the latest earlier season, with travel ages
+    bumped by one for a fall season.
+    """
+    prev, defaults, tournament = suggest_ages(season_id)
+    print()
+    if tournament:
+        keep = ask(f"  Carry over tournament divisions from {prev} ({', '.join(tournament)})? [Y/n]: ",
+                   default="Y")
+        if keep.upper() != "Y":
+            tournament = []
+    print("  Division ages (hitter types compare kids of the same age). 9U–12U travel divisions")
+    print(f"  use their own age. Defaults from {prev or 'the season template'} — press ENTER to keep.\n")
+    ages = {}
+    for division in [d for d in defaults if defaults[d] or d in tournament] + \
+                    [t for t in tournament if t not in defaults]:
+        if _AGE_RE.match(division):
+            ages[division] = division
+            continue
+        default = defaults.get(division)
+        while True:
+            raw = (ask(f"    {division} age{f' (ENTER = {default})' if default else ''}: ",
+                       default=default) or "").strip().upper()
+            if not raw:
+                print("      Enter an age like 10U.")
+            elif _AGE_RE.match(raw):
+                ages[division] = raw
+                break
+            else:
+                print(f"      '{raw}' isn't an age like 10U.")
+    return tournament, ages
+
+
+def _clean_path(raw):
+    """A path typed or dragged into Terminal: drop surrounding quotes and backslash-escaped spaces."""
+    raw = (raw or "").strip().strip("'\"")
+    return re.sub(r"\\(.)", r"\1", raw)
+
+
+def _ask_draft_file(division):
+    """Ask whether the division's draft results exist; return the CSV path, or None to add later."""
+    have = ask(f"  Do you have the {division} draft results CSV? [y/N]: ", default="N")
+    if have.upper() != "Y":
+        return None
+    while True:
+        raw = ask("    Path to the CSV (drag the file here; ENTER to skip): ")
+        if not raw:
+            return None
+        path = Path(_clean_path(raw)).expanduser()
+        if path.is_file() and path.suffix.lower() == ".csv":
+            return path
+        print(f"    ⚠️  Not a .csv file: {path}")
+
+
+def _add_draft_wizard():
+    """Add (or replace) a league division's draft results for any season."""
+    seasons = list_seasons()
+    if not seasons:
+        print("\n  No seasons found.")
+        return
+    print()
+    labels = [f"{s['id']}{'  ← active' if s['is_active'] else ''}" for s in seasons]
+    chosen = pick_from_list("Which season?", labels)
+    if not chosen:
+        return
+    season_id = seasons[labels.index(chosen)]["id"]
+    _sid, cfg = load_season_yaml(season_id)
+    leagues = [n for n, d in cfg.get("divisions", {}).items() if d.get("type") == "league"]
+    if not leagues:
+        print(f"\n  {season_id} has no league divisions.")
+        return
+    print()
+    division = pick_from_list("Which division?", leagues)
+    if not division:
+        return
+    path = _ask_draft_file(division)
+    if not path:
+        print("  Nothing added.")
+        return
+    try:
+        dest = set_draft_results(season_id, division, path)
+    except (ValueError, FileNotFoundError) as e:
+        print(f"\n  ⚠️  {e}")
+        return
+    print(f"\n  ✅ {division} draft results saved → {dest}")
+    print(f"     Draft Report Card: bash launchers/run_analysis.sh --season {season_id} --division {division}")
 
 
 def _switch_season_wizard():
@@ -963,6 +1074,17 @@ def _create_season_wizard():
     majors_gc_id = ask("  Majors GC org ID (ENTER to skip): ")
     minors_gc_id = ask("  Minors GC org ID (ENTER to skip): ")
 
+    # ── Draft results (optional) — feed the Draft Report Card (Bonus Feature 3) ──
+    print()
+    print("  Draft results (for the Draft Report Card). Optional — add later via [4] → [3].\n")
+    drafts = {}
+    for division in ("Majors", "Minors"):
+        path = _ask_draft_file(division)
+        if path:
+            drafts[division] = path
+
+    tournament, ages = _ask_divisions_and_ages(season_id)
+
     # ── Set active now? ───────────────────────────────────────────────────────
     print()
     set_now = ask("  Set as active season now? [y/N]: ", default="N")
@@ -975,6 +1097,10 @@ def _create_season_wizard():
     print(f"    Display name : {display_name}")
     print(f"    Majors GC ID : {majors_gc_id or '(not set — add later)'}")
     print(f"    Minors GC ID : {minors_gc_id or '(not set — add later)'}")
+    for division in ("Majors", "Minors"):
+        draft = drafts[division].name if division in drafts else "(not set — add later via [4] → [3])"
+        print(f"    {division} draft : {draft}")
+    print(f"    Ages         : {', '.join(f'{d} {a}' for d, a in ages.items())}")
     print(f"    Set active   : {'Yes' if set_active else 'No (switch later via [4] → [1])'}")
     print()
 
@@ -990,7 +1116,9 @@ def _create_season_wizard():
             majors_gc_id=majors_gc_id,
             minors_gc_id=minors_gc_id,
             display_name=display_name,
+            tournament_teams=tournament,
             set_active=set_active,
+            ages=ages,
         )
     except FileExistsError as e:
         print(f"\n  ⚠️  {e}")
@@ -1003,12 +1131,22 @@ def _create_season_wizard():
     print(f"  ✅ Season '{season_id}' created!")
     print(f"     Config : config/{yaml_path.name}")
     print(f"     Data   : seasons/{season_id}/")
+    for division, path in drafts.items():
+        try:
+            dest = set_draft_results(season_id, division, path)
+            print(f"     {division} draft results → {dest.relative_to(dest.parents[2])}")
+        except ValueError as e:
+            print(f"     ⚠️  {division} draft results not added: {e}")
+            print("        Fix the file, then use [4] → [3] Add draft results.")
     print()
     print("  Next steps:")
     print(f"  1. Add Majors + Minors teams to config/{yaml_path.name}")
     print("     (after the draft — add name/coach per team under divisions.Majors/Minors.teams)")
     print("  2. Tournament teams: use option [3] Add a new Tournament Team as games are scheduled.")
     print("  3. Run scrape_gc_boxscores.py after the first games to build rosters.json.")
+    print("  4. Bonus Features 1–3: bash launchers/run_analysis.sh (asks which season + division).")
+    print("     Tournament Futures also needs the playoff bracket under `postseason:` in")
+    print(f"     config/{yaml_path.name} once it's set (see config/2026-Fall.yaml for an example).")
 
     if set_active:
         print()

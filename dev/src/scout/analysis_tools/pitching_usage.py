@@ -109,7 +109,14 @@ def game_date_key(path):
 def new_app():
     return {"pitches": 0, "strikes": 0, "swings": 0, "whiffs": 0, "bf": 0, "outs": 0,
             "innings": set(), "k": 0, "bb": 0, "hbp": 0, "h": 0,
-            "bb_by_inning": defaultdict(int), "bf_by_inning": defaultdict(int), "start": False}
+            "bb_by_inning": defaultdict(int), "bf_by_inning": defaultdict(int), "start": False,
+            "last_bf_pitches": 0}
+
+
+def rollback_pitches(a):
+    """Eligibility pitch count: box-score pitches minus those thrown to his last batter (count rolls back
+    to the first pitch of the last batter faced)."""
+    return max(0, a["pitches"] - a["last_bf_pitches"])
 
 
 def _initials(key):
@@ -157,6 +164,8 @@ def _split_shared(apps, team, game_id, key, kids):
             b[k] += round(a[k] * share)
         b["pitches"], b["strikes"] = bp["pitches"] or 0, bp["strikes"] or 0
         b["outs"], b["bf"], b["start"] = bp["outs"] or 0, bp["bf"] or 0, n == 0 and a["start"]
+        # Only the last kid's final batter is known; earlier kids get no rollback.
+        b["last_bf_pitches"] = a["last_bf_pitches"] if n == len(kids) - 1 else 0
         while i < len(order) and (used < (bp["bf"] or 0) or n == len(kids) - 1):
             inn, cnt = order[i]
             b["bf_by_inning"][inn] += cnt
@@ -285,8 +294,10 @@ def _credit(apps, team_innings, team, pitcher, game_id, rec):
         o = apps[(team, old, game_id)]
         o["pitches"] += pre["total_pitches"]; o["strikes"] += pre["total_strikes"]
         o["swings"] += pre["total_swings"]; o["whiffs"] += pre["swing_miss"]
+        o["last_bf_pitches"] = pre["total_pitches"]
         pc = {k: pc[k] - pre[k] for k in ("total_pitches", "total_strikes", "total_swings", "swing_miss")}
     a = apps[(team, pitcher, game_id)]
+    a["last_bf_pitches"] = pc["total_pitches"]
     a["pitches"] += pc["total_pitches"]; a["strikes"] += pc["total_strikes"]
     a["swings"] += pc["total_swings"]; a["whiffs"] += pc["swing_miss"]
     a["bf"] += 1
@@ -568,9 +579,12 @@ def build_workbook(division):
 
 
 if __name__ == "__main__":
+    from scout.analysis_tools.games import choose_season
     ap = argparse.ArgumentParser()
+    ap.add_argument("--season", help="season ID, e.g. 2026-Fall (asked interactively if omitted)")
     ap.add_argument("--division", default="Minors")
     args = ap.parse_args()
+    choose_season("scout.analysis_tools.pitching_usage", args.season)
     out, r1, r2, r3 = build_workbook(args.division)
     print(f"Saved → {out}")
     print(f"Pitchers: {len(r1)}  Teams: {len(r2)}")

@@ -6,8 +6,8 @@ Downloads new games + rosters once, parses every game once, then writes:
   3. Draft report card PDF + XLSX (when a draft `csv:` is configured)
 
 Run from the repo root with the venv active:
-    python -m scout.analysis_tools.run_all                                # asks which division
-    python -m scout.analysis_tools.run_all --division Minors
+    python -m scout.analysis_tools.run_all                                # asks which season + division
+    python -m scout.analysis_tools.run_all --season 2026-Fall --division Minors
     python -m scout.analysis_tools.run_all --division Minors --no-scrape   # reuse games already saved
 """
 
@@ -54,9 +54,11 @@ def pick_division(cfg):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--season", help="season ID, e.g. 2026-Fall (asked interactively if omitted)")
     ap.add_argument("--division", help="league division (asked interactively if omitted)")
     ap.add_argument("--no-scrape", action="store_true", help="skip downloading; use games already saved")
     args = ap.parse_args()
+    td.choose_season("scout.analysis_tools.run_all", args.season)
 
     _sid, cfg = load_season_yaml()
     division = args.division or pick_division(cfg)

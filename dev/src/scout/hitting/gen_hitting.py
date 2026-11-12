@@ -4,9 +4,10 @@ WCWAA 2026 Spring — Consolidated Scouting Report Generator
 Handles Majors, Minors, Wild, and Storm divisions.
 
 Supports:
-  - Majors: Full league pre-scan for archetype percentiles
+  - Majors: Full league pre-scan for team totals (LG RANK)
   - Minors: Rangers C K disambiguation, Beau Amerine roster addition
-  - Wild: Opponent folders, optional roster.txt, fixed thresholds
+  - Wild: Opponent folders, optional roster.txt
+  - Archetypes: per-age baselines (archetypes.py + config/archetype_baselines.yaml)
   - Batting order tracking: avg_batting_pos per batter
   - -Reviewed.txt marking after successful parse
   - Timing metrics per team and total
@@ -89,6 +90,7 @@ logger.addHandler(logging.NullHandler())
 from scout.season_config import (
     SCOUT_ROOT, SEASON_DIR, LOGS_DIR, build_hitting_divisions, reconcile_team_folders, team_name_key,
 )
+from scout.hitting import archetypes
 
 # BASE is kept as an alias for SEASON_DIR (str) for backward compatibility
 # with any f-string path joins that use BASE directly.
@@ -428,12 +430,14 @@ def parse_game_for_team(filepath, team_key, collision_map=None):
         lines = f.read().splitlines()
     pas = []
     in_target = False; cur_inning = 0; cur_outcome = None; cur_pitch_lines = []
+    target = team_name_key(team_key)
     for line in lines:
         line = line.strip()
         m = INNING_RE.match(line)
         if m:
             cur_inning = int(m.group(1))
-            in_target  = (m.group(2).lower() == team_key.lower())
+            # Ignore case/spaces/punctuation: GC names can hold '/' (not allowed in folder names).
+            in_target  = (team_name_key(m.group(2)) == target)
             cur_outcome = None; cur_pitch_lines = []
             continue
         if not in_target or not line or line.startswith("GAME:"): continue
@@ -882,144 +886,12 @@ def _rank_stat(value, league_team_totals, stat_key):
 # ---------------------------------------------------------------------------
 # 6. Archetype — 2-word batter label (Approach × Result)
 #
-# Approach: Aggressive / Disciplined / Passive
-#   - Aggressive : FPT% < 0.40  (swings first pitch >60% of the time)
-#   - Passive    : FPT% > 0.70  (takes first pitch >70%, often freezes on strikes)
-#   - Disciplined: FPT% 0.40–0.70 AND OBP − AVG ≥ 0.060 (takes pitches selectively)
-#   - Falls back to Aggressive (low FPT) or Passive (high FPT) if gap too small
-#
-# Result: Power / Contact / Overmatched / Walker  (roster-relative percentiles)
-#   - Walker     : top-third BB/PA in roster
-#   - Overmatched: bottom-third C% in roster  (too many strikeouts)
-#   - Power      : top-third SLG in roster AND SLG ≥ 1.5× AVG
-#   - Contact    : everything else (default — puts ball in play)
-#
-# PA gate: < 5 PA → None (card shows "—")
-#          5–9 PA → label + "*"
-#         10+  PA → clean label
+# Rules + per-age percentile cutoffs live in scout/hitting/archetypes.py and
+# config/archetype_baselines.yaml (BUG-024). `arch_group` is the division's
+# "league 9U" / "travel 12U" key (season_config.build_hitting_divisions).
 # ---------------------------------------------------------------------------
-def _roster_percentiles(all_batters):
-    """Compute roster-relative thresholds for Result labels."""
-    def pct33(vals):
-        s = sorted(v for v in vals if v is not None)
-        if not s: return None
-        return s[max(0, len(s) - len(s)//3 - 1)]   # top-33rd cutoff
-
-    slg_vals = [b["slg"] for b in all_batters if b["ab"] > 0]
-    c_vals   = [b["c_pct"] for b in all_batters if b["ab"] > 0]
-    bb_pa    = [b["bb"]/b["pa"] if b["pa"] > 0 else None for b in all_batters]
-
-    return {
-        "slg_top33": pct33(slg_vals),
-        "c_bot33":   sorted(v for v in c_vals if v is not None)[len(c_vals)//3] if c_vals else None,
-        "bb_top33":  pct33(bb_pa),
-    }
-
-def get_archetype(b, all_batters=None):
-    pa  = b["pa"]
-    if pa < 5:
-        return None   # too small — caller renders "—"
-
-    fpt   = b.get("fpt_pct")
-    avg   = b["avg"]
-    obp   = b["obp"]
-    slg   = b["slg"]
-    sm    = b.get("sm_pct")      # swing-and-miss %
-    cstr  = b.get("cstr_pct")    # called strike %
-
-    # ── Approach ────────────────────────────────────────────────────────────
-    # SM% vs CStr% relationship is checked FIRST — it overrides FPT%-based inference.
-    # High SM% >> CStr% means the player is swinging aggressively and missing,
-    # not getting frozen — that's Aggressive regardless of how often they take
-    # the first pitch.
-    obp_avg_gap = (obp - avg) if (obp is not None and avg is not None) else 0
-
-    sm_aggressive = (
-        sm   is not None and cstr is not None
-        and sm   >= 0.55                # meaningful swing-and-miss rate
-        and sm   >  cstr * 1.5         # swinging >> getting frozen → attacking the ball
-    )
-
-    if sm_aggressive:
-        approach = "Aggressive"
-    elif fpt is None:
-        approach = "Disciplined"       # no FPT data — fall back gracefully
-    elif fpt < 0.40:
-        approach = "Aggressive"
-    elif obp_avg_gap >= 0.060:
-        # Wide OBP-AVG gap signals selectivity (walks) — Disciplined, not Passive
-        approach = "Disciplined"
-    elif fpt > 0.70:
-        approach = "Passive"
-    elif fpt < 0.55:
-        approach = "Aggressive"
-    else:
-        approach = "Passive"
-
-    # ── Result ──────────────────────────────────────────────────────────────
-    if all_batters:
-        thresholds = _roster_percentiles(all_batters)
-    else:
-        thresholds = {"slg_top33": 0.450, "c_bot33": 0.500, "bb_top33": 0.200}
-
-    slg_top = thresholds["slg_top33"]
-    c_bot   = thresholds["c_bot33"]
-    bb_top  = thresholds["bb_top33"]
-
-    bb_pa    = b["bb"] / b["pa"] if b["pa"] > 0 else 0
-    h        = b["h"];  bb = b["bb"]
-    bb_share = bb / (h + bb) if (h + bb) > 0 else 0
-    c_pct    = b["c_pct"]   # use directly — 0.0 is valid data, not missing
-
-    # Walker: walks must be the primary OBP engine, not a side effect of hitting.
-    # Requires all four conditions:
-    #   1. BB/PA in top-33% of league          (walks frequently)
-    #   2. BB/(H+BB) > 33%                     (walks meaningful share of times on base)
-    #   3. C% < 70%                            (not a contact/power hitter — hits drive OBP for those)
-    #   4. OBP − AVG ≥ .100                    (walks visibly elevating OBP above hit production)
-    # A player who hits .350 and also walks isn't a Walker — AVG/SLG tell that story better.
-    is_walker = (
-        bb_top is not None and bb_pa >= bb_top
-        and bb_share > 0.33
-        and (c_pct is None or c_pct < 0.70)
-        and obp_avg_gap >= 0.100
-    )
-
-    # Overmatched: hard triggers (either alone sufficient) OR soft combined trigger.
-    #   Hard 1: SM% > 50%             — swinging and missing too often regardless of context
-    #   Hard 2: C% ≤ bottom-33%       — making contact below league floor
-    #   Soft:   SM% ≥ 35% AND C% < 65% AND AVG < .250
-    #           Catches "Disciplined Overmatched" mis-labels: a batter who takes pitches
-    #           (high FPT%) and draws some walks can land in Disciplined even when their
-    #           elevated whiff rate + weak contact + weak AVG paint a clear overmatched
-    #           picture. Low CStr% does NOT rescue from this — it just means they're
-    #           chasing rather than getting frozen, which is its own problem.
-    is_overmatched = (
-        (sm is not None and sm > 0.50)
-        or (c_bot is not None and c_pct is not None and c_pct <= c_bot)
-        or (sm  is not None and sm  >= 0.35
-            and c_pct is not None and c_pct < 0.65
-            and avg  is not None and avg  < 0.250)
-    )
-
-    # Power: top-33% SLG AND (SLG ≥ 1.2× AVG OR ISO ≥ .120)
-    iso = (slg - avg) if (slg is not None and avg is not None) else 0
-    is_power = (
-        slg_top is not None and slg is not None
-        and slg >= slg_top
-        and avg is not None and avg > 0
-        and (slg >= 1.2 * avg or iso >= 0.120)
-    )
-
-    if is_walker:        result = "Walker"
-    elif is_overmatched: result = "Overmatched"
-    elif is_power:       result = "Power"
-    else:                result = "Contact"
-
-    label = f"{approach} {result}"
-    if pa < 10:
-        label += "*"
-    return label
+def get_archetype(b, arch_group=None):
+    return archetypes.get_label(b, arch_group)
 
 # ---------------------------------------------------------------------------
 # 7. Pitching approach — mapped from archetype label (strip "*" before lookup)
@@ -1092,11 +964,11 @@ def generate_notes(b):
     parts.append(f"Plan: {'; '.join(plan)}.")
     return " ".join(parts)
 
-def generate_notes_short(b, all_batters=None):
+def generate_notes_short(b, arch_group=None):
     """Compact 1-2 sentence note for the single-page summary view."""
     pa = b["pa"]
     if pa < 3: return f"Small sample ({pa} PA) — monitor."
-    archetype = get_archetype(b, all_batters) or "—"
+    archetype = get_archetype(b, arch_group) or "—"
     zones = b["zones_sorted"]; bip = b["bip"]
     stats = []
     if zones and bip > 0:
@@ -1257,9 +1129,11 @@ def draw_field_spray_chart(c, cx, cy, zone_counts, zone_detail, hb=18):
                  sorted(zone_counts.items(), key=lambda x: -x[1]))}
 
     def _zfill(z):
+        if not zone_counts.get(z):
+            return colors.HexColor(_HEAT_GREENS[4])
         return colors.HexColor(_HEAT_GREENS[min(rank[z], 4)])
     def _ztxt(z):
-        return C_WHITE if rank[z] <= 2 else C_NAVY
+        return C_WHITE if zone_counts.get(z) and rank[z] <= 2 else C_NAVY
 
     # ── Warning track ──
     wt_pts = _arc_pts(cx, cy, r_wt, math.radians(45), math.radians(135), 60)
@@ -1375,7 +1249,7 @@ def draw_bar(c, x, y, w, h, pct, col, lbl, fill_text_white=False):
     c.setFillColor(C_WHITE if (pct_on_fill and fill_text_white) else colors.black)
     c.drawRightString(x+w-2, y+2, fmt_pct(pct))
 
-def draw_card(c, b, x, y, cw, ch, all_batters=None, header_color=None):
+def draw_card(c, b, x, y, cw, ch, arch_group=None, header_color=None):
     """
     Draw one batter card (player or team aggregate) at position (x, y).
 
@@ -1395,7 +1269,7 @@ def draw_card(c, b, x, y, cw, ch, all_batters=None, header_color=None):
     c.setFillColor(header_color or C_NAVY)
     c.roundRect(x, y+ch-header_h, cw, header_h, 4, fill=1, stroke=0)
 
-    arch     = get_archetype(b, all_batters) or "—"
+    arch     = get_archetype(b, arch_group) or "—"
     approach = get_pitching_approach(arch)
 
     row1_y = y + ch - 10   # name + "PA / AB" label
@@ -1493,13 +1367,11 @@ def draw_card(c, b, x, y, cw, ch, all_batters=None, header_color=None):
 # ---------------------------------------------------------------------------
 # 10. PDF generation
 # ---------------------------------------------------------------------------
-def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_batters=None, division_label="Majors", league_team_totals=None):
+def generate_pdf(team_key, label, batters, n_games, skipped, out_path, arch_group=None, division_label="Majors", league_team_totals=None):
     c = rl_canvas.Canvas(out_path, pagesize=letter)
     skip_note = f"  |  Skipped: {', '.join(skipped)}" if skipped else ""
     sub = f"{n_games} games  |  Generated {TODAY}{skip_note}"
     active = [b for b in batters if b["pa"] > 0]
-    # Use league-wide batters for percentile thresholds if available; else fall back to team roster
-    arch_ctx = [b for b in (league_batters or []) if b["pa"] >= 5] or active
 
     # ── Player Card Pages — 2-col, max 3 rows per page ───────────────────────
     # Cap at 3 rows regardless of roster size so card/spray-chart height stays
@@ -1539,7 +1411,7 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             cx2 = MARGIN + col * (card_w + col_gap)
             cy2 = top_y - (row + 1) * (card_h + row_gap) + row_gap
             hdr_col = C_GREEN if b.get("_is_team_card") else None
-            draw_card(c, b, cx2, cy2, card_w, card_h, all_batters=arch_ctx,
+            draw_card(c, b, cx2, cy2, card_w, card_h, arch_group=arch_group,
                       header_color=hdr_col)
 
     # ── PAGE 3: Summary Table + Compact Notes ────────────────────────────────
@@ -1676,7 +1548,7 @@ def generate_pdf(team_key, label, batters, n_games, skipped, out_path, league_ba
             c.showPage(); ny = PAGE_H - MARGIN - 20
         c.setFont("Helvetica-Bold", 8); c.setFillColor(C_BLUE)
         c.drawString(MARGIN, ny, b["display"]); ny -= 10
-        note = generate_notes_short(b, all_batters=arch_ctx)
+        note = generate_notes_short(b, arch_group=arch_group)
         c.setFont("Helvetica", 7.5); c.setFillColor(C_NAVY)
         # Wrap note at 108 chars, max 2 lines
         words = note.split(); line = ""; lines_written = 0
@@ -1768,8 +1640,7 @@ def build_league_context(game_files, rosters, config, all_collision_maps=None):
     Returns: (league_batters, league_team_totals)
 
       league_batters: flat list of all individual batter dicts across the whole
-          league — used by get_archetype() to compute percentile thresholds so
-          every player is ranked relative to all others in the division.
+          league (count of qualifying players in the log).
 
       league_team_totals: list of per-team aggregate dicts (one per team), each
           shaped like a batter dict plus a 'team_key' field — used by the
@@ -1851,12 +1722,12 @@ def run_league(division, teams_filter=None):
     game_files = sorted(f for f in os.listdir(scorebooks_dir) if f.endswith(".txt"))
 
     # Build league-wide context if enabled.
-    # Returns both individual batter list (for archetype percentiles) and
+    # Returns both individual batter list and
     # per-team totals list (for league rank row in summary table).
     league_batters     = None
     league_team_totals = None
     if league_scan:
-        logger.info("Scanning league for archetype percentiles and team totals…")
+        logger.info("Scanning league for team totals…")
         league_batters, league_team_totals = build_league_context(
             game_files, rosters, config, all_collision_maps=all_collision_maps
         )
@@ -1934,7 +1805,7 @@ def run_league(division, teams_filter=None):
         safe = team_name.replace(" ", "_")
         pdf_path = os.path.join(output_dir, f"{safe}_{coach_last}-Scout-Hitting_2026.pdf")
         generate_pdf(team_key, label, batters, n_games, skipped, pdf_path,
-                     league_batters=league_batters, division_label=label_suffix,
+                     arch_group=config["archetype_group"], division_label=label_suffix,
                      league_team_totals=league_team_totals)
 
         for fpath in parsed_paths:
@@ -1963,7 +1834,6 @@ def run_wild(teams_filter=None, division="Wild"):
     config = DIVISIONS[division]
     wild_base = config["wild_base"]
     label_suffix = config["label_suffix"]
-    fixed_thresholds = config["fixed_thresholds"]
 
     run_start = time.time()
     timings = []
@@ -2098,7 +1968,7 @@ def run_wild(teams_filter=None, division="Wild"):
             pdf_path = os.path.join(output_dir, f"{safe}-Scout-Hitting_2026.pdf")
 
             generate_pdf(opponent_name, label, batters, n_games, skipped, pdf_path,
-                         league_batters=None, division_label=label_suffix,
+                         arch_group=config["archetype_group"], division_label=label_suffix,
                          league_team_totals=div_team_totals if use_rank else None)
 
             for fpath in opp_data["parsed_paths"]:

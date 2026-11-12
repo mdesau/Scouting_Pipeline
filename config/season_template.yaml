@@ -22,8 +22,8 @@
 #    under divisions.Majors/Minors.teams in the generated YAML:
 #       - name: Cubs
 #         coach: Smith
-# 2. Wild/Storm opponents accumulate during the season via "Add Team"
-#    (terminal menu or web UI Add Team tab).
+# 2. Travel teams (ours and opponents) are added during the season via "Add Team"
+#    (terminal menu or web UI Add Team tab) into the age division in their name.
 # 3. Run scrape_gc_boxscores.py after the first games to build rosters.json.
 #
 # PATH NOTES
@@ -34,13 +34,18 @@
 # DIVISION TYPES
 # --------------
 # league: Majors/Minors — org-based GameChanger schedule, centralized scorebooks
-# travel: Wild/Storm — team-based GC schedule pages, per-team Games/ folders
+# travel: 9U/10U/11U/12U — team-based GC schedule pages, per-team Games/ folders,
+#         one division per age (teams go where the age in their name says)
+#
+# AGE
+# ---
+# Every division needs `age:` — it picks the hitter-archetype baseline
+# (config/archetype_baselines.yaml). Travel divisions are named by their age.
 # ===========================================================================
 
 season_id: TEMPLATE
 display_name: TEMPLATE
 divisions:
-
   # ─────────────────────────────────────────────────────────────────────────
   # MAJORS — 11U in-house league
   # ─────────────────────────────────────────────────────────────────────────
@@ -81,34 +86,37 @@ divisions:
     teams: []
 
   # ─────────────────────────────────────────────────────────────────────────
-  # WILD — 11U travel opponents (per-team Games/ folders)
+  # TRAVEL 9U–12U — travel teams by age (per-team Games/ folders)
   # ─────────────────────────────────────────────────────────────────────────
   # IMPORTANT: Each team's "name" MUST exactly match the spelling in
   # GameChanger's inning headers (===Top 1st - Team Name===).
   # Folder names on disk use the same string. Mismatches → 0 PAs.
   # Teams accumulate during the season via the "Add Team" wizard.
   # ─────────────────────────────────────────────────────────────────────────
-  Wild:
-    type: travel
-    age: 11U
-    output_base: Wild
-    label_suffix: Weddington Wild
-    fixed_thresholds:
-      slg_top33: 0.45
-      c_bot33: 0.5
-      bb_top33: 0.2
-    teams: []
-
-  # ─────────────────────────────────────────────────────────────────────────
-  # STORM — 9U travel opponents (per-team Games/ folders)
-  # ─────────────────────────────────────────────────────────────────────────
-  Storm:
+  9U:
     type: travel
     age: 9U
-    output_base: Storm
-    label_suffix: Weddington Storm
-    fixed_thresholds:
-      slg_top33: 0.45
-      c_bot33: 0.5
-      bb_top33: 0.2
+    output_base: 9U
+    label_suffix: Travel 9U
+    teams: []
+
+  10U:
+    type: travel
+    age: 10U
+    output_base: 10U
+    label_suffix: Travel 10U
+    teams: []
+
+  11U:
+    type: travel
+    age: 11U
+    output_base: 11U
+    label_suffix: Travel 11U
+    teams: []
+
+  12U:
+    type: travel
+    age: 12U
+    output_base: 12U
+    label_suffix: Travel 12U
     teams: []

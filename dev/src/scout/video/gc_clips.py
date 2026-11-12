@@ -1,6 +1,6 @@
 """
-gc_clips.py — download GameChanger video clips (and optionally stitch a montage)
-================================================================================
+gc_clips.py — download GameChanger video clips
+===============================================
 Accepts two kinds of GC links:
 
   • Game clip gallery  …/schedule/<game_id>/videos/clips   → every clip of that game
@@ -20,16 +20,14 @@ How it works:
      CloudFront signed cookies (~24 h).
   2. Chrome closes; ffmpeg downloads each playlist with those cookies and remuxes
      it to .mp4 (no re-encode, GC's original 720p), several at a time.
-  3. --montage joins the clips (game clips in game order, links in the order
-     given) into one .mp4.
 
 Usage
 -----
 python -m scout.video.gc_clips GAME_OR_CLIP_URL [...]
-python -m scout.video.gc_clips GAME_URL --player Harper --montage "Harper Nov 3"
+python -m scout.video.gc_clips GAME_URL --player Harper
 python -m scout.video.gc_clips GAME_URL --list          # preview, no downloads
 
-Requires ffmpeg/ffprobe (brew install ffmpeg) and the Scout Chrome login
+Requires ffmpeg (brew install ffmpeg) and the Scout Chrome login
 (python -m scout.scraping.scrape_gc_playbyplay --login).
 """
 
@@ -40,7 +38,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,9 +56,6 @@ _CLIP_URL_RE = re.compile(rf"https://web\.gc\.com/.*/videos/clips/({_UUID})", re
 _GAME_URL_RE = re.compile(
     rf"(https://web\.gc\.com/teams/[^/?#]+/[^/?#]+/schedule/({_UUID}))(?:[/?#].*)?$", re.IGNORECASE
 )
-
-MONTAGE_WIDTH, MONTAGE_HEIGHT, MONTAGE_FPS = 1280, 720, 30
-_SILENCE = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"]
 
 # Runs fetch() inside the GC page so requests carry the real browser's identity.
 _FETCH_JS = """async ({url, method, headers, body}) => {
@@ -417,68 +411,6 @@ def download_clip(meta, dest):
     return None
 
 
-# ── Step 3: montage ───────────────────────────────────────────────────────────
-
-def _has_audio(path):
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
-         "-of", "csv=p=0", str(path)],
-        capture_output=True, text=True,
-    ).stdout
-    return bool(out.strip())
-
-
-def normalize_command(src, dest, has_audio):
-    """Re-encode one clip to the montage format (720p30 H.264 + 48 kHz stereo AAC)."""
-    vf = (f"scale={MONTAGE_WIDTH}:{MONTAGE_HEIGHT}:force_original_aspect_ratio=decrease,"
-          f"pad={MONTAGE_WIDTH}:{MONTAGE_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={MONTAGE_FPS}")
-    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src)]
-    if has_audio:
-        cmd += ["-map", "0:v:0", "-map", "0:a:0"]
-    else:
-        # The join step needs audio in every clip; give silent clips a silent track.
-        cmd += [*_SILENCE, "-map", "0:v:0", "-map", "1:a:0", "-shortest"]
-    return cmd + [
-        "-vf", vf,
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-        str(dest),
-    ]
-
-
-def build_montage(paths, dest, log, jobs=DEFAULT_JOBS):
-    """Normalize every clip to one format, then join them losslessly (scales to any clip count)."""
-    tmp_dir = Path(tempfile.mkdtemp(prefix="gc_montage_"))
-    try:
-        parts = [tmp_dir / f"{i:04d}.mp4" for i in range(len(paths))]
-        log.info(f"Building montage from {len(paths)} clips (re-encoding to 720p) …")
-        with ThreadPoolExecutor(max_workers=jobs) as pool:
-            futures = {
-                pool.submit(subprocess.run, normalize_command(src, part, _has_audio(src)),
-                            capture_output=True, text=True): src
-                for src, part in zip(paths, parts)
-            }
-            for fut in as_completed(futures):
-                result = fut.result()
-                if result.returncode != 0:
-                    log.error(f"Montage failed on {futures[fut].name}: {result.stderr.strip()[-500:]}")
-                    return False
-        listing = tmp_dir / "list.txt"
-        listing.write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
-             "-c", "copy", "-movflags", "+faststart", str(dest)],
-            capture_output=True, text=True,
-        )
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-    if result.returncode != 0:
-        log.error(f"Montage failed: {result.stderr.strip()[-800:]}")
-        return False
-    log.info(f"✔ Montage → {dest}")
-    return True
-
-
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main(argv=None):
@@ -490,20 +422,17 @@ def main(argv=None):
                     help=f"Download folder (default: {DEFAULT_OUT_DIR})")
     ap.add_argument("-p", "--player", action="append", default=[], metavar="NAME",
                     help="Only game clips whose player name contains NAME (repeatable, case-insensitive)")
-    ap.add_argument("-m", "--montage", metavar="NAME.mp4",
-                    help="Also join the clips into this file (saved in --out); game clips in game order")
     ap.add_argument("-l", "--list", action="store_true", help="Show the clips that would be saved; download nothing")
     ap.add_argument("-j", "--jobs", type=int, default=DEFAULT_JOBS,
-                    help=f"Clips to download/encode at once (default {DEFAULT_JOBS})")
+                    help=f"Clips to download at once (default {DEFAULT_JOBS})")
     ap.add_argument("--force", action="store_true", help="Re-download clips already in --out")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv)
 
     log = setup_logging(args.verbose)
-    for tool in ("ffmpeg", "ffprobe"):
-        if not shutil.which(tool):
-            log.error(f"{tool} not found — install it with:  brew install ffmpeg")
-            return 1
+    if not shutil.which("ffmpeg"):
+        log.error("ffmpeg not found — install it with:  brew install ffmpeg")
+        return 1
 
     urls = list(args.urls)
     if args.file:
@@ -580,15 +509,6 @@ def main(argv=None):
     log.info(f"Done: {len(saved)}/{len(entries)} clips in {out_dir}")
     if failed:
         log.warning(f"Not downloaded: {', '.join(c[:8] for c in failed)}")
-
-    if args.montage:
-        ordered = [saved[e["id"]] for e in entries if e["id"] in saved]
-        if not ordered:
-            log.error("No clips available for the montage.")
-            return 1
-        name = args.montage if args.montage.lower().endswith(".mp4") else args.montage + ".mp4"
-        if not build_montage(ordered, out_dir / name, log, max(1, args.jobs)):
-            return 1
 
     return 1 if failed else 0
 

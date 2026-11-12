@@ -520,8 +520,11 @@ def build_pdf(res, division):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--season", help="season ID, e.g. 2026-Fall (asked interactively if omitted)")
     ap.add_argument("--division", default="Minors")
-    division = ap.parse_args().division
+    args = ap.parse_args()
+    td.choose_season("scout.analysis_tools.draft_roi", args.season)
+    division = args.division
     res = analyze(division)
     out = build_pdf(res, division)
     card = build_xlsx(res, division)

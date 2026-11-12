@@ -14,7 +14,7 @@ from datetime import date, timedelta
 import numpy as np
 
 from scout.analysis_tools import games as td
-from scout.analysis_tools.pitching_usage import pitcher_display
+from scout.analysis_tools.pitching_usage import pitcher_display, rollback_pitches
 from scout.season_config import SEASON_DIR, SEASON_ID, load_season_yaml
 
 N_SIMS = 20000
@@ -50,22 +50,23 @@ def rest_days(pitches):
     return 0 if pitches <= 20 else 1 if pitches <= 35 else 2
 
 
-def record_outing(avail, key, day, pitches):
-    """Update a pitcher's availability after pitching on `day`.
+def record_outing(avail, key, day, pitches, thrown=None):
+    """Update a pitcher's availability after an outing on `day`.
 
-    avail[key] = (first eligible date, last day pitched, consecutive days pitched, pitches that day).
-    Rest days follow `rest_days`; pitching 2 days in a row also sits the 3rd day.
+    `pitches` is the eligibility (rolled-back) count; `thrown` the box-score count, for notes only.
+    avail[key] = (first eligible date, last day pitched, consecutive days pitched, eligibility count,
+    pitches thrown, previous day pitched). Rest days follow `rest_days`; pitching 2 days in a row also
+    sits the 3rd day. Each outing stands alone: a second game the same day counts like the next day in a row.
     """
     prev = avail.get(key)
     last, streak = (prev[1], prev[2]) if prev else (None, 0)
-    if last == day:
-        pitches += prev[3]
-    else:
-        streak = streak + 1 if last == day - timedelta(days=1) else 1
+    streak = streak + 1 if last in (day, day - timedelta(days=1)) else 1
     back = day + timedelta(days=1 + rest_days(pitches))
+    if last == day:
+        back = max(back, prev[0])
     if streak >= 2:
         back = max(back, day + timedelta(days=2))
-    avail[key] = (back, day, streak, pitches)
+    avail[key] = (back, day, streak, pitches, pitches if thrown is None else thrown, last)
 
 
 def eligible(avail, key, day):
@@ -367,16 +368,16 @@ def actual_results(games, through):
 
 
 def availability(apps, games, through):
-    """Real availability per (team, pitcher) from pitch counts in games on or before `through`."""
-    gdate = {g["id"]: g["date"] for g in games}
-    daily = defaultdict(float)
+    """Real availability per (team, pitcher) from rolled-back pitch counts in games on or before `through`."""
+    order = {g["id"]: (g["date"], i) for i, g in enumerate(games)}
+    outings = []
     for (team, p, gid), a in apps.items():
-        d = gdate.get(gid)
-        if d and d <= through and p != "UNKNOWN":
-            daily[(team, p, d)] += a["pitches"]
+        when = order.get(gid)
+        if when and when[0] <= through and p != "UNKNOWN":
+            outings.append((when, (team, p), rollback_pitches(a), a["pitches"]))
     avail = {}
-    for (team, p, d), pc in sorted(daily.items(), key=lambda kv: kv[0][2]):
-        record_outing(avail, (team, p), d, pc)
+    for (d, _i), key, pc, thrown in sorted(outings, key=lambda o: o[0]):
+        record_outing(avail, key, d, pc, thrown)
     return avail
 
 
@@ -388,9 +389,12 @@ def qp_status(R, avail, team, day, name_of):
         key = (team, p["name"])
         if eligible(avail, key, day):
             continue
-        back, last, streak, pc = avail[key]
+        back, last, streak, pc, thrown, before = avail[key]
         if streak >= 2 and rest_days(pc) == 0:
-            why = f"pitched {last - timedelta(days=1):%-m/%-d} & {last:%-m/%-d}"
+            why = (f"pitched twice {last:%-m/%-d}" if before == last
+                   else f"pitched {last - timedelta(days=1):%-m/%-d} & {last:%-m/%-d}")
+        elif thrown != pc:
+            why = f"{thrown:.0f} pitches ({pc:.0f} rollback) {last:%-m/%-d}"
         else:
             why = f"{pc:.0f} pitches {last:%-m/%-d}"
         notes.append(f"{name_of(team, p['name'])}: {why} → back {back:%-m/%-d}")
@@ -595,7 +599,9 @@ def build_pdf(path, R, recs, opening, updated, fixed, lines, alpha, scale, nb, g
         "<b>Pitching rules.</b> Each coach starts their best <i>rested</i> arm. A pitcher may pitch at most "
         f"{MAX_INN_PER_GAME} innings and {PITCH_CAP} pitches in a game; pitches per inning come from his real average "
         "(+2 per run allowed beyond 2). Rest follows Little League rules on calendar days: 1–20 pitches = no rest, "
-        "21–35 = 1 day, 36–50 = 2 days, and no one pitches more than 2 days in a row. If no one is eligible, the "
+        "21–35 = 1 day, 36–50 = 2 days, and no one pitches more than 2 days in a row. For games already played, "
+        "the count rolls back to the first pitch of his last batter (box-score pitches minus that batter's "
+        "pitches), and two games in one day count as back-to-back days. If no one is eligible, the "
         "team uses an emergency arm rated well below "
         "average — that's where depth pays off on back-to-back game days.",
         f"<b>Bracket.</b> The real {max(BRACKET)}-game bracket and calendar from the season config"
@@ -613,8 +619,11 @@ def build_pdf(path, R, recs, opening, updated, fixed, lines, alpha, scale, nb, g
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--season", help="season ID, e.g. 2026-Fall (asked interactively if omitted)")
     ap.add_argument("--division", default="Minors")
-    run(ap.parse_args().division)
+    args = ap.parse_args()
+    td.choose_season("scout.analysis_tools.tourney_odds", args.season)
+    run(args.division)
 
 
 def run(division):

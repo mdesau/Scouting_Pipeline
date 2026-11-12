@@ -93,7 +93,7 @@ SERVER_VERSION = "5.1.0"
 # Fallback division order for report scanning of season dirs that have no
 # config YAML (e.g. one-off AllStars/Coach_Pitch folders). Live divisions are
 # read per-season from the YAML via list_divisions(); this is only a safety net.
-DIVISION_ORDER = ["Majors", "Minors", "Wild", "Storm"]
+DIVISION_ORDER = ["Majors", "Minors", "9U", "10U", "11U", "12U", "Wild", "Storm"]
 
 # The pipeline entry point we shell out to for every build (run as a module).
 _RUN_MENU_MODULE = "scout.orchestrator.run_menu"

@@ -65,9 +65,11 @@ REFERENCED IN
 Version: Part of Scout Pipeline v3.2.0+
 """
 
+import csv
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -312,6 +314,7 @@ def build_hitting_divisions(season_id: str = None) -> dict:
             "league_scan":     True,
             "label_suffix":    str,
             "teams":           [(name, coach), ...],
+            "archetype_group": "league 9U" (None without `age:`),
         }
 
     Hitting shape (travel divisions):
@@ -319,7 +322,7 @@ def build_hitting_divisions(season_id: str = None) -> dict:
             "wild_base":        str (path),
             "league_scan":      False,
             "label_suffix":     str,
-            "fixed_thresholds": {stat_key: float},
+            "archetype_group":  "travel 12U" (None without `age:`),
         }
 
     WHY STRINGS NOT PATHS: gen_hitting.py was written to use f-string
@@ -361,13 +364,14 @@ def build_hitting_divisions(season_id: str = None) -> dict:
                 "league_scan":      True,
                 "label_suffix":     div_cfg.get("label_suffix", div_name),
                 "teams":            teams,
+                "archetype_group":  f"league {div_cfg['age']}" if div_cfg.get("age") else None,
             }
         else:
             divs[div_name] = {
                 "wild_base":        str(season_dir / div_cfg["output_base"]),
                 "league_scan":      False,
                 "label_suffix":     div_cfg.get("label_suffix", div_name),
-                "fixed_thresholds": dict(div_cfg.get("fixed_thresholds") or {}),
+                "archetype_group":  f"travel {div_cfg['age']}" if div_cfg.get("age") else None,
             }
 
     return divs
@@ -469,6 +473,9 @@ def list_seasons() -> list:
         try:
             with open(yaml_path, encoding="utf-8") as f:
                 cfg = yaml.safe_load(f)
+            # Other config YAMLs (e.g. archetype_baselines.yaml) aren't seasons.
+            if not isinstance(cfg, dict) or "divisions" not in cfg:
+                continue
             # Use season_id from file content if present; fall back to filename.
             season_id = str(cfg.get("season_id", yaml_path.stem))
             display_name = str(cfg.get("display_name", season_id))
@@ -511,6 +518,63 @@ def set_active_season(season_id: str) -> None:
     _ACTIVE_SEASON_FILE.write_text(season_id + "\n", encoding="utf-8")
 
 
+_TERM_ORDER = {"spring": 0, "summer": 1, "fall": 2}
+
+
+def _season_order(season_id):
+    """Sort key for 'YYYY-term' IDs (spring < summer < fall); None if the ID doesn't fit."""
+    m = re.match(r"^(\d{4})-(\w+)$", season_id or "")
+    if not m or m.group(2).lower() not in _TERM_ORDER:
+        return None
+    return int(m.group(1)), _TERM_ORDER[m.group(2).lower()]
+
+
+def bump_age(age):
+    """'11U' → '12U' (anything else unchanged)."""
+    m = re.match(r"^(\d+)U$", age or "")
+    return f"{int(m.group(1)) + 1}U" if m else age
+
+
+_TEAM_AGE_RE = re.compile(r"\b(\d{1,2})U\b", re.IGNORECASE)
+
+
+def team_name_age(name):
+    """Age in a team name ('QC Crushers 10U' → '10U'), or None."""
+    m = _TEAM_AGE_RE.search(name or "")
+    return f"{int(m.group(1))}U" if m else None
+
+
+def suggest_ages(season_id):
+    """
+    Default division ages + tournament divisions for a new season.
+
+    Starts from the template, then overlays the latest earlier season. Age-named travel divisions
+    (9U–12U) keep their own age; other travel divisions bump by one when the new season is a fall
+    season (league ages are fixed by division).
+
+    Returns:
+        (previous season ID or None, {division: age}, [tournament division names])
+    """
+    with open(_CONFIG_DIR / "season_template.yaml", encoding="utf-8") as f:
+        ages = {d: c.get("age") for d, c in yaml.safe_load(f)["divisions"].items()}
+    new_key = _season_order(season_id)
+    earlier = [s["id"] for s in list_seasons()
+               if _season_order(s["id"]) and (new_key is None or _season_order(s["id"]) < new_key)]
+    if not earlier:
+        return None, ages, []
+    prev = max(earlier, key=_season_order)
+    _sid, cfg = load_season_yaml(prev)
+    fall = new_key is not None and new_key[1] == _TERM_ORDER["fall"]
+    tournament = []
+    for d, c in cfg["divisions"].items():
+        if c.get("tournament_team"):
+            tournament.append(d)
+        if c.get("age"):
+            bump = fall and c["type"] != "league" and not re.match(r"^\d+U$", d)
+            ages[d] = bump_age(c["age"]) if bump else c["age"]
+    return prev, ages, tournament
+
+
 def create_season(
     season_id: str,
     majors_gc_id: str = "",
@@ -518,6 +582,7 @@ def create_season(
     display_name: str = None,
     tournament_teams: list = None,
     set_active: bool = False,
+    ages: dict = None,
 ) -> "Path":
     """
     Scaffold a new season config from the season template.
@@ -560,6 +625,8 @@ def create_season(
                        (e.g. ["Mavs"]). Each gets its own folder + YAML entry.
         set_active:    If True, also updates active_season.txt so this
                        season becomes the active one immediately.
+        ages:          Optional {division: "12U"} — sets each division's `age:`
+                       (picks its hitter-archetype baseline).
 
     Returns:
         Path to the newly created season YAML file.
@@ -609,6 +676,10 @@ def create_season(
         name = (name or "").strip()
         if name and name not in cfg["divisions"]:
             cfg["divisions"][name] = _new_travel_division(name)
+
+    for name, age in (ages or {}).items():
+        if name in cfg["divisions"] and age:
+            cfg["divisions"][name]["age"] = age
 
     # Generate the CSV path using the display name to follow the project
     # convention (e.g. "2026 Fall Draft Results.xlsx - Majors.csv").
@@ -680,7 +751,6 @@ def _new_travel_division(name: str) -> dict:
         "type": "travel",
         "output_base": name,
         "label_suffix": name,
-        "fixed_thresholds": {"slg_top33": 0.45, "c_bot33": 0.5, "bb_top33": 0.2},
         "teams": [],
         "tournament_team": True,   # flags a user-added division (vs Wild/Storm)
         "active": True,            # toggled by set_tournament_team_active()
@@ -799,6 +869,46 @@ def update_season(
     return yaml_path
 
 
+def set_draft_results(season_id: str, division: str, src) -> Path:
+    """
+    Copy a draft-results CSV into <division>/Reports/ and point the division's `csv:` at it.
+
+    Expected layout (Draft Report Card, analysis_tools.draft_roi.load_draft): first row = coaches,
+    then one row per round starting with the round number, last row = team names.
+
+    Returns:
+        Path of the CSV inside the season folder.
+
+    Raises:
+        FileNotFoundError: If the season config does not exist.
+        ValueError:        If src isn't a draft CSV or the division isn't a league division.
+    """
+    src = Path(src).expanduser()
+    if not src.is_file() or src.suffix.lower() != ".csv":
+        raise ValueError(f"Not a CSV file: {src}")
+    with open(src, newline="", encoding="utf-8-sig") as f:
+        rows = [r for r in csv.reader(f) if any(c.strip() for c in r)]
+    if len(rows) < 3 or not rows[1] or not rows[1][0].strip().isdigit():
+        raise ValueError(
+            f"{src.name} doesn't look like draft results: expected a coaches row, one row per "
+            "round (starting with the round number), and a team-names row."
+        )
+
+    yaml_path, cfg = _load_cfg(season_id)
+    div_cfg = cfg.get("divisions", {}).get(division)
+    if not div_cfg or div_cfg.get("type") != "league":
+        raise ValueError(f"{division} is not a league division in {season_id}.")
+
+    rel = f"{division}/Reports/{src.name}"
+    dest = get_season_dir(season_id) / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if src.resolve() != dest.resolve():
+        shutil.copy2(src, dest)
+    div_cfg["csv"] = rel
+    _save_cfg(yaml_path, cfg)
+    return dest
+
+
 def add_tournament_team(season_id: str, name: str) -> bool:
     """
     Add a tournament-team (travel) division to a season + create its folder.
@@ -912,7 +1022,7 @@ def list_divisions(season_id: str = None) -> list:
 
     _league_order = {"Majors": 0, "Minors": 1}
     league.sort(key=lambda d: _league_order.get(d["name"], 99))
-    travel.sort(key=lambda d: d["name"].lower())
+    travel.sort(key=lambda d: (int(d["name"][:-1]) if re.match(r"^\d+U$", d["name"]) else 99, d["name"].lower()))
     return league + travel
 
 
