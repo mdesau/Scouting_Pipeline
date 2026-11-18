@@ -1,6 +1,6 @@
 # WCWAA Scout
 
-![Version](https://img.shields.io/badge/version-5.5.0-blue)
+![Version](https://img.shields.io/badge/version-5.5.1-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -273,12 +273,18 @@ Runs once a day at **10:00 AM** (Mac's local time; change `Hour` in the `.plist`
 Mac is asleep, it runs when it wakes; it does **not** run while the Mac is off or logged out. If
 the GameChanger login expired, a Mac notification tells you.
 
-| To…                    | Run                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| Check it's turned on   | `launchctl list \| grep wcwaa`                                                              |
-| Run it right now       | `launchctl start com.wcwaa.scout_pipeline`                                                  |
-| See if last run worked | `launchctl list com.wcwaa.scout_pipeline` (`"LastExitStatus" = 0` = good)                   |
-| Turn off / on          | `launchctl unload` / `launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist` |
+| To…                    | Run                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| Check it's turned on   | `launchctl list \| grep wcwaa` (a line = loaded; a numeric PID first = running now) |
+| Run it right now       | `launchctl start com.wcwaa.scout_pipeline`                                          |
+| See if last run worked | `launchctl list com.wcwaa.scout_pipeline` (`"LastExitStatus" = 0` = good)           |
+| Turn off               | `launchctl unload ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist`            |
+| Turn back on           | `launchctl load ~/Library/LaunchAgents/com.wcwaa.scout_pipeline.plist`              |
+
+> **Keeping it off:** your `~/.zprofile` auto-loads the schedule at login and in new login-shell
+> Terminal windows. To keep it off, comment out the line containing `com.wcwaa.scout_pipeline`
+> there by putting `#` at its start, then run the unload command above. To restore it, remove
+> the `#` and run the load command. These commands do not change existing reports.
 
 ### Rebuilding reports without downloading
 

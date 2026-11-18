@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.5.1] - 2026-11-18
+
+### Changed
+
+- Updated Fall 2026 travel teams.
+- Clarified how to check, stop and restore the daily scheduler, including login auto-load.
+
+---
+
 ## [5.5.0] - 2026-11-12
 
 ### Added

@@ -215,7 +215,7 @@ A team whose folder differs from GC's name only by case, spaces or punctuation s
 ### Steps to Reproduce
 
 1. Add the team (folder `ON Deck Mennitt Kirkpatrick 12U`). 2. Scrape + `gen_hitting --division 12U`.
-3. Expected a report; actual "No PAs found" and a "could not auto-rename" warning.
+2. Expected a report; actual "No PAs found" and a "could not auto-rename" warning.
 
 ### Root Cause Analysis (RCA)
 

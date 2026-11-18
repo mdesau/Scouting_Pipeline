@@ -27,14 +27,14 @@ handling, and code style. Follow those guidelines throughout.
 
 ## Current State
 
-| Field             | Value                                                                                                      |
-| ----------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Version**       | 5.5.0                                                                                                      |
-| **Last commit**   | `feat: v5.5.0 — per-age archetypes, age divisions, new-season setup, pitching GP/GS/IP` (tag `v5.5.0`)     |
-| **Branch**        | `main`                                                                                                     |
-| **Uncommitted**   | None                                                                                                       |
-| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                      |
-| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)                 |
+| Field             | Value                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| **Version**       | 5.5.1                                                                                      |
+| **Last commit**   | `fd0e5bf` (v5.5.0 release notes); v5.5.1 updates Fall 2026 travel teams                    |
+| **Branch**        | `main`                                                                                     |
+| **Uncommitted**   | None                                                                                       |
+| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                      |
+| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`) |
 
 ### Session Handoff Protocol
 
@@ -67,6 +67,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.5.1  chore: update Fall 2026 travel teams
 v5.5.0  feat: per-age archetypes (BUG-024 Enh), 9U–12U travel divisions (BUG-050 Enh), terminal new-season setup + season picker (BUG-047 Enh), no montage (BUG-044 Enh); fixes BUG-045/046/048/051
 v5.4.0  feat: GC video clips — download whole games / one player / share links, optional montage (BUG-043 Enh)
 v5.3.1  fix: hitting report blank for team names with a space (BUG-041); cards in true typical batting order (BUG-042)
