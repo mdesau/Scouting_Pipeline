@@ -30,7 +30,7 @@ handling, and code style. Follow those guidelines throughout.
 | Field             | Value                                                                                      |
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | **Version**       | 5.5.1                                                                                      |
-| **Last commit**   | `fd0e5bf` (v5.5.0 release notes); v5.5.1 updates Fall 2026 travel teams                    |
+| **Last commit**   | `b215a5e` (tag `v5.5.1`): travel team updates and scheduler guidance; handoff recorded in a follow-up docs commit |
 | **Branch**        | `main`                                                                                     |
 | **Uncommitted**   | None                                                                                       |
 | **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                      |
