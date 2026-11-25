@@ -27,14 +27,14 @@ handling, and code style. Follow those guidelines throughout.
 
 ## Current State
 
-| Field             | Value                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------------ |
-| **Version**       | 5.5.1                                                                                      |
+| Field             | Value                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Version**       | 5.6.0                                                                                                             |
 | **Last commit**   | `b215a5e` (tag `v5.5.1`): travel team updates and scheduler guidance; handoff recorded in a follow-up docs commit |
-| **Branch**        | `main`                                                                                     |
-| **Uncommitted**   | None                                                                                       |
-| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                      |
-| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`) |
+| **Branch**        | `main`                                                                                                            |
+| **Uncommitted**   | None                                                                                                              |
+| **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                             |
+| **Data location** | season reports on Google Drive via `SCOUT_DATA_ROOT` (default `.../WCWAA/Scout/data/real`)                        |
 
 ### Session Handoff Protocol
 
@@ -67,6 +67,7 @@ At session end, update this **Current State** table with the latest version and 
 ### Version History
 
 ```
+v5.6.0  feat: offer to build reports right after Add Team (BUG-052 Enh); fix case-only team folder rename (BUG-049)
 v5.5.1  chore: update Fall 2026 travel teams
 v5.5.0  feat: per-age archetypes (BUG-024 Enh), 9U–12U travel divisions (BUG-050 Enh), terminal new-season setup + season picker (BUG-047 Enh), no montage (BUG-044 Enh); fixes BUG-045/046/048/051
 v5.4.0  feat: GC video clips — download whole games / one player / share links, optional montage (BUG-043 Enh)
@@ -669,6 +670,7 @@ Interactive numbered menu + CLI passthrough. Calls Steps 1->2->3->4 as subproces
 | `_ask_draft_file()` / `_clean_path()` | "Do you have the draft results?" prompt; accepts dragged/quoted paths                                       |
 | **Add Team**                          |                                                                                                             |
 | `add_new_team()`                      | Wizard: paste GC URL → `add_team_to_yaml()` + creates `seasons/<season>/<Div>/<Team>/Games/`                |
+| `_offer_report_run()`                 | After Add Team, optionally run the full pipeline for the new team                                           |
 | `_slug_to_folder_name()`              | Converts GC slug to folder name                                                                             |
 | `_parse_gc_url()`                     | Extracts `team_id` and `slug` from a GC schedule URL                                                        |
 | **Pipeline**                          |                                                                                                             |
@@ -1086,7 +1088,7 @@ After switching seasons, **restart the terminal session or web server** so `SEAS
 | Majors   | League | GC org `tJkIoODIMpip`; teams discovered from box scores (`rosters.json`)                                                                                                   |
 | Minors   | League | GC org `aGeTxcjpQ6Y2`; teams discovered from box scores (`rosters.json`)                                                                                                   |
 | 9U       | Travel | Mara Cobras 9U, Weddington Wreckers 9U                                                                                                                                     |
-| 10U      | Travel | Weddington Mavericks 10U (Aug 22 scrimmages excluded), Carolina Locos White 10U, Dilworth 10U Challenge - Navy, Mara Outlaws 10U, QC Crushers 10U, South Park Spartans 10U |
+| 10U      | Travel | Weddington Mavericks 10U (Aug 22 scrimmages excluded), Carolina Locos White 10U, Dilworth 10U Challenge - Navy, MARA Outlaws 10U, QC Crushers 10U, South Park Spartans 10U |
 | 11U      | Travel | OC Crushers - Blue 11U                                                                                                                                                     |
 | 12U      | Travel | Weddington Wild 12U                                                                                                                                                        |
 

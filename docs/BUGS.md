@@ -19,11 +19,11 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Open**
 
-- (O) [BUG-049 — Team folder not renamed when only capitalization differs](#bug-049--status-o)
 - (O) [BUG-029 — Pitching cards undercount 0-BB innings across games](#bug-029--status-o)
 
 **Resolved or Closed**
 
+- (RV) [BUG-049 — Team folder not renamed when only capitalization differs](#bug-049--status-rv)
 - (RV) [BUG-051 — Team with a "/" in its GameChanger name gets an empty report](#bug-051--status-rv)
 - (RV) [BUG-048 — Pitching cards: travel "GS" was games pitched; league GS/IP not official](#bug-048--status-rv)
 - (RV) [BUG-046 — Empty spray-chart zones shaded like hot zones](#bug-046--status-rv)
@@ -67,6 +67,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved or Closed**
 
+- (RV) [BUG-052 (Enh) — Offer to build reports immediately after adding a travel team](#bug-052-enh--status-rv)
 - (RV) [BUG-050 (Enh) — Travel divisions by age (9U–12U) instead of Wild / Storm / Mavs](#bug-050-enh--status-rv)
 - (RV) [BUG-047 (Enh) — New seasons ready for the Bonus Features from the terminal](#bug-047-enh--status-rv)
 - (RV) [BUG-044 (Enh) — Remove the montage option from the video clip downloader](#bug-044-enh--status-rv)
@@ -135,12 +136,11 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 ### Open
 
-- (O) [BUG-049 — Team folder not renamed when only capitalization differs](#bug-049--status-o)
 - (O) [BUG-029 — Pitching cards undercount 0-BB innings across games](#bug-029--status-o)
 
 ### Resolved or Closed
 
-- (RV) [BUG-051](#bug-051--status-rv) · [BUG-048](#bug-048--status-rv) · [BUG-046](#bug-046--status-rv) · [BUG-045](#bug-045--status-rv)
+- (RV) [BUG-049](#bug-049--status-rv) · [BUG-051](#bug-051--status-rv) · [BUG-048](#bug-048--status-rv) · [BUG-046](#bug-046--status-rv) · [BUG-045](#bug-045--status-rv)
 - (RV) [BUG-042](#bug-042--status-rv) · [BUG-041](#bug-041--status-rv) · [BUG-040](#bug-040--status-rv) · [BUG-036](#bug-036--status-rv) · [BUG-034](#bug-034--status-rv) · [BUG-022](#bug-022--status-rv) · [BUG-021](#bug-021--status-rv) ·
   [BUG-020](#bug-020--status-rv) · [BUG-019](#bug-019--status-rv) ·
   [BUG-018](#bug-018--status-rv) · [BUG-017](#bug-017--status-rv) ·
@@ -184,6 +184,60 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 -->
 
 ### Detailed Entries
+
+## BUG-052 (Enh) · [STATUS: RV]
+
+**Title:** Offer to build reports immediately after adding a travel team
+
+**Severity:** Enh
+
+**Reported Date:** 2026-11-18
+
+**Release Found:** N/A — Enhancement
+
+**Found By:** mesau (Matt Esau)
+
+**Resolved Date:** 2026-11-24
+
+**Resolved By:** mesau (Matt Esau)
+
+**Integrated Release:** v5.6.0 (commit PENDING, tag pushed 2026-11-24)
+
+### Observable Problem
+
+After adding a travel team, users must separately navigate to Build and start the team pipeline.
+
+### Expected Behavior
+
+Ask whether to scrape the new team's games and build its hitting and pitching reports immediately.
+
+### Root Cause Analysis (RCA)
+
+N/A — Enhancement.
+
+### Fix Explanation (Exec Level — No Code)
+
+After adding a travel team, Scout asks whether to download its games and build its reports right away.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/orchestrator/run_menu.py`</span> `_offer_report_run()` → `run_pipeline(division, team)`.
+<span style="color:red">`dev/src/scout/web/js/app.js`</span>: Add Team confirms, then opens the Build tab and
+streams `/api/run?season=…&division=…&team=…` through the shared `startBuild()` / `streamBuild()`. Declining keeps the
+add-only behavior; a build already running is not interrupted.
+
+### Verification
+
+Suite 85/85 OK (`AddTeamReportPromptTests`: accept runs the team pipeline, decline doesn't). Terminal, live
+2026-11-24: added `Weddington Warlocks 10U`, answered `y` → full pipeline, 18 games, 472 PA, hitting + pitching PDFs.
+Web: `node --check` OK; `/api/add_team` returns the `season` / `division` / `folder_name` the prompt uses — not
+clicked through in a browser.
+
+### Workaround
+
+Run the new team from the Build tab or terminal after adding it.
+
+---
 
 ## BUG-051 · [STATUS: RV]
 
@@ -250,7 +304,7 @@ reconcile and its warning were added; the exact-match parser is older.
 
 ---
 
-## BUG-049 · [STATUS: O]
+## BUG-049 · [STATUS: RV]
 
 **Title:** Team folder not renamed when only capitalization differs
 
@@ -262,11 +316,11 @@ reconcile and its warning were added; the exact-match parser is older.
 
 **Found By:** mesau (Matt Esau)
 
-**Resolved Date:** N/A — Open
+**Resolved Date:** 2026-11-24
 
-**Resolved By:** N/A — Open
+**Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** N/A — Open
+**Integrated Release:** v5.6.0 (commit PENDING, tag pushed 2026-11-24)
 
 ### Observable Problem
 
@@ -289,7 +343,22 @@ case-insensitive file system the differently cased target "exists" (it is the sa
 
 ### Fix Explanation (Exec Level — No Code)
 
-Not fixed yet. Reports still build correctly; only the warning repeats.
+Scout now recognizes that a capitalization-only rename points at the same folder and renames it, so the
+warning shows once and then stops. Reports built correctly before and after.
+
+### Fix Details (Technical)
+
+<span style="color:red">`dev/src/scout/season_config.py`</span> `reconcile_team_folders()` refuses only when the
+target exists **and** is a different folder (`not target.samefile(team_dir)`); a case-only rename goes through
+the normal rename + `_rename_team_in_yaml()` path. Tests in
+<span style="color:red">`dev/tests/test_fall_league_readiness.py`</span>: case-only rename, and a different
+existing folder is still never overwritten.
+
+### Verification
+
+Suite 85/85 OK (new case-only test failed before the fix). Real data (Google Drive): Fall 10U
+`Mara Outlaws 10U` → `MARA Outlaws 10U`, YAML `name:` updated; `gen_hitting` + `gen_pitching --division 10U`
+then ran with no mismatch warning.
 
 ### Workaround
 
@@ -297,7 +366,8 @@ Rename the folder and the team's `name:` in the season YAML by hand.
 
 ### Eng Note
 
-**Proposed fix:** when `target` resolves to the same folder (`samefile`), rename via a temporary name.
+A direct rename works on APFS and the Google Drive data root, so the temporary-name step proposed
+earlier wasn't needed. `Mara Cobras 9U` renames on the next 9U build.
 
 ---
 
@@ -2040,7 +2110,7 @@ BUG-001–004 were fixed before the repo existed; the fixes first appear in the 
 
 ### Resolved or Closed
 
-- (RV) [BUG-050 (Enh)](#bug-050-enh--status-rv) · [BUG-047 (Enh)](#bug-047-enh--status-rv) · [BUG-044 (Enh)](#bug-044-enh--status-rv) · [BUG-024 (Enh)](#bug-024-enh--status-rv)
+- (RV) [BUG-052 (Enh)](#bug-052-enh--status-rv) · [BUG-050 (Enh)](#bug-050-enh--status-rv) · [BUG-047 (Enh)](#bug-047-enh--status-rv) · [BUG-044 (Enh)](#bug-044-enh--status-rv) · [BUG-024 (Enh)](#bug-024-enh--status-rv)
 - (RV) [BUG-043 (Enh)](#bug-043-enh--status-rv) · [BUG-039 (Enh)](#bug-039-enh--status-rv) · [BUG-038 (Enh)](#bug-038-enh--status-rv) · [BUG-037 (Enh)](#bug-037-enh--status-rv) ·
   [BUG-035 (Enh)](#bug-035-enh--status-rv) · [BUG-032 (Enh)](#bug-032-enh--status-rv) · [BUG-031 (Enh)](#bug-031-enh--status-rv) ·
   [BUG-030 (Enh)](#bug-030-enh--status-rv) · [BUG-023 (Enh)](#bug-023-enh--status-rv)

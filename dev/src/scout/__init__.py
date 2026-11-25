@@ -5,4 +5,4 @@ Importable package (src-layout under dev/src/). All submodules resolve via
 repo root. See AGENTS.md for the module map and run commands.
 """
 
-__version__ = "5.5.1"
+__version__ = "5.6.0"

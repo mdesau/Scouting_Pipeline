@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.6.0] - 2026-11-24
+
+### Added
+
+- [(RV) BUG-052 (Enh) — Offer to build reports immediately after adding a travel team](BUGS.md#bug-052-enh--status-rv)
+
+### Changed
+
+- Updated Fall 2026 travel teams (Wolfpack 10U, Weddington Warlocks 10U, Weddington 11U Gophers, Weddington Warlocks 11U).
+
+### Fixed
+
+- [(RV) BUG-049 — Team folder not renamed when only capitalization differs](BUGS.md#bug-049--status-rv)
+
+---
+
 ## [5.5.1] - 2026-11-18
 
 ### Changed

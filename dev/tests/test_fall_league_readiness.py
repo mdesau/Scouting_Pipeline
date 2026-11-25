@@ -170,6 +170,34 @@ class TeamFolderReconcileTests(unittest.TestCase):
             self.assertTrue((base / "OC Crushers - Blue 11U" / "Games").is_dir())
             self.assertEqual(saved["divisions"]["Wild"]["teams"][0]["name"], "OC Crushers - Blue 11U")
 
+    def test_renames_case_only_difference(self):
+        # macOS disks ignore case, so the target "exists" — it is the same folder (BUG-049).
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            games = base / "Mara Outlaws 10U" / "Games"
+            games.mkdir(parents=True)
+            (games / "g.txt").write_text("===Top 1st - MARA Outlaws 10U===\n", encoding="utf-8")
+            cfg = {"divisions": {"10U": {"teams": [{"name": "Mara Outlaws 10U"}]}}}
+            saved = {}
+            with patch.object(season_config, "_load_cfg", return_value=(Path("x.yaml"), cfg)), \
+                 patch.object(season_config, "_save_cfg", side_effect=lambda p, c: saved.update(c)):
+                renamed = season_config.reconcile_team_folders(
+                    "10U", base, logging.getLogger("test"), season_id="test")
+
+            self.assertEqual(renamed, {"Mara Outlaws 10U": "MARA Outlaws 10U"})
+            self.assertEqual([p.name for p in base.iterdir()], ["MARA Outlaws 10U"])
+            self.assertEqual(saved["divisions"]["10U"]["teams"][0]["name"], "MARA Outlaws 10U")
+
+    def test_does_not_overwrite_a_different_existing_folder(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            for name in ("OC Crushers Blue 11U", "OC Crushers - Blue 11U"):
+                (base / name / "Games").mkdir(parents=True)
+            (base / "OC Crushers Blue 11U" / "Games" / "g.txt").write_text(
+                "===Top 1st - OC Crushers - Blue 11U===\n", encoding="utf-8")
+            self.assertEqual(
+                season_config.reconcile_team_folders("Wild", base, logging.getLogger("test")), {})
+
     def test_leaves_exact_match_alone(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             base = Path(temp_dir)

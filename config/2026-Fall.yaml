@@ -18,70 +18,70 @@ divisions:
       start: 2026-10-21
       official_records:
         Padres-Midkiff:
-          - 6
-          - 5
-          - 0
+        - 6
+        - 5
+        - 0
         Royals-Hall:
-          - 3
-          - 8
-          - 0
+        - 3
+        - 8
+        - 0
       winners_final: 5
       final: 10
       if_necessary:
         game: 11
         date: 2026-11-04
       order:
-        - 2
-        - 1
-        - 4
-        - 3
-        - 6
-        - 7
-        - 5
-        - 8
-        - 9
-        - 10
+      - 2
+      - 1
+      - 4
+      - 3
+      - 6
+      - 7
+      - 5
+      - 8
+      - 9
+      - 10
       bracket:
         1:
-          - 2026-10-22
-          - Rays-Madero
-          - Reds-Arnold
+        - 2026-10-22
+        - Rays-Madero
+        - Reds-Arnold
         2:
-          - 2026-10-21
-          - Royals-Hall
-          - Padres-Midkiff
+        - 2026-10-21
+        - Royals-Hall
+        - Padres-Midkiff
         3:
-          - 2026-10-24
-          - Twins-Ewart
-          - W1
+        - 2026-10-24
+        - Twins-Ewart
+        - W1
         4:
-          - 2026-10-24
-          - Mariners-Schick
-          - W2
+        - 2026-10-24
+        - Mariners-Schick
+        - W2
         6:
-          - 2026-10-26
-          - L3
-          - L2
+        - 2026-10-26
+        - L3
+        - L2
         7:
-          - 2026-10-26
-          - L4
-          - L1
+        - 2026-10-26
+        - L4
+        - L1
         5:
-          - 2026-10-28
-          - W3
-          - W4
+        - 2026-10-28
+        - W3
+        - W4
         8:
-          - 2026-10-29
-          - W6
-          - W7
+        - 2026-10-29
+        - W6
+        - W7
         9:
-          - 2026-10-31
-          - W8
-          - L5
+        - 2026-10-31
+        - W8
+        - L5
         10:
-          - 2026-11-02
-          - W5
-          - W9
+        - 2026-11-02
+        - W5
+        - W9
   Minors:
     type: league
     age: 9U
@@ -102,9 +102,9 @@ divisions:
         Braves-Brooks: 10
       official_records:
         Expos-Esau:
-          - 9
-          - 1
-          - 1
+        - 9
+        - 1
+        - 1
       rollbacks:
         8a3596b7-5bd1-47ea-a09d-9d8e9b4a8784: 4
       winners_final: 10
@@ -113,200 +113,212 @@ divisions:
         game: 21
         date: 2026-11-04
       order:
-        - 1
-        - 2
-        - 3
-        - 4
-        - 5
-        - 6
-        - 7
-        - 11
-        - 12
-        - 13
-        - 8
-        - 9
-        - 14
-        - 15
-        - 16
-        - 17
-        - 10
-        - 18
-        - 19
-        - 20
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 11
+      - 12
+      - 13
+      - 8
+      - 9
+      - 14
+      - 15
+      - 16
+      - 17
+      - 10
+      - 18
+      - 19
+      - 20
       bracket:
         1:
-          - 2026-10-22
-          - Cubs-Leonard
-          - Braves-Brooks
+        - 2026-10-22
+        - Cubs-Leonard
+        - Braves-Brooks
         2:
-          - 2026-10-22
-          - Rangers-Nielsen
-          - Orioles-Naturale
+        - 2026-10-22
+        - Rangers-Nielsen
+        - Orioles-Naturale
         3:
-          - 2026-10-22
-          - Rays-Levengood
-          - Royals-Kennell
+        - 2026-10-22
+        - Rays-Levengood
+        - Royals-Kennell
         4:
-          - 2026-10-24
-          - Blue Jays-Patel
-          - W1
+        - 2026-10-24
+        - Blue Jays-Patel
+        - W1
         5:
-          - 2026-10-24
-          - Yankees-DePasquale
-          - Giants-Hanshaw
+        - 2026-10-24
+        - Yankees-DePasquale
+        - Giants-Hanshaw
         6:
-          - 2026-10-24
-          - Marlins-Gonzalez
-          - W2
+        - 2026-10-24
+        - Marlins-Gonzalez
+        - W2
         7:
-          - 2026-10-24
-          - Expos-Esau
-          - W3
+        - 2026-10-24
+        - Expos-Esau
+        - W3
         11:
-          - 2026-10-26
-          - L4
-          - L2
+        - 2026-10-26
+        - L4
+        - L2
         12:
-          - 2026-10-26
-          - L3
-          - L5
+        - 2026-10-26
+        - L3
+        - L5
         13:
-          - 2026-10-26
-          - L1
-          - L6
+        - 2026-10-26
+        - L1
+        - L6
         8:
-          - 2026-10-27
-          - W7
-          - W5
+        - 2026-10-27
+        - W7
+        - W5
         9:
-          - 2026-10-27
-          - W4
-          - W6
+        - 2026-10-27
+        - W4
+        - W6
         14:
-          - 2026-10-28
-          - L7
-          - W13
+        - 2026-10-28
+        - L7
+        - W13
         15:
-          - 2026-10-28
-          - W11
-          - W12
+        - 2026-10-28
+        - W11
+        - W12
         16:
-          - 2026-10-29
-          - L9
-          - W14
+        - 2026-10-29
+        - L9
+        - W14
         17:
-          - 2026-10-29
-          - L8
-          - W15
+        - 2026-10-29
+        - L8
+        - W15
         10:
-          - 2026-10-31
-          - W8
-          - W9
+        - 2026-10-31
+        - W8
+        - W9
         18:
-          - 2026-10-31
-          - W17
-          - W16
+        - 2026-10-31
+        - W17
+        - W16
         19:
-          - 2026-11-02
-          - W18
-          - L10
+        - 2026-11-02
+        - W18
+        - L10
         20:
-          - 2026-11-03
-          - W10
-          - W19
+        - 2026-11-03
+        - W10
+        - W19
   9U:
     type: travel
     age: 9U
     output_base: 9U
     label_suffix: Travel 9U
     teams:
-      - name: Mara Cobras 9U
-        gc_id: GNL8nUWHAKGx
-        gc_slug: 2026-fall-mara-cobras-9u
-      - name: Weddington Wreckers 9U
-        gc_id: SLOR259N85iT
-        gc_slug: 2026-fall-weddington-wreckers-9u
-      - name: Weddington Diamond Warriors 9U
-        gc_id: 6J3tLgkbJHnB
-        gc_slug: 2026-fall-weddington-diamond-warriors-9u
+    - name: Mara Cobras 9U
+      gc_id: GNL8nUWHAKGx
+      gc_slug: 2026-fall-mara-cobras-9u
+    - name: Weddington Wreckers 9U
+      gc_id: SLOR259N85iT
+      gc_slug: 2026-fall-weddington-wreckers-9u
+    - name: Weddington Diamond Warriors 9U
+      gc_id: 6J3tLgkbJHnB
+      gc_slug: 2026-fall-weddington-diamond-warriors-9u
   10U:
     type: travel
     age: 10U
     output_base: 10U
     label_suffix: Travel 10U
     teams:
-      - name: Carolina Locos White 10U
-        gc_id: BGgPgmLnuHMT
-        gc_slug: 2026-fall-carolina-locos-white-10u
-      - name: Dilworth 10U Challenge - Navy
-        gc_id: hhrC9i19O1LQ
-        gc_slug: 2026-fall-dilworth-10u-challenge---navy
-      - name: Mara Outlaws 10U
-        gc_id: 1RqshEWRvtf5
-        gc_slug: 2026-fall-mara-outlaws-10u
-      - name: QC Crushers 10U
-        gc_id: BLE9kFjmgagD
-        gc_slug: 2026-summer-qc-crushers-10u
-      - name: South Park Spartans 10U
-        gc_id: gph34hZhCr4q
-        gc_slug: 2026-fall-south-park-spartans-10u
-      - name: Weddington Mavericks 10U
-        gc_id: P6jwWo3uwTln
-        gc_slug: 2026-fall-weddington-mavericks-10u
-        exclude_games:
-          - 1f0e0307-13db-4031-8533-57cddeb36db1
-          - e4b8f571-98cc-4e53-9165-7b36653829ea
-      - name: Waxhaw Militia 10U
-        gc_id: EPmvdLHFPJNq
-        gc_slug: 2026-fall-waxhaw-militia-10u
-      - name: South Charlotte Revolution 10U
-        gc_id: XCmvTstknsTR
-        gc_slug: 2026-fall-south-charlotte-revolution-10u
-      - name: Mission Scout 10U
-        gc_id: JHRJSZDOdhFD
-        gc_slug: 2026-fall-mission-scout-10u
+    - name: Carolina Locos White 10U
+      gc_id: BGgPgmLnuHMT
+      gc_slug: 2026-fall-carolina-locos-white-10u
+    - name: Dilworth 10U Challenge - Navy
+      gc_id: hhrC9i19O1LQ
+      gc_slug: 2026-fall-dilworth-10u-challenge---navy
+    - name: MARA Outlaws 10U
+      gc_id: 1RqshEWRvtf5
+      gc_slug: 2026-fall-mara-outlaws-10u
+    - name: QC Crushers 10U
+      gc_id: BLE9kFjmgagD
+      gc_slug: 2026-summer-qc-crushers-10u
+    - name: South Park Spartans 10U
+      gc_id: gph34hZhCr4q
+      gc_slug: 2026-fall-south-park-spartans-10u
+    - name: Weddington Mavericks 10U
+      gc_id: P6jwWo3uwTln
+      gc_slug: 2026-fall-weddington-mavericks-10u
+      exclude_games:
+      - 1f0e0307-13db-4031-8533-57cddeb36db1
+      - e4b8f571-98cc-4e53-9165-7b36653829ea
+    - name: Waxhaw Militia 10U
+      gc_id: EPmvdLHFPJNq
+      gc_slug: 2026-fall-waxhaw-militia-10u
+    - name: South Charlotte Revolution 10U
+      gc_id: XCmvTstknsTR
+      gc_slug: 2026-fall-south-charlotte-revolution-10u
+    - name: Mission Scout 10U
+      gc_id: JHRJSZDOdhFD
+      gc_slug: 2026-fall-mission-scout-10u
+    - name: Wolfpack 10U
+      gc_id: Ss5VAwXTIOZA
+      gc_slug: 2026-fall-wolfpack-10u
+    - name: Weddington Warlocks 10U
+      gc_id: YoDcAl9RksLJ
+      gc_slug: 2026-spring-weddington-warlocks-10u
   11U:
     type: travel
     age: 11U
     output_base: 11U
     label_suffix: Travel 11U
     teams:
-      - name: OC Crushers - Blue 11U
-        gc_id: iU0Brg2DoVfx
-        gc_slug: 2026-fall-oc-crushers---blue-11u
+    - name: OC Crushers - Blue 11U
+      gc_id: iU0Brg2DoVfx
+      gc_slug: 2026-fall-oc-crushers---blue-11u
+    - name: Weddington 11U Gophers
+      gc_id: sE3tr9bp3i87
+      gc_slug: 2026-fall-weddington-11u-gophers
+    - name: Weddington Warlocks 11U
+      gc_id: YhVmiaxKRZgM
+      gc_slug: 2026-fall-weddington-warlocks-11u
   12U:
     type: travel
     age: 12U
     output_base: 12U
     label_suffix: Travel 12U
     teams:
-      - name: Weddington Wild 12U
-        gc_id: Hde2xKyXcu4r
-        gc_slug: 2026-fall-weddington-wild-12u
-      - name: South CLT Revolution Dudney 12U
-        gc_id: ptDwwByb5188
-        gc_slug: 2026-fall-south-clt-revolution-dudney-12u
-      - name: QC Flight Baseball 12U
-        gc_id: 9p5ixxpjYISr
-        gc_slug: 2026-fall-qc-flight-baseball-12u
-      - name: Crowns Baseball 12U
-        gc_id: kRXPYtfWUYSU
-        gc_slug: 2026-fall-crowns-baseball-12u
-      - name: RED Clay Athletics 12U Laidlaw
-        gc_id: 6NPYgTncm2BD
-        gc_slug: 2026-fall-red-clay-athletics-12u-laidlaw
-      - name: South Charlotte Revolution - Keller 12U
-        gc_id: nWzM2LB2ib7v
-        gc_slug: 2026-fall-south-charlotte-revolution---keller-12u
-      - name: ON Deck Mennitt Kirkpatrick 12U
-        gc_id: SkMGBh5Lmvas
-        gc_slug: 2026-fall-on-deck---mennitt-kirkpatrick-12u
-      - name: Carolina Bearcats 12U
-        gc_id: 6hW8VyYhN1yf
-        gc_slug: 2026-fall-carolina-bearcats-12u
-      - name: Waxhaw Militia 12U
-        gc_id: 5kglXqwn6oiO
-        gc_slug: 2026-fall-waxhaw-militia-12u
-      - name: Weddington Warhawks 12U (Fall)
-        gc_id: 7VVqf55MARkL
-        gc_slug: 2026-fall-weddington-warhawks-12u-fall
+    - name: Weddington Wild 12U
+      gc_id: Hde2xKyXcu4r
+      gc_slug: 2026-fall-weddington-wild-12u
+    - name: South CLT Revolution Dudney 12U
+      gc_id: ptDwwByb5188
+      gc_slug: 2026-fall-south-clt-revolution-dudney-12u
+    - name: QC Flight Baseball 12U
+      gc_id: 9p5ixxpjYISr
+      gc_slug: 2026-fall-qc-flight-baseball-12u
+    - name: Crowns Baseball 12U
+      gc_id: kRXPYtfWUYSU
+      gc_slug: 2026-fall-crowns-baseball-12u
+    - name: RED Clay Athletics 12U Laidlaw
+      gc_id: 6NPYgTncm2BD
+      gc_slug: 2026-fall-red-clay-athletics-12u-laidlaw
+    - name: South Charlotte Revolution - Keller 12U
+      gc_id: nWzM2LB2ib7v
+      gc_slug: 2026-fall-south-charlotte-revolution---keller-12u
+    - name: ON Deck Mennitt Kirkpatrick 12U
+      gc_id: SkMGBh5Lmvas
+      gc_slug: 2026-fall-on-deck---mennitt-kirkpatrick-12u
+    - name: Carolina Bearcats 12U
+      gc_id: 6hW8VyYhN1yf
+      gc_slug: 2026-fall-carolina-bearcats-12u
+    - name: Waxhaw Militia 12U
+      gc_id: 5kglXqwn6oiO
+      gc_slug: 2026-fall-waxhaw-militia-12u
+    - name: Weddington Warhawks 12U (Fall)
+      gc_id: 7VVqf55MARkL
+      gc_slug: 2026-fall-weddington-warhawks-12u-fall

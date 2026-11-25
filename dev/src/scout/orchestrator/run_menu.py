@@ -94,7 +94,7 @@ DIVISIONS = build_scraper_divisions()
 # HELPER UTILITIES
 # ════════════════════════════════════════════════════════════════════════════
 
-__version__ = "5.5.1"
+__version__ = "5.6.0"
 
 def print_header():
     """Print the pipeline banner shown at the top of every menu screen."""
@@ -832,9 +832,10 @@ def add_new_team():
         print(f"  ✅ \"{folder_name}\" added to {division}.")
         print(f"     config/{SEASON_ID}.yaml updated")
         print(f"     Folder created: seasons/{SEASON_ID}/{division}/{folder_name}/Games/")
+        _offer_report_run(division, folder_name)
         print()
         print("  Next steps:")
-        print("  1. Run the pipeline (option [0]) to scrape the first batch of games.")
+        print("  1. If you chose not to run it now, run the pipeline later to scrape games and build reports.")
         print(f"  2. Open a game file in seasons/{SEASON_ID}/{division}/{folder_name}/Games/")
         print("     and verify the team name in the inning header matches the folder name.")
         print("  3. If they differ, rename the folder and update the YAML:")
@@ -846,6 +847,13 @@ def add_new_team():
         print(f"       - name: \"{folder_name}\"")
         print(f"         gc_id: \"{team_id}\"")
         print(f"         gc_slug: \"{slug}\"")
+
+
+def _offer_report_run(division, team):
+    """Offer to scrape and build hitting/pitching reports for a newly added team."""
+    answer = ask(f"  Run the pipeline for {team} now? [y/N]: ", default="N")
+    if answer and answer.upper() == "Y":
+        run_pipeline(division=division, team=team)
 
 
 

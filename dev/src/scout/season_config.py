@@ -805,7 +805,8 @@ def reconcile_team_folders(division: str, base_dir, log, season_id: str = None) 
             continue
         new_name = matches[0]
         target = base_dir / new_name
-        if "/" in new_name or target.exists():
+        # macOS disks ignore case: for a case-only rename the target "exists" but is this same folder.
+        if "/" in new_name or (target.exists() and not target.samefile(team_dir)):
             log.warning(f"  Team name mismatch: folder '{team_dir.name}' vs GC header '{new_name}' "
                         f"— could not auto-rename (target exists or invalid name). Fix manually.")
             continue

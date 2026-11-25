@@ -1,6 +1,6 @@
 # WCWAA Scout
 
-![Version](https://img.shields.io/badge/version-5.5.1-blue)
+![Version](https://img.shields.io/badge/version-5.6.0-blue)
 ![Python](https://img.shields.io/badge/python-3.9%2B-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
@@ -302,7 +302,8 @@ python -m scout.pitching.gen_pitching --division 10U
 - **Add a travel team:** terminal menu `[3]`, or web page → **Add Team** → paste the team's GC
   schedule link. The terminal suggests the age division from the team name (ENTER to accept) and asks
   when the name has no age. After its first game downloads, Scout automatically fixes small spelling
-  differences between the folder name and GameChanger's team name.
+  differences between the folder name and GameChanger's team name. After adding, choose whether to
+  scrape and build that team's hitting and pitching reports immediately.
 - **New season:** in the terminal, `bash launchers/run_scout.sh` → `[4]` Manage seasons → `[2]`
   Create a new season (or web page → **Seasons** → **Create New Season**). You'll need the new GC
   league IDs for Majors/Minors (optional, can be added later). The terminal wizard also asks for

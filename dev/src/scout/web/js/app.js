@@ -160,36 +160,53 @@ el("copyLog").addEventListener("click", () => copyToClipboard(consoleEl, el("cop
  * the console. The button is disabled for the duration so a second build cannot
  * be started on top of the first (the server also guards this independently).
  */
-el("buildBtn").addEventListener("click", () => {
-  if (!SERVER_ONLINE || activeStream) return;
+function startBuild({ season = "", division = "", team = "" } = {}) {
+  if (!SERVER_ONLINE) return false;
+  if (activeStream) {
+    logLine("⚠️  A build is already running. The new team was added; build it after this run finishes.");
+    return false;
+  }
   const params = new URLSearchParams();
-  const season = el("buildSeason").value;
-  if (season)              params.set("season", season);
-  if (buildDivision.value) params.set("division", buildDivision.value);
-  if (buildTeam.value)     params.set("team", buildTeam.value);
+  season = season || el("buildSeason").value;
+  division = division || buildDivision.value;
+  team = team || buildTeam.value;
+  if (season)   params.set("season", season);
+  if (division) params.set("division", division);
+  if (team)     params.set("team", team);
 
   el("buildBtn").disabled = true;
   logLine("──────────────────────────────────────────");
 
   activeStream = new EventSource("/api/run?" + params.toString());
-  activeStream.addEventListener("log",   (e) => logLine(JSON.parse(e.data)));
-  activeStream.addEventListener("error", (e) => {
+  streamBuild(activeStream);
+  return true;
+}
+
+el("buildBtn").addEventListener("click", () => {
+  startBuild();
+});
+
+function streamBuild(stream) {
+  stream.addEventListener("log",   (e) => logLine(JSON.parse(e.data)));
+  stream.addEventListener("error", (e) => {
     // Custom server "error" events carry data; transport errors do not.
     if (e.data) logLine("⚠️  " + JSON.parse(e.data));
   });
-  activeStream.addEventListener("done", (_e) => {
-    activeStream.close();
-    activeStream = null;
+  stream.addEventListener("done", (_e) => {
+    stream.close();
+    if (activeStream === stream) activeStream = null;
     el("buildBtn").disabled = false;
   });
   // If the connection itself drops without a "done", recover the button.
-  activeStream.onerror = () => {
-    if (activeStream && activeStream.readyState === EventSource.CLOSED) {
+  stream.onerror = () => {
+    if (stream.readyState === EventSource.CLOSED) {
+      stream.close();
+      if (activeStream !== stream) return;
       activeStream = null;
       el("buildBtn").disabled = false;
     }
   };
-});
+}
 
 // ── Reports tab ──────────────────────────────────────────────────────────────
 let REPORTS = [];   // [{name, teams:[{name,hitting,pitching,mtime}]}, ...]
@@ -309,6 +326,10 @@ el("addBtn").addEventListener("click", async () => {
       // Refresh team lists for the selected season (season-aware).
       reloadBuildDivisions();
       reloadAddDivisions();
+      if (window.confirm(`Run the pipeline for ${data.folder_name} now?\n\nThis scrapes new games, updates the roster, and builds hitting and pitching reports for this team.`)) {
+        document.querySelector('.tab[data-tab="build"]').click();
+        startBuild({ season: data.season, division: data.division, team: data.folder_name });
+      }
     } else {
       out.classList.add("err");
       out.textContent = "❌ " + (data.error || "Could not add team.");

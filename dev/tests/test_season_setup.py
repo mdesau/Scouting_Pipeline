@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from scout import season_config
 from scout.analysis_tools import games as gm
-from scout.orchestrator.run_menu import _clean_path
+from scout.orchestrator.run_menu import _clean_path, _offer_report_run
 
 DRAFT = "Rd,Smith,Jones\n1,Ann A,Bob B\n2,Cal C,Dee D\nTeam,Cubs,Mets\n"
 
@@ -78,6 +78,20 @@ class CleanPathTests(unittest.TestCase):
     def test_dragged_and_quoted_paths(self):
         self.assertEqual(_clean_path("/Users/me/My\\ Draft.csv "), "/Users/me/My Draft.csv")
         self.assertEqual(_clean_path("'/Users/me/My Draft.csv'"), "/Users/me/My Draft.csv")
+
+
+class AddTeamReportPromptTests(unittest.TestCase):
+    def test_accept_runs_team_scoped_pipeline(self):
+        with patch("scout.orchestrator.run_menu.ask", return_value="Y"), \
+             patch("scout.orchestrator.run_menu.run_pipeline") as run:
+            _offer_report_run("10U", "New Team 10U")
+        run.assert_called_once_with(division="10U", team="New Team 10U")
+
+    def test_decline_leaves_team_added_without_running_pipeline(self):
+        with patch("scout.orchestrator.run_menu.ask", return_value="N"), \
+             patch("scout.orchestrator.run_menu.run_pipeline") as run:
+            _offer_report_run("10U", "New Team 10U")
+        run.assert_not_called()
 
 
 class SuggestAgesTests(unittest.TestCase):
