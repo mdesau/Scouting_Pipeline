@@ -30,7 +30,7 @@ handling, and code style. Follow those guidelines throughout.
 | Field             | Value                                                                                                             |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
 | **Version**       | 5.6.0                                                                                                             |
-| **Last commit**   | `b215a5e` (tag `v5.5.1`): travel team updates and scheduler guidance; handoff recorded in a follow-up docs commit |
+| **Last commit**   | `46b080d` (tag `v5.6.0`): Add Team build prompt + case-only folder rename; SHA recorded in a follow-up docs commit |
 | **Branch**        | `main`                                                                                                            |
 | **Uncommitted**   | None                                                                                                              |
 | **Code location** | `~/Documents/VSCode/Personal/Scout/` (moved off Google Drive 2026-08)                                             |

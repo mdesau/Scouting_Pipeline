@@ -201,7 +201,7 @@ every CHANGELOG `Fixed`/`Added` line names the tracker ID and links to its ancho
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.6.0 (commit PENDING, tag pushed 2026-11-24)
+**Integrated Release:** v5.6.0 (commit 46b080d, tag pushed 2026-11-24)
 
 ### Observable Problem
 
@@ -320,7 +320,7 @@ reconcile and its warning were added; the exact-match parser is older.
 
 **Resolved By:** mesau (Matt Esau)
 
-**Integrated Release:** v5.6.0 (commit PENDING, tag pushed 2026-11-24)
+**Integrated Release:** v5.6.0 (commit 46b080d, tag pushed 2026-11-24)
 
 ### Observable Problem
 
